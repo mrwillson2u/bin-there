@@ -1,0 +1,25 @@
+# Session logs (for resuming work with AI context)
+session-logs/
+
+# Generated assets (keep structure, ignore large files)
+assets/ui-concepts/*.png
+assets/ui-concepts/*.jpg
+assets/ui-concepts/*.figma
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# App
+node_modules/
+dist/
+data/
+*.db
+*.db-wal
+*.db-shm

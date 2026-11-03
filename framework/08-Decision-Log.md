@@ -1,0 +1,251 @@
+# Decision Log
+
+> **Purpose:** Record significant architectural, design, and product decisions with context and rationale.
+> Reference entries from other docs using the decision ID (e.g., "see DEC-003").
+
+---
+
+## How to Use
+
+For each significant decision:
+1. Assign the next sequential ID
+2. Record the context, options considered, and final decision
+3. Note who made it and when
+4. Link from relevant docs (e.g., Architecture, PRD)
+
+---
+
+## Decisions
+
+### DEC-001: Per-item quantity tracking mode (exact vs. level) with count freshness
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-02 |
+| **Status** | Proposed |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:**
+
+Some stock needs precise counts. For a run of PCBs I must know I have enough of a specific IC, resistor or capacitor. Other stock (nails, common screws) doesn't justify counting. Forcing exact counts on everything adds update friction, and friction is what killed the previous attempt. Exact counts also go stale over time, especially for items in active use.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Exact count for everything | Simple model, precise | High friction for bulk consumables; counts drift anyway |
+| Levels only (plenty / low / out) | Very low friction | Useless for planning a board run |
+| **Per-item tracking mode** (exact *or* level), defaulted by category, plus a "last counted" date | Precision where it matters, low friction elsewhere; staleness is visible | Slightly more complex model and UI |
+
+**Decision:**
+
+Per-item tracking mode:
+- **Exact**: integer count. Using a part subtracts from the count.
+- **Level**: plenty / low / out. Using a part only prompts "still plenty?"
+
+The mode is defaulted from the item's category (e.g. electronic components → exact; fasteners and nails → level) and can be overridden per item. Every stock record keeps a **last counted / verified date**. Exact counts that are old, or that have had a lot of usage since the last count, are flagged as "stale, recount?".
+
+**Rationale:**
+
+This matches how much precision each thing actually needs, keeps update friction low for bulk items, and puts the freshness log from the previous attempt (which worked) into the data model.
+
+**Consequences:**
+
+- The data model needs `tracking_mode`, `quantity` / `level`, and `last_counted_at` on stock.
+- Project planning ("do I have enough for N boards?") only works for exact-mode items.
+- Possible future: quick "recount" flow, count-by-weight, a low-stock shopping list (post-ship candidates).
+
+**Related:**
+- Referenced in: `06-Data-Model.md` (Stock), `02-PRD.md` (F3)
+
+---
+
+### DEC-002: Mobile-first responsive web; Pi garage station after ship
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-02 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product / UX |
+
+**Context:**
+
+I'll use the app from my iPhone in the garage (cell + Tailscale), and I want a Raspberry Pi with a screen and USB scanner as a fixed garage station. I was tempted to build both for the first version.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Mobile-first web; Pi kiosk post-ship** | One codebase; the Pi gets the same web app; ship sooner | Pi-specific polish waits |
+| Both as first-class targets for the SPV | Garage station from day one | Kiosk setup + layout work delays ship; risk of over-building |
+| Native iOS app | Native camera/Bluetooth | Cost, App Store, not free to distribute; the Pi is left out |
+
+**Decision:**
+
+A mobile-first responsive web app. The Pi works as a browser from day one; dedicated kiosk setup (auto-launch, scanner, Put-back mode default) goes to the Post-Ship Backlog.
+
+**Rationale:**
+
+The scanner acts as a keyboard on both devices (USB on the Pi, Bluetooth on the iPhone), so one "scan-ready input" covers both. The Pi adds almost no feature work, only setup. That can come after ship without rework.
+
+**Consequences:**
+
+- Scan input must work as keyboard input (fast burst + Enter), with phone camera scanning as a fallback.
+- Layouts must work at phone width first and scale up to the Pi screen.
+
+---
+
+### DEC-003: HTTPS & access via Tailscale Serve for the SPV; Cloudflare Tunnel + Access later for viewers
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-02 |
+| **Status** | Proposed |
+| **Deciders** | Colin |
+| **Category** | Architecture |
+
+**Context:**
+
+The phone camera in the browser requires HTTPS. The app runs on the home lab server (Ubuntu, Docker). I reach it from the garage over cell + Tailscale. Later, my spouse and friends need read-only access, and they may not be on my tailnet. Must stay $0.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Tailscale Serve** (`*.ts.net` HTTPS cert) | Free; already set up; not exposed publicly; tailnet membership = auth, so no login to build | Only reachable by tailnet members |
+| Cloudflare Tunnel + Cloudflare Access (2FA / email OTP / Google) | Free tier; reachable by anyone I allow without Tailscale; Access handles auth | Public internet exposure; requires a domain on Cloudflare (~$10/yr if not already owned); more setup |
+| Self-managed reverse proxy + Let's Encrypt + app login | Full control | Port forwarding, building auth, more attack surface |
+
+**Decision:**
+
+**Tailscale Serve for the SPV** (single user, no app-level auth). Add **Cloudflare Tunnel + Access** when viewer access (post-ship) is built. Access then provides identity, so the app can map the verified email to a role (owner/viewer) instead of building a password system.
+
+**Rationale:**
+
+Zero exposure and zero auth work for the first ship, using tools already in place. Cloudflare is the right tool for the sharing problem, which isn't in the SPV.
+
+**Consequences:**
+
+- The SPV has no login screen. Anyone on the tailnet is the owner.
+- App design should leave room for a "current user + role" from a trusted header later (Cloudflare Access).
+- Confirm whether a domain is already owned before the viewer-access work.
+
+---
+
+### DEC-004: Tech stack: TypeScript, React (Vite SPA/PWA) + Hono + SQLite/Drizzle, single Docker container
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-02 |
+| **Status** | Proposed |
+| **Deciders** | Colin |
+| **Category** | Tech Stack |
+
+**Context:**
+
+One user, self-hosted on Ubuntu + Docker, $0, weak garage connection, scan-heavy mobile UI. Preference: TypeScript + React.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Vite React SPA + Hono API, SQLite (Drizzle)** | Simple single container; PWA caching suits flaky signal; SQLite = one-file backups | Hand-rolled API layer |
+| Next.js + SQLite | One framework for UI + API | SSR/RSC complexity with no benefit here; heavier |
+| React + Postgres | Robust, scales | An extra container to run and back up; overkill for one user |
+| React + PocketBase/Supabase (self-hosted) | Built-in auth, admin UI | Another system to learn; less control over scan/stock logic |
+
+**Decision:**
+
+React + Vite (PWA) frontend, Hono on Node backend, SQLite via Drizzle (FTS5 search), shared Zod types; one Docker image with a `/data` volume.
+
+**Rationale:**
+
+The fewest moving parts that meet every requirement. SQLite's single file makes the backup requirement (F8) trivial. The PWA shell keeps it snappy over cell.
+
+**Consequences:**
+
+- Single writer, which is fine for one user plus occasional viewers.
+- Migrating to Postgres later is possible via Drizzle if ever needed (unlikely).
+
+---
+
+### DEC-005: SPV scope and ship date
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-02 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Scope |
+
+**Context:**
+
+The previous attempt never reached a usable, maintained state. The garage clean-out is happening now, and the app should be usable for cataloging during it.
+
+**Decision:**
+
+**SPV = PRD F1–F8** (scan anywhere, locations & stickers, items & stock, search/use, quick capture + Needs details, Put-back mode, activity log, backups), live on the iPhone via Tailscale HTTPS. **Ship date: 2026-11-23.** Milestones: M1 walking skeleton 2026-11-08, M2 core inventory 2026-11-15 (start cataloging), M3 put-back + hardening 2026-11-21.
+
+F9 (bulk move) and F10 (check out/in) are Should-haves: build them only if the SPV is done early, otherwise first after ship.
+
+**Rationale:**
+
+F1–F8 is the smallest loop that keeps data current (catalog → find → use → put back), which is exactly what failed before. Everything else is in the Post-Ship Backlog.
+
+**Consequences:**
+
+- New ideas get "does this block the SPV?". If not, they go to the backlog.
+- If 2026-11-23 is at risk, cut scope (e.g. defer level mode or the camera scanner in favor of the Bluetooth scanner) rather than move the date.
+
+---
+
+## Decision Index
+
+| ID | Title | Category | Status | Date |
+|----|-------|----------|--------|------|
+| DEC-001 | Per-item quantity tracking mode (exact vs. level) + count freshness | Product | Proposed | 2026-11-02 |
+| DEC-002 | Mobile-first responsive web; Pi garage station after ship | Product / UX | Accepted | 2026-11-02 |
+| DEC-003 | Tailscale Serve for SPV; Cloudflare Tunnel + Access later for viewers | Architecture | Proposed | 2026-11-02 |
+| DEC-004 | TypeScript: React (Vite PWA) + Hono + SQLite/Drizzle, one container | Tech Stack | Proposed | 2026-11-02 |
+| DEC-005 | SPV = F1–F8, ship 2026-11-23 | Scope | Accepted | 2026-11-02 |
+
+---
+
+## Template
+
+Copy this for new decisions:
+
+```markdown
+### DEC-XXX: [Decision Title]
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | YYYY-MM-DD |
+| **Status** | Proposed / Accepted / Superseded / Deprecated |
+| **Deciders** | [Names] |
+| **Category** | Architecture / Tech Stack / Product / UX / Process / Scope |
+
+**Context:**
+[TODO]
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Option A | | |
+| Option B | | |
+
+**Decision:**
+[TODO]
+
+**Rationale:**
+[TODO]
+
+**Consequences:**
+[TODO]
+
+**Related:**
+- Referenced in: [TODO]
+```

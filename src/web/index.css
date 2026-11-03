@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+/* Tokens from framework/04-Visual-Style-Guide.md (dark theme). */
+@theme {
+  --color-bg: #0e0f11;
+  --color-surface: #17191c;
+  --color-surface-2: #212429;
+  --color-border: #2c3036;
+  --color-text: #e8eaed;
+  --color-muted: #9aa0a6;
+  --color-accent: #38bdf8;
+  --color-accent-fg: #0b1220;
+  --color-ok: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #a78bfa;
+  --color-bin-1x1: #ef4444;
+  --color-bin-2x1: #facc15;
+  --color-bin-2x2: #3b82f6;
+  --color-bin-front: #9aa0a6;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes scan-flash {
+  from { box-shadow: inset 0 0 0 3px var(--color-accent); }
+  to { box-shadow: inset 0 0 0 3px transparent; }
+}
+.scan-flash { animation: scan-flash 400ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-flash { animation: none; }
+}

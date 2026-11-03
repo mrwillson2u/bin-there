@@ -1,0 +1,10 @@
+services:
+  stack-n-track:
+    build: .
+    container_name: stack-n-track
+    restart: unless-stopped
+    # Bound to localhost only; Tailscale Serve provides the HTTPS front door (DEC-003).
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data:/data
