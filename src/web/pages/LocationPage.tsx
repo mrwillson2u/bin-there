@@ -78,7 +78,7 @@ export function LocationPage() {
           {loc.code ? (
             <> · sticker <span className="font-mono">{loc.code}</span></>
           ) : (
-            loc.type !== "put_back" && <> · <span className="text-warn">no sticker</span></>
+            <> · <span className="text-warn">no sticker</span></>
           )}
         </p>
       </div>
@@ -104,16 +104,12 @@ export function LocationPage() {
           <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
             <Plus size={18} /> Add inside
           </Link>
-          {loc.type !== "put_back" && (
-            <>
-              <Button onClick={() => { setMessage(null); setMode("assign"); }}>
-                <QrCode size={18} /> {loc.code ? "Replace sticker" : "Assign sticker"}
-              </Button>
-              <Button onClick={() => { setMessage(null); setMode("move"); }}>
-                <MoveRight size={18} /> Move
-              </Button>
-            </>
-          )}
+          <Button onClick={() => { setMessage(null); setMode("assign"); }}>
+            <QrCode size={18} /> {loc.code ? "Replace sticker" : "Assign sticker"}
+          </Button>
+          <Button onClick={() => { setMessage(null); setMode("move"); }}>
+            <MoveRight size={18} /> Move
+          </Button>
         </div>
       )}
 

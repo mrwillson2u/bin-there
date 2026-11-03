@@ -49,7 +49,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 | grid_x / grid_y | int, nullable | Bin position within parent box (post-ship grid view; nullable now) |
 | notes, created_at, updated_at | | |
 
-A special **Put-back bin** location (type `put_back`) exists by default. `project` type is reserved for post-ship project kits.
+The put-back bin is **physical only** (DEC-009): the app doesn't track what's in it. The `put_back` type remains only so old rows stay valid; its location is archived. `project` type is reserved for post-ship project kits.
 
 ### Category
 
@@ -129,7 +129,7 @@ A special **Put-back bin** location (type `put_back`) exists by default. `projec
 | Relationship | Type | Notes |
 |--------------|------|-------|
 | Location → Location | tree | Moving a container moves everything under it (F9) by changing one parent_id |
-| Item ↔ Location via Stock | many-to-many | Same item in several places (bin + project kit + put-back bin) |
+| Item ↔ Location via Stock | many-to-many | Same item in several places (bin + another bin + project kit) |
 | Item ↔ Location via ItemHome | many-to-many | Designated homes |
 | Item → Unit | one-to-many | Stickered returnables |
 

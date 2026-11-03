@@ -57,7 +57,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | POST | `/api/stock/adjust` | `{ item_id, location_id, delta }` or `{ …, level }` | +/− use or add |
 | POST | `/api/stock/recount` | `{ item_id, location_id, qty }` | Set the count, reset staleness. On a new location it adds the item there (`qty: null` = not counted yet) |
 | POST | `/api/stock/move` | `{ item_id, from_location_id, to_location_id, qty? }` | Move some or all |
-| POST | `/api/putback` | `{ itemId, locationId, unitId?, qty? }` | Put-back action. Moves it out of the put-back bin if it was recorded there, otherwise adds it; a unit moves to the location; the first put-back sets the home. Which item/bin is resolved in the client from `/api/scan` (one-part bin → +1, mixed bin → choose, item sticker → its home, warn if not a home) |
+| POST | `/api/putback` | `{ itemId, locationId, unitId?, qty? }` | Put-back action. Adds it at the location (exact: +qty; level: just records the place); a unit moves to the location; the first put-back sets the home. Which item/bin is resolved in the client from `/api/scan` (one-part bin → +1, mixed bin → choose, item sticker → its home, warn if not a home) |
 
 ### Units (returnables)
 | Method | Path | Purpose |

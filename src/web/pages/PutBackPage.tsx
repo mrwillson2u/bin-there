@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Archive, Camera, House, ScanLine } from "lucide-react";
-import type { ItemDetail, LocationDetail, LocationSummary, ScanResult, StockResult } from "../../shared/api";
+import type { ItemDetail, LocationDetail, ScanResult, StockResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl } from "../components/StockControl";
@@ -38,14 +38,6 @@ export function PutBackPage() {
   const { openCamera } = useScan();
   const [step, setStep] = useState<Step>({ kind: "ready" });
   const [count, setCount] = useState(0);
-
-  const { data: top } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations") });
-  const binId = top?.find((l) => l.type === "put_back")?.id;
-  const { data: bin } = useQuery({
-    queryKey: ["location", binId],
-    queryFn: () => api<LocationDetail>(`/locations/${binId}`),
-    enabled: binId !== undefined,
-  });
 
   const put = useMutation({
     mutationFn: (v: { itemId: number; location: Loc; unitId?: number }) =>
@@ -85,7 +77,6 @@ export function PutBackPage() {
         if (r.kind === "unassigned") return navigate(`/capture?code=${encodeURIComponent(r.code)}`);
         if (r.kind === "unit") return startItem(r.itemId, r.unitId);
         const loc = r.location;
-        if (loc.type === "put_back") return toast.show({ message: "That's the put-back bin. Scan where things go" });
         // An item is waiting for its bin: this scan is the bin.
         if (step.kind === "where" || step.kind === "notHome") return placeAt(step.item, loc, step.unitId);
         const stocked = loc.items.filter((i) => i.hasStock);
@@ -109,7 +100,9 @@ export function PutBackPage() {
         <Card className="flex flex-col items-center gap-3 p-6 text-center">
           <ScanLine size={40} className="text-accent" />
           <p className="font-semibold">Scan whatever you're putting away</p>
-          <p className="text-sm text-muted">A bin's sticker adds one to it. An item's own sticker shows where it goes.</p>
+          <p className="text-sm text-muted">
+            Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives.
+          </p>
           <Button variant="primary" onClick={openCamera} className="min-h-14 w-full text-lg">
             <Camera size={22} /> Scan with camera
           </Button>
@@ -190,26 +183,6 @@ export function PutBackPage() {
         </Card>
       )}
 
-      {bin && bin.items.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Recorded in the put-back bin</h2>
-          <p className="text-[13px] text-muted">Tap one, then scan where it goes.</p>
-          <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-            {bin.items.map((i) => (
-              <li key={i.itemId}>
-                <button onClick={() => startItem(i.itemId)} className="flex min-h-14 w-full items-center gap-3 px-3 py-2 text-left">
-                  <Thumb url={i.thumbUrl} size={44} />
-                  <span className={`flex-1 ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
-                  {i.qty !== null && <span className="font-mono">{i.qty}</span>}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {bin && bin.items.length === 0 && step.kind === "ready" && (
-        <p className="text-center text-[13px] text-muted">Nothing is recorded in the put-back bin. Scanning works the same either way.</p>
-      )}
     </div>
   );
 }

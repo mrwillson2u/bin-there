@@ -1,21 +1,20 @@
 import { and, eq } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { itemHomes, items, locations, stock, units } from "./db/schema";
+import { itemHomes, items, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
 import { requireLocation } from "./items";
-import { adjustStock, moveStock, moveUnit, recountStock } from "./stock";
+import { adjustStock, moveUnit, recountStock } from "./stock";
 import type { PutBack } from "../shared/api";
 
 // Put-back mode (PRD F6): "this is going back into that location".
-// If the item was recorded in the put-back bin, it's moved out of there;
-// otherwise it's simply added at the destination.
+// The put-back bin itself is physical only (DEC-009): whatever was used was already
+// taken off with −, so putting leftovers back simply adds them.
 
 export function putBack(db: Db, input: PutBack): number | null {
   const item = db.select().from(items).where(eq(items.id, input.itemId)).get();
   if (!item || item.archived) throw new ApiError(404, "NOT_FOUND", `No item ${input.itemId}`);
   requireLocation(db, input.locationId);
   const dest = input.locationId;
-  const qty = input.qty ?? 1;
 
   let eventId: number | null;
   if (input.unitId) {
@@ -24,22 +23,14 @@ export function putBack(db: Db, input: PutBack): number | null {
     if (unit.locationId === dest) throw new ApiError(400, "VALIDATION", "Already there");
     eventId = moveUnit(db, unit.id, dest).eventId;
   } else {
-    const bin = db.select({ id: locations.id }).from(locations).where(eq(locations.type, "put_back")).get();
-    const row = (locationId: number) =>
-      db.select().from(stock).where(and(eq(stock.itemId, item.id), eq(stock.locationId, locationId))).get();
-    const inBin = bin && bin.id !== dest ? row(bin.id) : undefined;
-    const atDest = row(dest);
-
+    const atDest = db.select().from(stock).where(and(eq(stock.itemId, item.id), eq(stock.locationId, dest))).get();
     if (item.tracking === "level") {
-      if (inBin) eventId = moveStock(db, { itemId: item.id, fromLocationId: bin!.id, toLocationId: dest });
-      else if (!atDest) eventId = recountStock(db, { itemId: item.id, locationId: dest, level: "plenty" });
-      else eventId = null; // Already recorded there; levels don't change by one.
-    } else if (inBin && inBin.qty !== null && inBin.qty > 0) {
-      eventId = moveStock(db, { itemId: item.id, fromLocationId: bin!.id, toLocationId: dest, qty: Math.min(qty, inBin.qty) });
+      // Levels don't change by one; just make sure it's recorded there.
+      eventId = atDest ? null : recountStock(db, { itemId: item.id, locationId: dest, level: "plenty" });
     } else if (atDest && atDest.qty === null) {
       eventId = null; // Not counted at that location yet; nothing to add to.
     } else {
-      eventId = adjustStock(db, { itemId: item.id, locationId: dest, delta: qty });
+      eventId = adjustStock(db, { itemId: item.id, locationId: dest, delta: input.qty ?? 1 });
     }
   }
 

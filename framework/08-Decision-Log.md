@@ -273,6 +273,25 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 ---
 
+### DEC-009: The put-back bin is physical only
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** The app had a built-in "Put-back bin" location, so items could be recorded as sitting in it, and put-back mode moved them out again. That gave two ways to do the same thing (− when taking parts vs. Move to the put-back bin), which was confusing.
+
+**Decision:** The put-back bin is just a physical box. Taking parts = tap −. Leftovers go in the physical bin with no app step. Emptying it = Put-back mode: scan the bin each thing goes into (+1), or the item's own sticker.
+
+**Rationale:** One way to do each job; matches "don't overcomplicate it" (UX framework).
+
+**Consequences:** The existing location is archived by migration 0003. Put-back mode never moves stock between locations, only adds back.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -285,6 +304,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-006 | Resize photos on the phone, not the server | Architecture | Accepted | 2026-11-02 |
 | DEC-007 | When an item leaves "Needs details" | Product | Proposed | 2026-11-02 |
 | DEC-008 | Backups run inside the app, not host cron | Architecture | Accepted | 2026-11-03 |
+| DEC-009 | The put-back bin is physical only | Product | Accepted | 2026-11-03 |
 
 ---
 

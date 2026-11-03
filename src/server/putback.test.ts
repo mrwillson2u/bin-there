@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
 import { msUntilHour, runBackup } from "./backup";
-import type { BackupInfo, ItemDetail, LocationDetail, LocationSummary, StockResult } from "../shared/api";
+import type { BackupInfo, ItemDetail, LocationDetail, StockResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
 let dir: string;
@@ -34,7 +34,6 @@ const bin = (name: string) => ok<LocationDetail>("POST", "/locations", { name, t
 const item = (body: object) => ok<ItemDetail>("POST", "/items", body);
 const putBack = (body: object) => ok<StockResult>("POST", "/putback", body);
 const qtyAt = (i: ItemDetail, locationId: number) => i.places.find((p) => p.locationId === locationId)?.qty;
-const putBackBin = async () => (await ok<LocationSummary[]>("GET", "/locations")).find((l) => l.type === "put_back")!;
 
 describe("put-back", () => {
   it("adds one to the bin it goes back into", async () => {
@@ -43,16 +42,6 @@ describe("put-back", () => {
     const r = await putBack({ itemId: s.id, locationId: b.id });
     expect(qtyAt(r.item, b.id)).toBe(11);
     expect(r.eventId).not.toBeNull();
-  });
-
-  it("moves it out of the put-back bin when it was recorded there", async () => {
-    const b = await bin("Bin 7");
-    const pb = await putBackBin();
-    const s = await item({ name: "Spacer", locationId: b.id, qty: 10 });
-    await ok("POST", "/stock/move", { itemId: s.id, fromLocationId: b.id, toLocationId: pb.id, qty: 4 });
-    const r = await putBack({ itemId: s.id, locationId: b.id, qty: 3 });
-    expect([qtyAt(r.item, b.id), qtyAt(r.item, pb.id)]).toEqual([9, 1]);
-    expect(r.item.totalQty).toBe(10);
   });
 
   it("puts a stickered unit back where it belongs, and undoes", async () => {

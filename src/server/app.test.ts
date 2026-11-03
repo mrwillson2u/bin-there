@@ -24,9 +24,9 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<{ 
 const create = (body: object) => call<LocationDetail>("POST", "/locations", body).then((r) => r.json);
 
 describe("locations", () => {
-  it("seeds a put-back bin", async () => {
+  it("starts empty: the put-back bin is physical only", async () => {
     const { json } = await call<LocationSummary[]>("GET", "/locations");
-    expect(json.map((l) => l.type)).toEqual(["put_back"]);
+    expect(json).toEqual([]);
   });
 
   it("nests locations and builds the breadcrumb path", async () => {

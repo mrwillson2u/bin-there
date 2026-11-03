@@ -30,7 +30,7 @@ export function LocationList({ locations, empty }: { locations: LocationSummary[
                 <span className="block text-[13px] text-muted">
                   {locationTypeLabels[l.type]}
                   {l.childCount > 0 && ` · ${l.childCount} inside`}
-                  {!l.code && l.type !== "put_back" && " · no sticker"}
+                  {!l.code && " · no sticker"}
                 </span>
               </span>
               <ChevronRight size={18} className="text-muted" />
