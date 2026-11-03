@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Link } from "react-router-dom";
 import { binSizeLabels, type BinSize, type LocationDetail, type LocationSummary } from "../../shared/api";
 import { DEFAULT_GRID, STRIP_HEIGHT, footprint, snapSlot, type Grid, type PlacedBin, type Slot } from "../../shared/grid";
@@ -97,7 +97,23 @@ export function BoxGrid({
     });
   };
 
-  const move = (e: ReactPointerEvent<HTMLElement>) => {
+  // While a drag is on, follow the pointer from the window, not the bin: a mouse can
+  // lose pointer capture mid-drag (the phone's touch events stay bound to the bin).
+  useEffect(() => {
+    if (!drag) return;
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("keydown", onKey);
+    };
+  });
+
+  const move = (e: PointerEvent) => {
     if (!drag) return;
     const g = gridRef.current?.getBoundingClientRect();
     if (!g) return;
@@ -117,7 +133,7 @@ export function BoxGrid({
     setDrag({ ...drag, x: e.clientX, y: e.clientY, target, want });
   };
 
-  const end = (e: ReactPointerEvent<HTMLElement>) => {
+  const end = (e: PointerEvent) => {
     if (!drag) return;
     setDrag(null);
     const moved = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > TAP_SLOP;
@@ -137,19 +153,21 @@ export function BoxGrid({
   };
 
   const cancel = () => setDrag(null);
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") cancel();
+  };
 
   const binClass = (size: BinSize | null) =>
     `flex items-center justify-center overflow-hidden rounded-md px-1 text-center text-[11px] font-semibold leading-tight shadow-sm [overflow-wrap:anywhere] ${binColors[size ?? "other"]}`;
 
+  // No native drag-and-drop on the bins: it would steal the pointer from us.
   const handlers = (bin: Bin) =>
-    arranging
-      ? { onPointerDown: start(bin), onPointerMove: move, onPointerUp: end, onPointerCancel: cancel }
-      : {};
+    arranging ? { onPointerDown: start(bin), onDragStart: (e: DragEvent) => e.preventDefault(), draggable: false } : {};
 
   const dragFp = drag ? footprint(drag.bin.binSize, drag.rotated, grid) : null;
 
   return (
-    <div className={`flex flex-col gap-3 ${arranging ? "touch-none select-none" : ""}`} style={arranging ? { WebkitTouchCallout: "none" } : undefined}>
+    <div className={`flex flex-col gap-3 ${arranging ? "touch-none select-none [-webkit-user-drag:none]" : ""}`} style={arranging ? { WebkitTouchCallout: "none" } : undefined}>
       <div
         ref={gridRef}
         className="relative w-full rounded-2xl border border-border bg-surface"
