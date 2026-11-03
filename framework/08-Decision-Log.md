@@ -313,6 +313,27 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 ---
 
+### DEC-011: The app is called "Bin There"
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** "Stack-n-Track" was a working name and Colin didn't like it. Renaming before the move to the server keeps the old name out of container names, server folders and the home-screen icon.
+
+**Options Considered:** Binwise, **Bin There**, Stash, Trove, Whereabouts, Parts Bin.
+
+**Decision:** **Bin There.** Code slug `bin-there` (package, container, server folder, backup folder).
+
+**Rationale:** A pun on "been there" that fits the app's core question (where has this been, where does it go back?) and reads well as an icon label.
+
+**Consequences:** Renamed across the code and docs on 2026-11-03. Older research notes and session-log entries keep the old name as history. A home-screen icon added before the rename keeps the old label until it's re-added. The project folder on the Mac is still `stack-n-track`.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -327,6 +348,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-008 | Backups run inside the app, not host cron | Architecture | Accepted | 2026-11-03 |
 | DEC-009 | The put-back bin is physical only | Product | Accepted | 2026-11-03 |
 | DEC-010 | Sites as the top level of the location tree | Product | Accepted | 2026-11-03 |
+| DEC-011 | The app is called "Bin There" | Product | Accepted | 2026-11-03 |
 
 ---
 

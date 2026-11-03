@@ -17,7 +17,7 @@
 ## Brand Guidelines
 
 ### Existing Brand Assets
-None. Starting fresh. Name and logo TBD (working name Stack-n-Track).
+None. Starting fresh. Name: **Bin There** (DEC-011). Logo TBD.
 
 ---
 

@@ -27,4 +27,4 @@ app.use("/*", serveStatic({ root: "./dist/web" }));
 // SPA fallback: client-side routes get index.html.
 app.get("*", serveStatic({ path: "./dist/web/index.html" }));
 
-serve({ fetch: app.fetch, port }, () => console.log(`stack-n-track listening on :${port}`));
+serve({ fetch: app.fetch, port }, () => console.log(`bin-there listening on :${port}`));

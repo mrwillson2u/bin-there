@@ -1,6 +1,6 @@
 {
-  "name": "Stack-n-Track",
-  "short_name": "Stack-n-Track",
+  "name": "Bin There",
+  "short_name": "Bin There",
   "description": "Garage workshop inventory",
   "start_url": "/",
   "scope": "/",

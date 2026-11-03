@@ -7,11 +7,11 @@ One Docker container on the Ubuntu server, reached over HTTPS through Tailscale 
 
 1. **Tailscale HTTPS:** in the Tailscale admin console → DNS, make sure **MagicDNS** and
    **HTTPS Certificates** are enabled. The iPhone camera only works over HTTPS.
-2. **Get the code onto the server**, e.g. `git clone` (or `rsync`) into `~/stack-n-track`.
+2. **Get the code onto the server**, e.g. `git clone` (or `rsync`) into `~/bin-there`.
 3. **Backup folder on the second drive:** create it and tell compose where it is:
    ```bash
-   sudo mkdir -p /mnt/<second-drive>/stack-n-track && sudo chown $USER /mnt/<second-drive>/stack-n-track
-   echo "BACKUP_PATH=/mnt/<second-drive>/stack-n-track" >> .env
+   sudo mkdir -p /mnt/<second-drive>/bin-there && sudo chown $USER /mnt/<second-drive>/bin-there
+   echo "BACKUP_PATH=/mnt/<second-drive>/bin-there" >> .env
    echo "TZ=$(cat /etc/timezone)" >> .env
    ```
 
@@ -21,7 +21,7 @@ The app has been running on the Mac (`macbip-pro`) with its data in `./data`. To
 
 ```bash
 # On the Mac: stop the app so the database is quiet, then copy code + data to the server.
-rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/stack-n-track/ <server>:~/stack-n-track/
+rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/bin-there/ <server>:~/bin-there/
 # On the Mac: stop serving the old copy over Tailscale.
 /Applications/Tailscale.app/Contents/MacOS/Tailscale serve reset
 ```
@@ -32,7 +32,7 @@ Then follow "Deploy / update" below on the server. The server gets its own Tails
 ## Deploy / update
 
 ```bash
-cd ~/stack-n-track
+cd ~/bin-there
 git pull                      # if using git
 docker compose up -d --build  # builds, runs tests, starts on 127.0.0.1:3000
 sudo tailscale serve --bg 3000
@@ -67,7 +67,7 @@ amber if the last backup failed or is more than a day and a half old.
 ### Restore
 
 ```bash
-cd ~/stack-n-track
+cd ~/bin-there
 docker compose down
 mv data data.broken-$(date +%F)                         # keep the old copy, just in case
 mkdir -p data

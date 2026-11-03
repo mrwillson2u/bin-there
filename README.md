@@ -1,4 +1,4 @@
-# Stack-n-Track *(working name)*
+# Bin There
 
 A self-hosted, scan-driven inventory app for a home garage workshop. Find any part, see how
 many you have and exactly which rack → box → bin it's in, and keep it current with one-tap

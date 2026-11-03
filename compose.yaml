@@ -1,7 +1,7 @@
 services:
-  stack-n-track:
+  bin-there:
     build: .
-    container_name: stack-n-track
+    container_name: bin-there
     restart: unless-stopped
     # Bound to localhost only; Tailscale Serve provides the HTTPS front door (DEC-003).
     ports:
@@ -15,4 +15,4 @@ services:
     volumes:
       - ./data:/data
       # Point BACKUP_PATH at a folder on the second drive, e.g. in a .env file next to this one.
-      - ${BACKUP_PATH:-/mnt/backup/stack-n-track}:/backup
+      - ${BACKUP_PATH:-/mnt/backup/bin-there}:/backup

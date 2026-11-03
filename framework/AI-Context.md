@@ -11,7 +11,7 @@
 
 | Attribute | Value |
 |-----------|-------|
-| **Project Name** | Stack-n-Track *(working name — final name TBD)* |
+| **Project Name** | Bin There (DEC-011; formerly the working name Stack-n-Track) |
 | **Project Type** | Web app (personal / single user) |
 | **One-liner** | An inventory app for a home garage workshop, so I can find and keep track of the things I own. |
 | **Current Phase** | Phase 7 — Ship (building toward the SPV) |

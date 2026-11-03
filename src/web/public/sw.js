@@ -1,6 +1,6 @@
 // App-shell cache so the app opens fast on a weak garage signal (PRD perf targets).
 // Data (/api) always comes from the network: stale stock counts would be worse than slow ones.
-const CACHE = "snt-shell-v1";
+const CACHE = "bin-there-shell-v1";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png"];
 
 self.addEventListener("install", (e) => {

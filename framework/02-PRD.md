@@ -8,7 +8,7 @@
 
 ## Overview
 
-Stack-n-Track (working name) is a self-hosted, mobile-first web app for my garage workshop inventory. It is **scan-driven**: QR stickers on bins, containers and larger returnable items open the right record instantly, from a USB/Bluetooth scanner or the phone camera. The MVP centers on the loop that failed last time: **catalog → find → use → put back**, with as little update friction as possible so the data stays true. Stories J1–J8 are in `03-UX-Framework.md`.
+Bin There is a self-hosted, mobile-first web app for my garage workshop inventory. It is **scan-driven**: QR stickers on bins, containers and larger returnable items open the right record instantly, from a USB/Bluetooth scanner or the phone camera. The MVP centers on the loop that failed last time: **catalog → find → use → put back**, with as little update friction as possible so the data stays true. Stories J1–J8 are in `03-UX-Framework.md`.
 
 ---
 

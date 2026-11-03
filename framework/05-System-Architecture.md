@@ -19,7 +19,7 @@ A single self-hosted Docker container on the home lab server (Ubuntu): a TypeScr
  BT scanner/camera │                         ┌──────────────────────────────────┐
                    │  HTTPS (*.ts.net)       │  tailscale serve :443 → :3000     │
  Raspberry Pi      ├──── Tailscale ─────────►│  ┌──────────── Docker ──────────┐ │
- USB scanner       │                         │  │ stack-n-track (Node, :3000)  │ │
+ USB scanner       │                         │  │ bin-there (Node, :3000)  │ │
                    │                         │  │  • serves React SPA (static) │ │
  Desktop browser  ─┘                         │  │  • /api/* JSON (Hono)        │ │
                                              │  │  • SQLite  /data/app.db      │ │
