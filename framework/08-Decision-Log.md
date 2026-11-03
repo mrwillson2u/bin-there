@@ -288,7 +288,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Rationale:** One way to do each job; matches "don't overcomplicate it" (UX framework).
 
-**Consequences:** The existing location is archived by migration 0003. Put-back mode never moves stock between locations, only adds back.
+**Consequences:** The old built-in location is deleted (migrations 0003–0004) and the `put_back` location type removed. Put-back mode never moves stock between locations, only adds back.
 
 ---
 

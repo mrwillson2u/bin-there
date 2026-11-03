@@ -41,7 +41,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 |-------|------|-------|
 | id | integer PK | |
 | parent_id | FK → Location, nullable | null = top level (e.g. a rack, "Garage") |
-| type | enum LocationType | rack, gridded_box, tote, tub, bin, shelf, put_back, project, other |
+| type | enum LocationType | rack, gridded_box, tote, tub, bin, shelf, project, other |
 | name | text | e.g. "Tote 4", "Screws box" |
 | code | text, unique, nullable | Sticker ID |
 | bin_size | text, nullable | 1x1, 2x1, 2x2, front_strip, other (bins only) |
@@ -49,7 +49,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 | grid_x / grid_y | int, nullable | Bin position within parent box (post-ship grid view; nullable now) |
 | notes, created_at, updated_at | | |
 
-The put-back bin is **physical only** (DEC-009): the app doesn't track what's in it. The `put_back` type remains only so old rows stay valid; its location is archived. `project` type is reserved for post-ship project kits.
+The put-back bin is **physical only** (DEC-009): the app doesn't track what's in it, and the old built-in location was deleted (migration 0004). `project` type is reserved for post-ship project kits.
 
 ### Category
 
@@ -137,7 +137,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 
 ## Enums / Lookup Tables
 
-- **LocationType:** rack, gridded_box, tote, tub, bin, shelf, put_back, project, other
+- **LocationType:** rack, gridded_box, tote, tub, bin, shelf, project, other
 - **ItemKind:** consumable, returnable
 - **TrackingMode:** exact, level
 - **StockLevel:** plenty, low, out

@@ -22,7 +22,6 @@ export const LOCATION_TYPES = [
   "tub",
   "bin",
   "shelf",
-  "put_back",
   "project",
   "other",
 ] as const;

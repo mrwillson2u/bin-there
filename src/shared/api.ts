@@ -9,7 +9,6 @@ export const locationTypes = [
   "tub",
   "bin",
   "shelf",
-  "put_back",
   "project",
   "other",
 ] as const;
@@ -25,9 +24,20 @@ export const locationTypeLabels: Record<LocationType, string> = {
   tub: "Tub",
   bin: "Bin",
   shelf: "Shelf",
-  put_back: "Put-back bin",
   project: "Project kit",
   other: "Other",
+};
+
+/** Shown under the type picker so it's clear which to choose. */
+export const locationTypeHints: Record<LocationType, string> = {
+  rack: "A shelving unit that holds boxes and totes, like the Home Depot racks.",
+  gridded_box: "An organizer case with a grid of removable bins, like the Allit cases. Add its bins inside it.",
+  tote: "A lidded storage tote, like the yellow-lid totes. Things go straight in it, no grid.",
+  tub: "An open container, bucket or tray without a lid or grid.",
+  bin: "One bin inside a gridded box. Pick its size: red 1×1, yellow 2×1, blue 2×2, or the front strip.",
+  shelf: "A shelf, drawer or spot on the bench where things sit loose.",
+  project: "A temporary kit for a project (coming after launch).",
+  other: "Anything else: a cabinet, pegboard, toolbox…",
 };
 
 export const binSizeLabels: Record<BinSize, string> = {

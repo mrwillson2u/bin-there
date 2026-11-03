@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Archive, Box, ChevronRight, Grid3x3, Layers, Package, Square } from "lucide-react";
+import { Box, ChevronRight, Grid3x3, Layers, Package, Square } from "lucide-react";
 import { locationTypeLabels, type LocationSummary, type LocationType } from "../../shared/api";
 import { BinChip } from "./ui";
 
@@ -10,7 +10,6 @@ const icons: Record<LocationType, typeof Box> = {
   tub: Package,
   bin: Square,
   shelf: Layers,
-  put_back: Archive,
   project: Box,
   other: Box,
 };

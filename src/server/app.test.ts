@@ -1,6 +1,7 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
@@ -109,5 +110,27 @@ describe("stickers and scanning", () => {
     const a = await create({ name: "A", type: "tote", code: "SNT-0004" });
     const r = await call("POST", `/locations/${a.id}/code`, { code: "SNT-0004" });
     expect(r.status).toBe(200);
+  });
+});
+
+describe("migrations", () => {
+  it("deletes the old built-in put-back bin when nothing refers to it", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "snt-mig-")), "app.db");
+    // A database from before DEC-009: migrations up to 0002 plus the old seed row.
+    const old = new Database(file);
+    for (const f of ["0000_init.sql", "0001_undo_data.sql", "0002_item_search.sql"]) {
+      for (const stmt of readFileSync(join("drizzle", f), "utf8").split("--> statement-breakpoint")) if (stmt.trim()) old.exec(stmt);
+    }
+    old.exec(`create table "__drizzle_migrations" (id integer primary key autoincrement, hash text not null, created_at numeric)`);
+    const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { when: number }[] };
+    for (const e of journal.entries.slice(0, 3)) old.prepare(`insert into "__drizzle_migrations" (hash, created_at) values ('x', ?)`).run(e.when);
+    old.exec(`insert into locations (type, name) values ('put_back', 'Put-back bin'), ('bin', 'Test 1')`);
+    old.close();
+
+    const migrated = createApi(openDb(file), { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")) });
+    const json = (await (await migrated.request("/locations")).json()) as LocationSummary[];
+    expect(json.map((l) => l.name)).toEqual(["Test 1"]);
+    const raw = new Database(file, { readonly: true });
+    expect(raw.prepare("select count(*) as n from locations where type = 'put_back'").get()).toEqual({ n: 0 });
   });
 });

@@ -5,6 +5,7 @@ import { ScanLine } from "lucide-react";
 import {
   binSizeLabels,
   binSizes,
+  locationTypeHints,
   locationTypeLabels,
   locationTypes,
   type BinSize,
@@ -15,7 +16,7 @@ import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { BinChip, Breadcrumbs, Button, Field, inputClass } from "../components/ui";
 
-const creatableTypes = locationTypes.filter((t) => t !== "put_back" && t !== "project");
+const creatableTypes = locationTypes.filter((t) => t !== "project");
 
 export function LocationFormPage() {
   const [params] = useSearchParams();
@@ -88,6 +89,7 @@ export function LocationFormPage() {
             </button>
           ))}
         </div>
+        <span className="text-[13px] text-muted" aria-live="polite">{locationTypeHints[type]}</span>
       </Field>
 
       {type === "bin" && (
