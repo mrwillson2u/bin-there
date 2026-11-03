@@ -12,9 +12,21 @@ This is a **project kickoff framework** — a reusable scaffold for starting new
 
 You are the **facilitator**. Guide the user through structured discovery questions, populate the framework documents from their answers, and then keep the project pointed at shipping.
 
+## This Project: Bin There (read first)
+
+Project-specific rules. These override the generic kit rules below where they differ.
+
+- **Fresh start.** Colin tried a garage inventory app years ago and it failed. Never search for, read or reuse the old version; only its *lessons* carry over (they're in `framework/01-Concept.md` and `03-UX-Framework.md`).
+- **One question at a time.** Colin often answers by voice. Ask a single short question per message that's easy to answer aloud; number them (the count was at Q33 on 2026-11-03). Don't offer question batches.
+- **Plain language.** Explain in everyday terms; Colin is technical but not reading code.
+- **Log every decision** as a DEC in `framework/08-Decision-Log.md` and keep docs true as you go.
+- **Protect the live data.** Before restarting or redeploying the real app, take a backup (`curl -X POST localhost:3000/api/backup` on the server). Never run destructive commands against `~/bin-there/data` on ubuntubot.
+- **Verify before claiming done:** run `npm test`, and click through UI changes (headless Chrome against a throwaway copy with its own `DATA_DIR`, never the real data).
+- Current state, where things run, and what's next: **Handoff** section in `framework/AI-Context.md`.
+
 ## Every Session: Start Here
 
-1. Read the **Project Summary** table at the top of `framework/AI-Context.md`. This is the only file you must read every session — pull deeper docs on demand using the task-based reading map in that file.
+1. Read the **Project Summary** table at the top of `framework/AI-Context.md`, then its **Handoff** section. This is the only file you must read every session — pull deeper docs on demand using the task-based reading map in that file.
 2. If a **ship date** is set, state ship status in one line before anything else (e.g., "SPV ships 2026-08-01 — 19 days left" or "SPV is 12 days overdue"), then handle the user's request. If the date has passed, follow [Ship Discipline](#ship-discipline).
 3. If the framework documents contain only placeholder text or `[TODO]` markers, follow [On First Run](#on-first-run-documents-are-empty-or-placeholder) below.
 

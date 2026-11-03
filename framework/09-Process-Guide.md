@@ -12,7 +12,7 @@
 |-----------|-------|
 | **Smallest Publishable Version (SPV)** | PRD **F1–F8** working on my iPhone: scan by **camera** on the iPhone, and by the **hardware scanner on a desktop/Pi browser**; nested locations with stickers; items with exact/level stock; search with full location path; +/− and single-item move with undo; quick capture + Needs details; Put-back mode; activity log; nightly backup with one successful restore test. Installed to the iPhone home screen. |
 | **Ship Date** | **2026-11-23** (committed 2026-11-02) |
-| **Deploy Target / Domain** | Docker on the home lab server (Ubuntu), served over HTTPS by **Tailscale Serve** at a `*.ts.net` address; reached from the iPhone over cell + Tailscale (DEC-003) |
+| **Deploy Target / Domain** | Docker on `ubuntubot` (Ubuntu 22.04), served over HTTPS by **Tailscale Serve** at `https://ubuntubot.llama-arctic.ts.net:8443`; reached from the iPhone over cell + Tailscale (DEC-003) |
 | **Status** | On track |
 
 After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD.md` unless they block the SPV (DEC-XXX entry required). If the date passes, cut scope rather than extend — date extensions also require a DEC-XXX entry.
@@ -42,7 +42,7 @@ After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD
 | 4 - Architecture | ✅ Complete | 2026-11-02 | Stack DEC-004 + access DEC-003 proposed; data model/API drafted by AI | |
 | 5 - Visual Design | ✅ Complete | 2026-11-02 | Dark-first, clean/minimal; bin colors from real Allit bins | |
 | 6 - MVP & Roadmap | ✅ Complete | 2026-11-02 | SPV = F1–F8, ship 2026-11-23 (DEC-005) | Sets the Ship Target above |
-| 7 - Ship | 🟡 In Progress | 2026-11-02 | M1 code done (locations, stickers, scan detector, camera, Docker). ✅ iPhone camera scanned a real sticker over Tailscale HTTPS; ✅ scanner Ctrl+B prefix verified in a desktop browser (2026-11-02, running on the Mac for now). M2 code done (items, stock, quick capture, search, +/−, move, undo, activity). M3 code done (put-back mode, home-screen install, nightly backups + restore test). Remaining for ship: user tries it on the phone (quick-capture photos are untested on a real camera); move to the home lab server + repeat the restore test there | Done = SPV live |
+| 7 - Ship | 🟡 In Progress | 2026-11-02 | M1 code done (locations, stickers, scan detector, camera, Docker). ✅ iPhone camera scanned a real sticker over Tailscale HTTPS; ✅ scanner Ctrl+B prefix verified in a desktop browser (2026-11-02, running on the Mac for now). M2 code done (items, stock, quick capture, search, +/−, move, undo, activity). M3 code done (put-back mode, home-screen install, nightly backups + restore test). ✅ Moved to ubuntubot 2026-11-03 (`https://ubuntubot.llama-arctic.ts.net:8443`), restore test passed there. Remaining for ship: user uses it on the phone (quick-capture photos untested on a real camera); confirm Proposed DECs | Done = SPV live |
 
 **Legend:** ⬜ Not Started | 🟡 In Progress | ✅ Complete | ⏭️ Skipped (N/A for this project)
 
@@ -133,6 +133,7 @@ Not every question applies — "skip" and "defer" are valid answers (mechanics i
 
 | Date | Note |
 |------|------|
+| 2026-11-03 | Renamed to **Bin There** (DEC-011). Moved from the Mac to ubuntubot: Dockerfile now compiles better-sqlite3 in the build stage; served on Tailscale :8443 (Wazuh has 443); backups in `~/bin-there-backups` (no second drive); restore test passed on the server; Colin confirmed it opens on his phone. Code pushed to private GitHub repo `mrwillson2u/bin-there`; the server is a git checkout. Handoff written in `AI-Context.md` and project rules in `AGENTS.md` so the next session can start fresh on any machine. |
 | 2026-11-03 | Overnight (user asleep): desktop/Pi layout (sidebar + two columns ≥1024px); F10 check out/in for stickered units (to a location and/or a note; Out right now page + Home banner; put-back scan checks in; undoable). 56 tests; Chrome click-throughs passed. Photo-search research running. |
 | 2026-11-03 | Pinned parts get compact − / + on Home; put-back gets "No sticker? Find it" search + "Recently taken out" (F13). Stock changes now update cached pins/location screens immediately (no flicker). 52 tests; Chrome click-through passed. |
 | 2026-11-03 | F12 sites (DEC-010): sites are the top level; existing locations migrated into "Garage"; Home shows the one site or lists several; new-location form asks what it goes inside. 51 tests; Chrome click-through passed. |

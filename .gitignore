@@ -26,3 +26,6 @@ data/
 
 # Local backup target while running on a laptop
 backups/
+
+# Server settings (BACKUP_PATH, TZ)
+.env

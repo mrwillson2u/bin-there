@@ -14,12 +14,64 @@
 | **Project Name** | Bin There (DEC-011; formerly the working name Stack-n-Track) |
 | **Project Type** | Web app (personal / single user) |
 | **One-liner** | An inventory app for a home garage workshop, so I can find and keep track of the things I own. |
-| **Current Phase** | Phase 7 — Ship (building toward the SPV) |
+| **Current Phase** | Phase 7 — Ship. SPV features built and **live on ubuntubot** (2026-11-03); remaining ship items in the Handoff below |
 | **SPV** | PRD F1–F8 live on iPhone via Tailscale HTTPS (see Ship Target in 09-Process-Guide.md) |
 | **Ship Date** | 2026-11-23 |
-| **Tech Stack** | TypeScript: React (Vite PWA) + Hono + SQLite/Drizzle, one Docker container on the home lab server, via Tailscale Serve *(proposed, DEC-004)* |
-| **Top Open Decisions** | Confirm the proposed decisions DEC-001 (exact/level tracking), DEC-003 (Tailscale access), DEC-004 (stack); AI features vs. $0 cost (post-ship) |
+| **Tech Stack** | TypeScript: React 19 (Vite PWA) + Hono on Node 22 + SQLite/Drizzle (FTS5), one Docker container on ubuntubot, via Tailscale Serve *(DEC-004, still Proposed)* |
+| **Top Open Decisions** | Confirm the proposed decisions DEC-001 (exact/level tracking), DEC-003 (Tailscale access), DEC-004 (stack), DEC-007 (leaving Needs details); whether to start photo-search Phase 0 |
 | **Kit Version** | 1.1.0 |
+
+---
+
+## Handoff (current state; keep this updated at the end of each session)
+
+*Last updated 2026-11-03, after the move from the Mac to the server.*
+
+### Where things run
+
+| What | Where |
+|------|-------|
+| **Live app** | `https://ubuntubot.llama-arctic.ts.net:8443` (tailnet only). Port 8443 because Wazuh owns 443 on ubuntubot |
+| **Server** | `ubuntubot` (Ubuntu 22.04, x86_64, Docker 28 + Compose v2, GTX 1080 Ti 11 GB). SSH as `colin` via MagicDNS or `ubuntubot.local`. `sudo` needs Colin's password, so he runs sudo commands himself |
+| **App folder** | `~/bin-there` on ubuntubot (a git checkout). Container `bin-there`, bound to `127.0.0.1:3000`; `.env` there sets `BACKUP_PATH` and `TZ=America/Los_Angeles` (not in git) |
+| **Live data** | `~/bin-there/data` on ubuntubot (`app.db` + `photos/`) |
+| **Backups** | `~/bin-there-backups` on ubuntubot: nightly 03:00, newest 14 snapshots + all photos. Same disk as the app (no second drive; the other partitions are Windows/BitLocker). Restore tested on the server 2026-11-03 |
+| **Code** | GitHub `mrwillson2u/bin-there` (private), branch `main` |
+| **Old Mac copy** | `~/Projects/stack-n-track` on `macbip-pro`. **Stopped and no longer served; its data is stale. Don't restart it against `./data`.** It's a dev checkout now |
+
+### Deploying a change
+
+On ubuntubot: back up, pull, rebuild (the image build runs the tests and refuses to ship if they fail).
+
+```bash
+cd ~/bin-there
+curl -s -X POST localhost:3000/api/backup
+git pull
+docker compose up -d --build
+```
+
+Tailscale Serve config persists across reboots; it was set once with `sudo tailscale serve --bg --https=8443 3000`. Full details: `DEPLOY.md`.
+
+### Developing
+
+`npm install`, then `npm test` (Vitest, 56 tests) and `npm run build`. For a throwaway copy: `PORT=3001 DATA_DIR=/tmp/bt-test npm start`. Schema changes: edit `src/server/db/schema.ts`, run `npm run db:generate`, and check the migration against an old-shaped database (see the migration test in `src/server/app.test.ts`). Code map: `README.md`.
+
+### What's built
+
+PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
+
+### Left to ship (SPV, due 2026-11-23)
+
+1. Colin uses it for real on the phone. **Quick-capture photos haven't been tried on a real phone camera yet.**
+2. Re-add the new address to the iPhone home screen (the old icon pointed at the Mac).
+3. Confirm or change the Proposed decisions: DEC-001, DEC-003, DEC-004, DEC-007.
+4. Then mark the SPV shipped in `09-Process-Guide.md`.
+
+### Next up (post-ship, Colin's interest)
+
+- **Photo search** (identify a part from a photo): plan in `reports/Self hosted photo part search.md`, hardware notes in the PRD backlog. Step 1 is Phase 0: an offline script scoring ~50 of Colin's parts, photographed in two sessions, against the catalog (DINOv3 embeddings on CPU, no GPU needed). Go bar: right item in the top 5 for ≥80% of modules/ICs/connectors and ≥70% overall, and it must beat the "recently taken out" list. Not started; needs Colin's photos. For the VLM half: Ollama on ubuntubot (not installed yet); take down the unused `neutts` container (holds 5 GB of VRAM) to fit the 8B Qwen.
+- Other backlog: `02-PRD.md` → Post-Ship Backlog (F9 bulk move of selected items, grid view, viewer access, Pi station, AI data fill…).
+- Backups should eventually move to Colin's main backup system (borgmatic on ubuntubot, currently being fixed).
 
 ---
 

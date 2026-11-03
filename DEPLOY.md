@@ -7,7 +7,7 @@ One Docker container on the Ubuntu server, reached over HTTPS through Tailscale 
 
 1. **Tailscale HTTPS:** in the Tailscale admin console → DNS, make sure **MagicDNS** and
    **HTTPS Certificates** are enabled. The iPhone camera only works over HTTPS.
-2. **Get the code onto the server**, e.g. `git clone` (or `rsync`) into `~/bin-there`.
+2. **Get the code onto the server:** `git clone git@github.com:mrwillson2u/bin-there.git ~/bin-there`.
 3. **Backup folder:** create it and tell compose where it is. ubuntubot has no separate
    data drive (the other partitions are Windows/BitLocker), so for now it's in the home folder:
    ```bash
