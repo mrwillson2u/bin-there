@@ -15,6 +15,20 @@ One Docker container on the Ubuntu server, reached over HTTPS through Tailscale 
    echo "TZ=$(cat /etc/timezone)" >> .env
    ```
 
+## Moving from the Mac (one time)
+
+The app has been running on the Mac (`macbip-pro`) with its data in `./data`. To carry it over:
+
+```bash
+# On the Mac: stop the app so the database is quiet, then copy code + data to the server.
+rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/stack-n-track/ <server>:~/stack-n-track/
+# On the Mac: stop serving the old copy over Tailscale.
+/Applications/Tailscale.app/Contents/MacOS/Tailscale serve reset
+```
+
+Then follow "Deploy / update" below on the server. The server gets its own Tailscale address
+(`https://<server>.<tailnet>.ts.net`); re-add it to the iPhone home screen.
+
 ## Deploy / update
 
 ```bash
