@@ -79,6 +79,13 @@ describe("stickers and scanning", () => {
     expect(json).toEqual({ kind: "unassigned", code: "NEW-9" });
   });
 
+  it("ignores the scanner's &END! suffix", async () => {
+    const bin = await create({ name: "Yellow bin", type: "bin", code: "HnVbi6RSP4ar&END!" });
+    expect(bin.code).toBe("HnVbi6RSP4ar");
+    const { json } = await call<ScanResult>("GET", `/scan/${encodeURIComponent("HnVbi6RSP4ar&END!")}`);
+    expect(json.kind).toBe("location");
+  });
+
   it("assigns a sticker to an existing location", async () => {
     const box = await create({ name: "Box", type: "gridded_box" });
     await call("POST", `/locations/${box.id}/code`, { code: "SNT-0002" });

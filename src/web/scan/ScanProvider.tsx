@@ -1,4 +1,5 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { normalizeCode } from "../../shared/api";
 import { ScanDetector, type Scan } from "./detector";
 // The barcode decoder is large; only download it when the camera is first opened.
 const CameraScanner = lazy(() => import("./CameraScanner").then((m) => ({ default: m.CameraScanner })));
@@ -51,7 +52,9 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
   const fallbackRef = useRef(fallback);
   fallbackRef.current = fallback;
 
-  const submit = useCallback((code: string) => {
+  const submit = useCallback((raw: string) => {
+    const code = normalizeCode(raw);
+    if (!code) return;
     setLastScan({ code, at: Date.now() });
     for (const h of [...handlers.current].reverse()) {
       if (h(code) === true) return;

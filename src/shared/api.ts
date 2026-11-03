@@ -39,7 +39,19 @@ export const binSizeLabels: Record<BinSize, string> = {
 };
 
 /** Sticker codes are trimmed; otherwise stored exactly as scanned. */
-export const codeSchema = z.string().trim().min(1).max(64);
+// The scanner was set up years ago to append "&END!" to every code; strip it so
+// a scanned sticker matches the same sticker read by the camera.
+const scannerSuffixes = ["&END!"];
+
+export function normalizeCode(raw: string): string {
+  let code = raw.trim();
+  for (const suffix of scannerSuffixes) {
+    if (code.endsWith(suffix)) code = code.slice(0, -suffix.length).trim();
+  }
+  return code;
+}
+
+export const codeSchema = z.string().transform(normalizeCode).pipe(z.string().min(1).max(64));
 
 export const createLocationSchema = z.object({
   name: z.string().trim().min(1).max(100),
