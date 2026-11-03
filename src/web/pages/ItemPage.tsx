@@ -11,6 +11,7 @@ import {
 } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
+import { useWide } from "../lib/useWide";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
@@ -30,75 +31,97 @@ export function ItemPage() {
   const id = Number(useParams().id);
   const { data: item, error } = useQuery({ queryKey: ["item", id], queryFn: () => api<ItemDetail>(`/items/${id}`) });
   const [mode, setMode] = useState<Mode>(null);
+  const wide = useWide();
 
   if (error) return <p className="text-danger">{(error as Error).message}</p>;
   if (!item) return <p className="text-muted">Loading…</p>;
 
+  const needs = item.needsDetails && (
+    <Link to={`/items/${item.id}/edit`} className="flex min-h-12 items-center gap-2 rounded-xl border border-warn/40 bg-warn/10 px-4 text-warn">
+      <Pencil size={18} /> Needs details: tap to fill in
+    </Link>
+  );
+  const where = (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Where</h2>
+        {item.totalQty !== null && item.places.length > 1 && (
+          <span className="text-sm text-muted"><span className="font-mono text-text">{item.totalQty}</span> total</span>
+        )}
+      </div>
+      {item.places.length === 0 && <p className="text-muted">Not in any location yet.</p>}
+      {item.places.map((p) => (
+        <PlaceCard key={p.locationId} item={item} place={p} onMove={() => setMode({ kind: "move", place: p })} />
+      ))}
+
+      {mode?.kind === "move" && <MoveStock item={item} place={mode.place} done={() => setMode(null)} />}
+      {mode?.kind === "addPlace" && <AddPlace item={item} done={() => setMode(null)} />}
+      {mode === null && (
+        <Button onClick={() => setMode({ kind: "addPlace" })} className="self-start">
+          <MapPinPlus size={18} /> Add another place
+        </Button>
+      )}
+    </section>
+  );
+  const units = (item.kind === "returnable" || item.unitList.length > 0) && (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Stickered units</h2>
+      {item.unitList.length > 0 && (
+        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+          {item.unitList.map((u) => (
+            <li key={u.id} className="flex min-h-12 items-center gap-3 px-4 py-2">
+              <span className="min-w-0 flex-1">
+                <span className="block font-mono text-sm">{u.code ?? "no sticker"}</span>
+                <span className="block truncate text-[13px] text-muted">{u.path.length ? pathText(u.path) : "No location"}</span>
+              </span>
+              <Button variant="ghost" onClick={() => setMode({ kind: "moveUnit", unitId: u.id, code: u.code })}>
+                <MoveRight size={18} /> Move
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {mode?.kind === "moveUnit" && <MoveUnit unitId={mode.unitId} code={mode.code} done={() => setMode(null)} />}
+      {mode?.kind === "addUnit" && <AddUnit item={item} done={() => setMode(null)} />}
+      {mode === null && (
+        <Button onClick={() => setMode({ kind: "addUnit" })} className="self-start">
+          <QrCode size={18} /> Add another stickered one
+        </Button>
+      )}
+    </section>
+  );
+  const history = (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">History</h2>
+      <EventList events={item.history} showItem={false} />
+    </section>
+  );
+
+  // Desktop / Pi: photo and details on the left; where it is, units and history on the right.
+  if (wide) {
+    return (
+      <div className="grid grid-cols-2 items-start gap-6">
+        <div className="flex flex-col gap-4">
+          <Header item={item} />
+          {needs}
+          <Details item={item} />
+        </div>
+        <div className="flex flex-col gap-4">
+          {where}
+          {units}
+          {history}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-4">
       <Header item={item} />
-
-      {item.needsDetails && (
-        <Link to={`/items/${item.id}/edit`} className="flex min-h-12 items-center gap-2 rounded-xl border border-warn/40 bg-warn/10 px-4 text-warn">
-          <Pencil size={18} /> Needs details: tap to fill in
-        </Link>
-      )}
-
-      <section className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Where</h2>
-          {item.totalQty !== null && item.places.length > 1 && (
-            <span className="text-sm text-muted"><span className="font-mono text-text">{item.totalQty}</span> total</span>
-          )}
-        </div>
-        {item.places.length === 0 && <p className="text-muted">Not in any location yet.</p>}
-        {item.places.map((p) => (
-          <PlaceCard key={p.locationId} item={item} place={p} onMove={() => setMode({ kind: "move", place: p })} />
-        ))}
-
-        {mode?.kind === "move" && <MoveStock item={item} place={mode.place} done={() => setMode(null)} />}
-        {mode?.kind === "addPlace" && <AddPlace item={item} done={() => setMode(null)} />}
-        {mode === null && (
-          <Button onClick={() => setMode({ kind: "addPlace" })} className="self-start">
-            <MapPinPlus size={18} /> Add another place
-          </Button>
-        )}
-      </section>
-
-      {(item.kind === "returnable" || item.unitList.length > 0) && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Stickered units</h2>
-          {item.unitList.length > 0 && (
-            <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-              {item.unitList.map((u) => (
-                <li key={u.id} className="flex min-h-12 items-center gap-3 px-4 py-2">
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-mono text-sm">{u.code ?? "no sticker"}</span>
-                    <span className="block truncate text-[13px] text-muted">{u.path.length ? pathText(u.path) : "No location"}</span>
-                  </span>
-                  <Button variant="ghost" onClick={() => setMode({ kind: "moveUnit", unitId: u.id, code: u.code })}>
-                    <MoveRight size={18} /> Move
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {mode?.kind === "moveUnit" && <MoveUnit unitId={mode.unitId} code={mode.code} done={() => setMode(null)} />}
-          {mode?.kind === "addUnit" && <AddUnit item={item} done={() => setMode(null)} />}
-          {mode === null && (
-            <Button onClick={() => setMode({ kind: "addUnit" })} className="self-start">
-              <QrCode size={18} /> Add another stickered one
-            </Button>
-          )}
-        </section>
-      )}
-
+      {needs}
+      {where}
+      {units}
       <Details item={item} />
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">History</h2>
-        <EventList events={item.history} showItem={false} />
-      </section>
+      {history}
     </div>
   );
 }

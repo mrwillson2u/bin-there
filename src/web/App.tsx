@@ -72,12 +72,14 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
   }, [lastScan]);
 
   return (
-    <div ref={shellRef} className="flex min-h-dvh flex-col">
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))]">
+    <div ref={shellRef} className="flex min-h-dvh flex-col lg:pl-56">
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))] lg:max-w-6xl lg:px-8 lg:pb-10 lg:pt-6">
         {scanError && <p className="mb-4 rounded-xl bg-danger/15 px-4 py-3 text-sm text-danger" role="alert">{scanError}</p>}
         <div key={location.pathname}>{children}</div>
       </main>
-      <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+
+      {/* Phone: bottom bar with the big scan button in thumb reach. */}
+      <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-2xl items-center justify-around">
           <NavItem to="/" icon={<Home size={22} />} label="Home" />
           <NavItem to="/search" icon={<Search size={22} />} label="Search" />
@@ -88,7 +90,34 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
           <NavItem to="/putback" icon={<Archive size={22} />} label="Put-back" />
         </div>
       </nav>
+
+      {/* Desktop / Pi screen: sidebar. The hardware scanner works on any screen. */}
+      <nav className="fixed inset-y-0 left-0 hidden w-56 flex-col gap-1 border-r border-border bg-surface px-3 py-5 lg:flex">
+        <div className="mb-4 px-3 text-lg font-semibold">Stack-n-Track</div>
+        <SideItem to="/" icon={<Home size={20} />} label="Home" />
+        <SideItem to="/search" icon={<Search size={20} />} label="Search" />
+        <SideItem to="/putback" icon={<Archive size={20} />} label="Put-back" />
+        <SideItem to="/activity" icon={<History size={20} />} label="Activity" />
+        <span className="flex-1" />
+        <button onClick={openCamera} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
+          <ScanLine size={20} /> Scan with camera
+        </button>
+        <p className="px-1 pt-2 text-center text-xs text-muted">Or just scan with the scanner: it works on any screen.</p>
+      </nav>
     </div>
+  );
+}
+
+function SideItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      end
+      className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 ${isActive ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-text"}`}
+    >
+      {icon}
+      {label}
+    </NavLink>
   );
 }
 

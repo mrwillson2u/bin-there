@@ -41,7 +41,7 @@ export function SearchPage() {
     }, { replace: true });
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 lg:mx-auto lg:w-full lg:max-w-3xl">
       <div className="relative">
         <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <input

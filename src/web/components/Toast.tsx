@@ -41,7 +41,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ show }}>
       {children}
       {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 pb-[env(safe-area-inset-bottom)]">
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] lg:bottom-6 lg:left-56">
           <div
             role="status"
             className={`toast-in pointer-events-auto flex min-h-12 max-w-md flex-1 items-center gap-3 rounded-xl border px-4 shadow-lg ${

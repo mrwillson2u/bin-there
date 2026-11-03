@@ -24,6 +24,7 @@ export function HomePage() {
   const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: () => api<{ needsDetails: number }>("/stats") });
   const { data: pins } = useQuery({ queryKey: ["pins"], queryFn: () => api<Pins>("/pins") });
 
+  const hasPins = !!pins && (pins.items.length > 0 || pins.locations.length > 0);
   if (isLoading || !sites) return <p className="text-muted">Loading…</p>;
   if (sites.length === 0) return <FirstSite />;
 
@@ -31,20 +32,22 @@ export function HomePage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">{single ? single.name : "Home"}</h1>
 
-      <Link to="/search" className="flex min-h-12 items-center gap-3 rounded-xl border border-border bg-surface-2 px-4 text-muted">
-        <Search size={18} /> Search parts…
-      </Link>
+      <div className="flex flex-col gap-4 lg:flex-row lg:gap-2">
+        <Link to="/search" className="flex min-h-12 items-center gap-3 rounded-xl border border-border bg-surface-2 px-4 text-muted lg:flex-1">
+          <Search size={18} /> Search parts…
+        </Link>
 
-      <div className="grid grid-cols-2 gap-2">
-        <Link to="/capture" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface-2">
-          <Camera size={18} /> Add item
-        </Link>
-        <Link
-          to={single ? `/locations/new?parent=${single.id}` : "/locations/new"}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface-2"
-        >
-          <Plus size={18} /> Add location
-        </Link>
+        <div className="grid grid-cols-2 gap-2">
+          <Link to="/capture" className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 lg:px-4">
+            <Camera size={18} /> Add item
+          </Link>
+          <Link
+            to={single ? `/locations/new?parent=${single.id}` : "/locations/new"}
+            className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 lg:px-4"
+          >
+            <Plus size={18} /> Add location
+          </Link>
+        </div>
       </div>
 
       {stats && stats.needsDetails > 0 && (
@@ -56,29 +59,31 @@ export function HomePage() {
         </Link>
       )}
 
-      {pins && (pins.items.length > 0 || pins.locations.length > 0) && <Pinned pins={pins} />}
+      <div className={`flex flex-col gap-4 ${hasPins ? "lg:grid lg:grid-cols-2 lg:items-start lg:gap-6" : ""}`}>
+        {hasPins && <Pinned pins={pins!} />}
 
-      {single ? (
-        site && (
-          <>
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Locations</h2>
-              <LocationList locations={site.children} empty="Nothing here yet. Add a rack, box or tote to start." />
-            </section>
-            {site.items.length > 0 && (
+        {single ? (
+          site && (
+            <div className="flex flex-col gap-4">
               <section className="flex flex-col gap-2">
-                <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Loose in {site.name}</h2>
-                <LocationItemList items={site.items} />
+                <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Locations</h2>
+                <LocationList locations={site.children} empty="Nothing here yet. Add a rack, box or tote to start." />
               </section>
-            )}
-          </>
-        )
-      ) : (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Sites</h2>
-          <LocationList locations={sites} empty="" />
-        </section>
-      )}
+              {site.items.length > 0 && (
+                <section className="flex flex-col gap-2">
+                  <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Loose in {site.name}</h2>
+                  <LocationItemList items={site.items} />
+                </section>
+              )}
+            </div>
+          )
+        ) : (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Sites</h2>
+            <LocationList locations={sites} empty="" />
+          </section>
+        )}
+      </div>
 
       <Link to="/locations/new?type=site" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
         <Warehouse size={16} /> Add a site{single ? " (another place you keep things)" : ""}

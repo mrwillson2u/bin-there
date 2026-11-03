@@ -8,7 +8,7 @@ import { useToast } from "../components/Toast";
 export function ActivityPage() {
   const { data } = useQuery({ queryKey: ["events", "all"], queryFn: () => api<EventView[]>("/events?limit=200") });
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-3xl">
       <h1 className="text-xl font-semibold">Activity</h1>
       <BackupStatus />
       {data ? <EventList events={data} /> : <p className="text-muted">Loading…</p>}

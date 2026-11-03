@@ -5,7 +5,7 @@ import { Card } from "../components/ui";
 export function UnassignedPage() {
   const code = useParams().code ?? "";
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-2xl">
       <Card className="flex flex-col items-center gap-2 p-6 text-center">
         <QrCode size={36} className="text-warn" />
         <h1 className="text-lg font-semibold">New sticker</h1>

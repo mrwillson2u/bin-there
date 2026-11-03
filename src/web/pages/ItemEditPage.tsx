@@ -98,7 +98,7 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
 
   return (
     <form
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-2xl"
       onSubmit={(e) => {
         e.preventDefault();
         if (canSave) save.mutate();

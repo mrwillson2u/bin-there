@@ -81,7 +81,7 @@ export function LocationFormPage() {
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
+    <form onSubmit={submit} className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-2xl">
       <div className="flex flex-col gap-1">
         {parent && !isSite && <Breadcrumbs path={[...parent.path, { id: -1, name: "" }]} />}
         <h1 className="text-xl font-semibold">{isSite ? "New site" : `New location${parent ? ` in ${parent.name}` : ""}`}</h1>

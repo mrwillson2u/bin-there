@@ -114,28 +114,31 @@ export function LocationPage() {
         </div>
       )}
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Items</h2>
-          <Link to={`/capture?location=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
-            <Camera size={18} /> Add item here
-          </Link>
-        </div>
-        {loc.items.length === 0 ? (
-          <p className="px-1 py-3 text-center text-muted">No items here yet.</p>
-        ) : loc.items.length === 1 && loc.items[0]!.hasStock ? (
-          <SingleItem loc={loc} />
-        ) : (
-          <LocationItemList items={loc.items} />
-        )}
-      </section>
-
-      {(loc.children.length > 0 || loc.items.length === 0) && (
+      {/* Desktop / Pi: items beside what's inside. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
         <section className="flex flex-col gap-2">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Inside</h2>
-          <LocationList locations={loc.children} empty="No boxes or bins inside." />
+          <div className="flex items-center justify-between">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Items</h2>
+            <Link to={`/capture?location=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
+              <Camera size={18} /> Add item here
+            </Link>
+          </div>
+          {loc.items.length === 0 ? (
+            <p className="px-1 py-3 text-center text-muted">No items here yet.</p>
+          ) : loc.items.length === 1 && loc.items[0]!.hasStock ? (
+            <SingleItem loc={loc} />
+          ) : (
+            <LocationItemList items={loc.items} />
+          )}
         </section>
-      )}
+
+        {(loc.children.length > 0 || loc.items.length === 0) && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Inside</h2>
+            <LocationList locations={loc.children} empty="No boxes or bins inside." />
+          </section>
+        )}
+      </div>
     </div>
   );
 }

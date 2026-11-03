@@ -96,95 +96,99 @@ export function PutBackPage() {
         {count > 0 && <span className="text-sm text-muted">{count} put back</span>}
       </div>
 
-      {step.kind === "ready" && (
-        <Card className="flex flex-col items-center gap-3 p-6 text-center">
-          <ScanLine size={40} className="text-accent" />
-          <p className="font-semibold">Scan whatever you're putting away</p>
-          <p className="text-sm text-muted">
-            Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives.
-          </p>
-          <Button variant="primary" onClick={openCamera} className="min-h-14 w-full text-lg">
-            <Camera size={22} /> Scan with camera
-          </Button>
-        </Card>
-      )}
-
-      {step.kind === "placed" && <Placed itemId={step.itemId} location={step.location} onNext={openCamera} />}
-
-      {(step.kind === "ready" || step.kind === "placed") && <FindPart onPick={(id) => startItem(id)} />}
-
-      {step.kind === "choose" && (
-        <Card className="flex flex-col gap-3 p-4">
-          <p className="font-semibold">Which one goes back in {step.location.name}?</p>
-          <ul className="flex flex-col gap-2">
-            {step.location.items.map((i) => (
-              <li key={i.itemId}>
-                <button
-                  onClick={() =>
-                    i.hasStock ? put.mutate({ itemId: i.itemId, location: step.location }) : startItem(i.itemId)
-                  }
-                  className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 text-left"
-                >
-                  <Thumb url={i.thumbUrl} size={44} />
-                  <span className={`flex-1 ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
-                  <span className="text-sm text-accent">+1</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <Button variant="ghost" onClick={() => setStep({ kind: "ready" })} className="self-start">Cancel</Button>
-        </Card>
-      )}
-
-      {step.kind === "where" && (
-        <Card className="flex flex-col gap-3 border-accent/50 p-4">
-          <ItemHeader item={step.item} />
-          {homesOf(step.item, step.unitId).length > 0 ? (
-            <>
-              <p className="text-sm text-muted">Goes back in:</p>
-              {homesOf(step.item, step.unitId).map((h) => (
-                <Button key={h.id} variant="primary" className="min-h-14 text-lg" onClick={() => put.mutate({ itemId: step.item.id, location: h, unitId: step.unitId })}>
-                  <House size={20} /> {pathText(step.item.places.find((p) => p.locationId === h.id)?.path ?? [h])}
-                </Button>
-              ))}
-              <p className="text-center text-sm text-muted">…or scan the bin you're putting it in</p>
-            </>
-          ) : (
-            <p className="flex items-center gap-2 font-semibold"><ScanLine size={20} className="text-accent" /> No home yet. Scan the bin it's going in</p>
+      {/* Desktop / Pi: the current step beside "find it". */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+        <div className="flex flex-col gap-4">
+          {step.kind === "ready" && (
+            <Card className="flex flex-col items-center gap-3 p-6 text-center">
+              <ScanLine size={40} className="text-accent" />
+              <p className="font-semibold">Scan whatever you're putting away</p>
+              <p className="text-sm text-muted">
+                Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives.
+              </p>
+              <Button variant="primary" onClick={openCamera} className="min-h-14 w-full text-lg">
+                <Camera size={22} /> Scan with camera
+              </Button>
+            </Card>
           )}
-          <div className="flex gap-2">
-            <Button onClick={openCamera}>Scan with camera</Button>
-            <Button variant="ghost" onClick={() => setStep({ kind: "ready" })}>Cancel</Button>
-          </div>
-        </Card>
-      )}
 
-      {step.kind === "notHome" && (
-        <Card className="flex flex-col gap-3 border-warn/50 p-4">
-          <ItemHeader item={step.item} />
-          <p className="flex items-start gap-2 text-warn">
-            <AlertTriangle size={20} className="mt-0.5 shrink-0" />
-            {step.location.name} isn't its usual home ({homesOf(step.item, step.unitId).map((h) => h.name).join(", ")}).
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => put.mutate({ itemId: step.item.id, location: step.location, unitId: step.unitId })}>
-              Put it here anyway
-            </Button>
-            <Button onClick={() => setStep({ kind: "where", item: step.item, unitId: step.unitId })}>Show its home</Button>
-          </div>
-        </Card>
-      )}
+          {step.kind === "placed" && <Placed itemId={step.itemId} location={step.location} onNext={openCamera} />}
 
-      {step.kind === "empty" && (
-        <Card className="flex flex-col gap-3 p-4">
-          <p className="font-semibold">Nothing recorded in {step.location.name} yet.</p>
-          <Link to={`/capture?location=${step.location.id}`} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
-            <Camera size={20} /> Quick capture into {step.location.name}
-          </Link>
-          <Button variant="ghost" onClick={() => setStep({ kind: "ready" })} className="self-start">Cancel</Button>
-        </Card>
-      )}
 
+          {step.kind === "choose" && (
+            <Card className="flex flex-col gap-3 p-4">
+              <p className="font-semibold">Which one goes back in {step.location.name}?</p>
+              <ul className="flex flex-col gap-2">
+                {step.location.items.map((i) => (
+                  <li key={i.itemId}>
+                    <button
+                      onClick={() =>
+                        i.hasStock ? put.mutate({ itemId: i.itemId, location: step.location }) : startItem(i.itemId)
+                      }
+                      className="flex min-h-14 w-full items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 text-left"
+                    >
+                      <Thumb url={i.thumbUrl} size={44} />
+                      <span className={`flex-1 ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
+                      <span className="text-sm text-accent">+1</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <Button variant="ghost" onClick={() => setStep({ kind: "ready" })} className="self-start">Cancel</Button>
+            </Card>
+          )}
+
+          {step.kind === "where" && (
+            <Card className="flex flex-col gap-3 border-accent/50 p-4">
+              <ItemHeader item={step.item} />
+              {homesOf(step.item, step.unitId).length > 0 ? (
+                <>
+                  <p className="text-sm text-muted">Goes back in:</p>
+                  {homesOf(step.item, step.unitId).map((h) => (
+                    <Button key={h.id} variant="primary" className="min-h-14 text-lg" onClick={() => put.mutate({ itemId: step.item.id, location: h, unitId: step.unitId })}>
+                      <House size={20} /> {pathText(step.item.places.find((p) => p.locationId === h.id)?.path ?? [h])}
+                    </Button>
+                  ))}
+                  <p className="text-center text-sm text-muted">…or scan the bin you're putting it in</p>
+                </>
+              ) : (
+                <p className="flex items-center gap-2 font-semibold"><ScanLine size={20} className="text-accent" /> No home yet. Scan the bin it's going in</p>
+              )}
+              <div className="flex gap-2">
+                <Button onClick={openCamera}>Scan with camera</Button>
+                <Button variant="ghost" onClick={() => setStep({ kind: "ready" })}>Cancel</Button>
+              </div>
+            </Card>
+          )}
+
+          {step.kind === "notHome" && (
+            <Card className="flex flex-col gap-3 border-warn/50 p-4">
+              <ItemHeader item={step.item} />
+              <p className="flex items-start gap-2 text-warn">
+                <AlertTriangle size={20} className="mt-0.5 shrink-0" />
+                {step.location.name} isn't its usual home ({homesOf(step.item, step.unitId).map((h) => h.name).join(", ")}).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" onClick={() => put.mutate({ itemId: step.item.id, location: step.location, unitId: step.unitId })}>
+                  Put it here anyway
+                </Button>
+                <Button onClick={() => setStep({ kind: "where", item: step.item, unitId: step.unitId })}>Show its home</Button>
+              </div>
+            </Card>
+          )}
+
+          {step.kind === "empty" && (
+            <Card className="flex flex-col gap-3 p-4">
+              <p className="font-semibold">Nothing recorded in {step.location.name} yet.</p>
+              <Link to={`/capture?location=${step.location.id}`} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
+                <Camera size={20} /> Quick capture into {step.location.name}
+              </Link>
+              <Button variant="ghost" onClick={() => setStep({ kind: "ready" })} className="self-start">Cancel</Button>
+            </Card>
+          )}
+        </div>
+        {(step.kind === "ready" || step.kind === "placed") && <FindPart onPick={(id) => startItem(id)} />}
+      </div>
     </div>
   );
 }

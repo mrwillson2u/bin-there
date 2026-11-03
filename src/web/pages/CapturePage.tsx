@@ -88,7 +88,7 @@ export function CapturePage() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-2xl">
       <h1 className="text-xl font-semibold">Quick capture</h1>
 
       {saved[0] && (
