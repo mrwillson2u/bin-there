@@ -14,18 +14,18 @@
 | **Project Name** | Bin There (DEC-011; formerly the working name Stack-n-Track) |
 | **Project Type** | Web app (personal / single user) |
 | **One-liner** | An inventory app for a home garage workshop, so I can find and keep track of the things I own. |
-| **Current Phase** | Phase 7 — Ship. SPV features built and **live on ubuntubot** (2026-11-03); remaining ship items in the Handoff below |
+| **Current Phase** | **Shipped 2026-11-03.** Post-ship: the numbered docs are now advisory; keep this summary and the Decision Log current |
 | **SPV** | PRD F1–F8 live on iPhone via Tailscale HTTPS (see Ship Target in 09-Process-Guide.md) |
-| **Ship Date** | 2026-11-23 |
-| **Tech Stack** | TypeScript: React 19 (Vite PWA) + Hono on Node 22 + SQLite/Drizzle (FTS5), one Docker container on ubuntubot, via Tailscale Serve *(DEC-004, still Proposed)* |
-| **Top Open Decisions** | Confirm the proposed decisions DEC-001 (exact/level tracking), DEC-003 (Tailscale access), DEC-004 (stack), DEC-007 (leaving Needs details); whether to start photo-search Phase 0 |
+| **Ship Date** | 2026-11-23 (shipped 2026-11-03) |
+| **Tech Stack** | TypeScript: React 19 (Vite PWA) + Hono on Node 22 + SQLite/Drizzle (FTS5), one Docker container on ubuntubot, via Tailscale Serve (DEC-004) |
+| **Top Open Decisions** | Whether to start photo-search Phase 0 (post-ship) |
 | **Kit Version** | 1.1.0 |
 
 ---
 
 ## Handoff (current state; keep this updated at the end of each session)
 
-*Last updated 2026-11-03, after the move from the Mac to the server.*
+*Last updated 2026-11-03, after shipping the SPV.*
 
 ### Where things run
 
@@ -60,12 +60,9 @@ Tailscale Serve config persists across reboots; it was set once with `sudo tails
 
 PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
 
-### Left to ship (SPV, due 2026-11-23)
+### Shipped 2026-11-03
 
-1. Colin uses it for real on the phone. **Quick-capture photos haven't been tried on a real phone camera yet.**
-2. Re-add the new address to the iPhone home screen (the old icon pointed at the Mac).
-3. Confirm or change the Proposed decisions: DEC-001, DEC-003, DEC-004, DEC-007.
-4. Then mark the SPV shipped in `09-Process-Guide.md`.
+All SPV checks done on 2026-11-03: Colin used it for real on the phone (quick-capture photos work on the real camera), the home-screen icon points at ubuntubot, and DEC-001/003/004/007 are accepted. Marked shipped in `09-Process-Guide.md`.
 
 ### Next up (post-ship, Colin's interest)
 
@@ -89,8 +86,8 @@ All framework documents are in the `framework/` directory. Read by task — not 
 | Why was X chosen? | `08-Decision-Log.md` |
 | Product/vision context | `01-Concept.md` |
 | Phase status, skipped/deferred items | `09-Process-Guide.md` |
-| Generating UI-tool prompts | `10-UI-Generation-Prompt.md` |
-| Discovery questions | `ProcessGuide/starter_questions.md` |
+| Generating UI-tool prompts | `kit/10-UI-Generation-Prompt.md` |
+| Discovery questions | `kit/starter_questions.md` |
 
 ---
 

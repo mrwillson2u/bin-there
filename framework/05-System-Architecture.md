@@ -1,6 +1,6 @@
 # System Architecture
 
-> **Status:** Draft (stack proposed, pending confirmation)
+> **Status:** Accepted (DEC-004 confirmed 2026-11-03)
 > **Last Updated:** 2026-11-02
 > **Owner:** Colin
 

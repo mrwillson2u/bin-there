@@ -13,7 +13,7 @@
 | **Smallest Publishable Version (SPV)** | PRD **F1–F8** working on my iPhone: scan by **camera** on the iPhone, and by the **hardware scanner on a desktop/Pi browser**; nested locations with stickers; items with exact/level stock; search with full location path; +/− and single-item move with undo; quick capture + Needs details; Put-back mode; activity log; nightly backup with one successful restore test. Installed to the iPhone home screen. |
 | **Ship Date** | **2026-11-23** (committed 2026-11-02) |
 | **Deploy Target / Domain** | Docker on `ubuntubot` (Ubuntu 22.04), served over HTTPS by **Tailscale Serve** at `https://ubuntubot.llama-arctic.ts.net:8443`; reached from the iPhone over cell + Tailscale (DEC-003) |
-| **Status** | On track |
+| **Status** | **Shipped 2026-11-03** (20 days before the date) |
 
 After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD.md` unless they block the SPV (DEC-XXX entry required). If the date passes, cut scope rather than extend — date extensions also require a DEC-XXX entry.
 
@@ -31,7 +31,7 @@ After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD
 
 ## Current Phase
 
-**Status:** In Progress
+**Status:** Shipped
 
 | Phase | Status | Last Updated | Notes |
 |-------|--------|--------------|-------|
@@ -42,7 +42,7 @@ After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD
 | 4 - Architecture | ✅ Complete | 2026-11-02 | Stack DEC-004 + access DEC-003 proposed; data model/API drafted by AI | |
 | 5 - Visual Design | ✅ Complete | 2026-11-02 | Dark-first, clean/minimal; bin colors from real Allit bins | |
 | 6 - MVP & Roadmap | ✅ Complete | 2026-11-02 | SPV = F1–F8, ship 2026-11-23 (DEC-005) | Sets the Ship Target above |
-| 7 - Ship | 🟡 In Progress | 2026-11-02 | M1 code done (locations, stickers, scan detector, camera, Docker). ✅ iPhone camera scanned a real sticker over Tailscale HTTPS; ✅ scanner Ctrl+B prefix verified in a desktop browser (2026-11-02, running on the Mac for now). M2 code done (items, stock, quick capture, search, +/−, move, undo, activity). M3 code done (put-back mode, home-screen install, nightly backups + restore test). ✅ Moved to ubuntubot 2026-11-03 (`https://ubuntubot.llama-arctic.ts.net:8443`), restore test passed there. Remaining for ship: user uses it on the phone (quick-capture photos untested on a real camera); confirm Proposed DECs | Done = SPV live |
+| 7 - Ship | ✅ Complete | 2026-11-03 | M1 code done (locations, stickers, scan detector, camera, Docker). ✅ iPhone camera scanned a real sticker over Tailscale HTTPS; ✅ scanner Ctrl+B prefix verified in a desktop browser (2026-11-02, running on the Mac for now). M2 code done (items, stock, quick capture, search, +/−, move, undo, activity). M3 code done (put-back mode, home-screen install, nightly backups + restore test). ✅ Moved to ubuntubot 2026-11-03 (`https://ubuntubot.llama-arctic.ts.net:8443`), restore test passed there. ✅ Used on the phone and re-added to the home screen 2026-11-03. ✅ DEC-001/003/004/007 accepted and quick-capture photos verified on the real phone camera 2026-11-03. **SPV shipped 2026-11-03** | Done = SPV live |
 
 **Legend:** ⬜ Not Started | 🟡 In Progress | ✅ Complete | ⏭️ Skipped (N/A for this project)
 
@@ -50,7 +50,7 @@ After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD
 
 ## How Discovery Works
 
-The AI facilitator follows `AGENTS.md` (the canonical instruction file) and asks the questions in `ProcessGuide/starter_questions.md`, phase by phase, populating the framework docs as you answer. For small/solo projects, aim to finish Phases 0–6 in one sitting.
+The AI facilitator follows `AGENTS.md` (the canonical instruction file) and asks the questions in `kit/starter_questions.md`, phase by phase, populating the framework docs as you answer. For small/solo projects, aim to finish Phases 0–6 in one sitting.
 
 To resume after a break, tell the AI: *"Let's continue where we left off"* — it checks the tracker above and picks up from the first incomplete phase.
 
@@ -88,7 +88,7 @@ To resume after a break, tell the AI: *"Let's continue where we left off"* — i
 
 ### Phase 7: Ship
 **Output:** The SPV, live
-**Focus:** Unblocking, cutting scope, deploying — see the Phase 7 checklist in `starter_questions.md`
+**Focus:** Unblocking, cutting scope, deploying — see the Phase 7 checklist in `kit/starter_questions.md`
 
 ---
 

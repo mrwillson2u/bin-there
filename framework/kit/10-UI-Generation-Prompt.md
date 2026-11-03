@@ -14,7 +14,7 @@
 
 ## Generated Prompt
 
-*AI: Replace the content below with a generated prompt based on the filled-out UX Framework and Visual Style Guide. Keep it structured for optimal AI UI generation, and keep it **compact — under ~150 lines**. Summarize from the docs; never paste whole documents in. See `examples/task-app/framework/10-UI-Generation-Prompt.md` for a complete worked example.*
+*AI: Replace the content below with a generated prompt based on the filled-out UX Framework and Visual Style Guide. Keep it structured for optimal AI UI generation, and keep it **compact — under ~150 lines**. Summarize from the docs; never paste whole documents in. See `examples/task-app/framework/10-UI-Generation-Prompt.md` (in this folder) for a complete worked example.*
 
 ```
 [PROMPT WILL BE GENERATED HERE]

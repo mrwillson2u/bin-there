@@ -22,7 +22,7 @@ For each significant decision:
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-02 |
-| **Status** | Proposed |
+| **Status** | Accepted (confirmed by Colin 2026-11-03) |
 | **Deciders** | Colin |
 | **Category** | Product |
 
@@ -102,7 +102,7 @@ The scanner acts as a keyboard on both devices (USB on the Pi, Bluetooth on the 
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-02 |
-| **Status** | Proposed |
+| **Status** | Accepted (confirmed by Colin 2026-11-03) |
 | **Deciders** | Colin |
 | **Category** | Architecture |
 
@@ -139,7 +139,7 @@ Zero exposure and zero auth work for the first ship, using tools already in plac
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-02 |
-| **Status** | Proposed |
+| **Status** | Accepted (confirmed by Colin 2026-11-03) |
 | **Deciders** | Colin |
 | **Category** | Tech Stack |
 
@@ -232,8 +232,8 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-02 |
-| **Status** | Proposed |
-| **Deciders** | AI (during M2 build); Colin to confirm |
+| **Status** | Accepted (confirmed by Colin 2026-11-03) |
+| **Deciders** | AI (during M2 build); confirmed by Colin |
 | **Category** | Product |
 
 **Context:** PRD open question: which fields are required before an item leaves the Needs details queue?
@@ -334,21 +334,41 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 ---
 
+### DEC-012: Kit leftovers live in `framework/kit/`
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Process |
+
+**Context:** The repo was scaffolded from ai-framework kit 1.1.0, which left files in the root and in `framework/` that belong to the kit rather than to Bin There: the kit changelog, the example project, the discovery questions, and the never-used UI-prompt template.
+
+**Decision:** Move them to `framework/kit/` (with a README saying what they are) rather than delete them. Links in `AGENTS.md`, `AI-Context.md` and `09-Process-Guide.md` point at the new paths. The one-line editor redirects (`.cursorrules`, `.windsurfrules`, `.github/copilot-instructions.md`) and `LICENSE` stay in the root.
+
+**Rationale:** The root and `framework/` then contain only this project's own docs, while the kit material stays findable if the process is ever rerun.
+
+**Consequences:** Future kit upgrades compare against `framework/kit/`, not the root.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
 |----|-------|----------|--------|------|
-| DEC-001 | Per-item quantity tracking mode (exact vs. level) + count freshness | Product | Proposed | 2026-11-02 |
+| DEC-001 | Per-item quantity tracking mode (exact vs. level) + count freshness | Product | Accepted | 2026-11-02 |
 | DEC-002 | Mobile-first responsive web; Pi garage station after ship | Product / UX | Accepted | 2026-11-02 |
-| DEC-003 | Tailscale Serve for SPV; Cloudflare Tunnel + Access later for viewers | Architecture | Proposed | 2026-11-02 |
-| DEC-004 | TypeScript: React (Vite PWA) + Hono + SQLite/Drizzle, one container | Tech Stack | Proposed | 2026-11-02 |
+| DEC-003 | Tailscale Serve for SPV; Cloudflare Tunnel + Access later for viewers | Architecture | Accepted | 2026-11-02 |
+| DEC-004 | TypeScript: React (Vite PWA) + Hono + SQLite/Drizzle, one container | Tech Stack | Accepted | 2026-11-02 |
 | DEC-005 | SPV = F1–F8, ship 2026-11-23 | Scope | Accepted | 2026-11-02 |
 | DEC-006 | Resize photos on the phone, not the server | Architecture | Accepted | 2026-11-02 |
-| DEC-007 | When an item leaves "Needs details" | Product | Proposed | 2026-11-02 |
+| DEC-007 | When an item leaves "Needs details" | Product | Accepted | 2026-11-02 |
 | DEC-008 | Backups run inside the app, not host cron | Architecture | Accepted | 2026-11-03 |
 | DEC-009 | The put-back bin is physical only | Product | Accepted | 2026-11-03 |
 | DEC-010 | Sites as the top level of the location tree | Product | Accepted | 2026-11-03 |
 | DEC-011 | The app is called "Bin There" | Product | Accepted | 2026-11-03 |
+| DEC-012 | Kit leftovers live in `framework/kit/` | Process | Accepted | 2026-11-03 |
 
 ---
 

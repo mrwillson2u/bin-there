@@ -34,7 +34,7 @@ Project-specific rules. These override the generic kit rules below where they di
 
 1. **Check for a resumed session first:** read the phase tracker in `framework/09-Process-Guide.md`. If any phase is 🟡 or ✅, this is a resumed session — offer to continue from the first incomplete phase or address skipped/deferred items. Do **not** re-ask Phase 0.
 
-2. **Phase 0 — Scoping.** Ask what the user is building and whether it's a new project or an existing codebase (questions in `framework/ProcessGuide/starter_questions.md`).
+2. **Phase 0 — Scoping.** Ask what the user is building and whether it's a new project or an existing codebase (questions in `framework/kit/starter_questions.md`).
 
 3. **Determine which phases apply** using the Project Type Profiles below. Confirm the phase selection with the user — don't assume.
 
@@ -43,7 +43,7 @@ Project-specific rules. These override the generic kit rules below where they di
    - [ ] The Project Context table in `framework/09-Process-Guide.md` is populated
    - [ ] Skipped phases are marked ⏭️ in the phase tracker
 
-5. Proceed through the applicable phases in order (flow below), asking questions from `starter_questions.md`.
+5. Proceed through the applicable phases in order (flow below), asking questions from `framework/kit/starter_questions.md`.
 
 6. After each phase: summarize the answers, update the corresponding document, and update the phase tracker in `09-Process-Guide.md`.
 
@@ -81,7 +81,7 @@ When skipping phases, still ask if the user wants to include them — don't assu
 
 - **Default to one question at a time**, but offer batching at the start of each phase: "Here are the N questions for this phase — answer any or all, or say 'take defaults'."
 - Accept free-form answers that cover multiple questions at once — fill in everything they answer.
-- Questions marked **[default: …]** in `starter_questions.md` have a sensible default. Propose it and move on unless the user objects.
+- Questions marked **[default: …]** in `framework/kit/starter_questions.md` have a sensible default. Propose it and move on unless the user objects.
 - Push for specifics when answers are vague.
 - **Reject success metrics that cannot be observed or verified.** Convert each one into something checkable — a number, a binary event, or a dated outcome. Ask: "How would we know? What would we count, and by when?"
 - Summarize each phase before moving to the next.
@@ -106,7 +106,7 @@ Once the SPV is defined:
 ## Keeping Docs True
 
 - If a document contradicts the actual code or a logged decision, **flag it and update the doc** (or mark the section `[STALE]`) — never silently follow a stale doc.
-- If you change the kit's own templates or process, update `examples/task-app/` in the same change so the example always demonstrates the current process.
+- If you change the kit's own templates or process, update `framework/kit/examples/task-app/` in the same change so the example always demonstrates the current process.
 
 ## Working with Existing Codebases
 
@@ -180,7 +180,7 @@ If yes:
 1. Read `framework/03-UX-Framework.md` and `framework/04-Visual-Style-Guide.md`
 2. Read `framework/02-PRD.md` for feature list
 3. Read `framework/01-Concept.md` for context
-4. Generate a structured prompt following the template in `framework/10-UI-Generation-Prompt.md`
+4. Generate a structured prompt following the template in `framework/kit/10-UI-Generation-Prompt.md`
 5. Write the generated prompt to that file
 6. Update the "Generation Status" field
 
@@ -196,7 +196,7 @@ The prompt should be:
 | File | Purpose |
 |------|---------|
 | `framework/AI-Context.md` | Project Summary (read every session) + task-based reading map |
-| `framework/ProcessGuide/starter_questions.md` | Full question set for discovery |
+| `framework/kit/starter_questions.md` | Full question set for discovery |
 | `framework/01-Concept.md` | Vision, problem, goals, users |
 | `framework/02-PRD.md` | Features, MVP scope, acceptance criteria, post-ship backlog |
 | `framework/03-UX-Framework.md` | User research, personas, platform choice |
@@ -206,5 +206,6 @@ The prompt should be:
 | `framework/07-API-Contract.md` | Endpoints, protocols, interfaces |
 | `framework/08-Decision-Log.md` | Why we chose what we chose (DEC-XXX) |
 | `framework/09-Process-Guide.md` | Ship Target, phase tracker, skipped/deferred items |
-| `framework/10-UI-Generation-Prompt.md` | Generated prompt for UI design tools |
-| `CHANGELOG.md` | Kit version history |
+| `framework/kit/10-UI-Generation-Prompt.md` | Generated prompt for UI design tools |
+| `framework/kit/CHANGELOG.md` | Kit version history |
+| `framework/kit/` | Kit material not specific to this project (questions, UI-prompt template, example project, kit changelog) |
