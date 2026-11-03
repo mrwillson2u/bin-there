@@ -8,10 +8,11 @@ One Docker container on the Ubuntu server, reached over HTTPS through Tailscale 
 1. **Tailscale HTTPS:** in the Tailscale admin console → DNS, make sure **MagicDNS** and
    **HTTPS Certificates** are enabled. The iPhone camera only works over HTTPS.
 2. **Get the code onto the server**, e.g. `git clone` (or `rsync`) into `~/bin-there`.
-3. **Backup folder on the second drive:** create it and tell compose where it is:
+3. **Backup folder:** create it and tell compose where it is. ubuntubot has no separate
+   data drive (the other partitions are Windows/BitLocker), so for now it's in the home folder:
    ```bash
-   sudo mkdir -p /mnt/<second-drive>/bin-there && sudo chown $USER /mnt/<second-drive>/bin-there
-   echo "BACKUP_PATH=/mnt/<second-drive>/bin-there" >> .env
+   mkdir -p ~/bin-there-backups
+   echo "BACKUP_PATH=$HOME/bin-there-backups" >> .env
    echo "TZ=$(cat /etc/timezone)" >> .env
    ```
 
@@ -27,6 +28,7 @@ rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/sta
 /Applications/Tailscale.app/Contents/MacOS/Tailscale serve reset
 ```
 
+Moved 2026-11-03: now at `https://ubuntubot.llama-arctic.ts.net:8443`; the Mac copy is stopped.
 Then follow "Deploy / update" below on the server. The server gets its own Tailscale address
 (`https://<server>.<tailnet>.ts.net`); re-add it to the iPhone home screen.
 
@@ -36,8 +38,8 @@ Then follow "Deploy / update" below on the server. The server gets its own Tails
 cd ~/bin-there
 git pull                      # if using git
 docker compose up -d --build  # builds, runs tests, starts on 127.0.0.1:3000
-sudo tailscale serve --bg 3000
-tailscale serve status        # shows the https://<server>.<tailnet>.ts.net URL
+sudo tailscale serve --bg --https=8443 3000   # one time; port 443 is taken by Wazuh on ubuntubot
+tailscale serve status        # shows the https://ubuntubot.<tailnet>.ts.net:8443 URL
 ```
 
 Open that URL on the iPhone (with Tailscale on). In Safari: Share → **Add to Home Screen**.

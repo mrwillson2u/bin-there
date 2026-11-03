@@ -74,7 +74,7 @@ A single self-hosted Docker container on the home lab server (Ubuntu): a TypeScr
 | Attribute | Value |
 |-----------|-------|
 | **Purpose** | Nightly `sqlite3 .backup` + photo sync to a second disk or machine; keep N days |
-| **Implementation** | Built into the app (DEC-008): SQLite online backup → `BACKUP_DIR/snapshots/<time>/app.db`, integrity-checked, newest 14 kept; photos synced to `BACKUP_DIR/photos`. Runs nightly at `BACKUP_HOUR` and on start if the last good backup is >24 h old. Status on the Activity screen. **Destination: a second drive on the server** (interim). Will move to the user's main backup system once that's fixed. |
+| **Implementation** | Built into the app (DEC-008): SQLite online backup → `BACKUP_DIR/snapshots/<time>/app.db`, integrity-checked, newest 14 kept; photos synced to `BACKUP_DIR/photos`. Runs nightly at `BACKUP_HOUR` and on start if the last good backup is >24 h old. Status on the Activity screen. **Destination: `~/bin-there-backups` on the server's main disk** (interim; ubuntubot has no separate data drive). Will move to the user's main backup system once that's fixed. |
 
 ---
 
@@ -173,5 +173,5 @@ Build the image locally or on the server, then `docker compose up -d`. *(Optiona
 
 ## Open Questions
 
-- ~~Backup destination~~: a second drive on the server for now; switch when the home backup system is fixed. Note that the same machine is a single point of failure until then.
+- ~~Backup destination~~: a folder on the server's main disk for now (no second drive exists); switch when the home backup system is fixed. Note that the same machine is a single point of failure until then.
 - Next.js instead of a Vite SPA + Hono? *(Not recommended: no SSR or SEO need, and it's heavier. See DEC-004.)*
