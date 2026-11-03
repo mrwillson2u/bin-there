@@ -146,6 +146,7 @@ export function getItem(db: Db, id: number): ItemDetail {
       code: u.code,
       label: u.label,
       locationId: u.locationId,
+      homeLocationId: u.homeLocationId,
       path: u.locationId ? locationPath(db, u.locationId) : [],
     })),
     history: listEvents(db, { itemId: id, limit: 20 }),

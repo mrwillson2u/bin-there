@@ -42,7 +42,7 @@ After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD
 | 4 - Architecture | ✅ Complete | 2026-11-02 | Stack DEC-004 + access DEC-003 proposed; data model/API drafted by AI | |
 | 5 - Visual Design | ✅ Complete | 2026-11-02 | Dark-first, clean/minimal; bin colors from real Allit bins | |
 | 6 - MVP & Roadmap | ✅ Complete | 2026-11-02 | SPV = F1–F8, ship 2026-11-23 (DEC-005) | Sets the Ship Target above |
-| 7 - Ship | 🟡 In Progress | 2026-11-02 | M1 code done (locations, stickers, scan detector, camera, Docker). ✅ iPhone camera scanned a real sticker over Tailscale HTTPS; ✅ scanner Ctrl+B prefix verified in a desktop browser (2026-11-02, running on the Mac for now). M2 code done (items, stock, quick capture, search, +/−, move, undo, activity). Remaining: user tries M2 on the phone; move to the home lab server | Done = SPV live |
+| 7 - Ship | 🟡 In Progress | 2026-11-02 | M1 code done (locations, stickers, scan detector, camera, Docker). ✅ iPhone camera scanned a real sticker over Tailscale HTTPS; ✅ scanner Ctrl+B prefix verified in a desktop browser (2026-11-02, running on the Mac for now). M2 code done (items, stock, quick capture, search, +/−, move, undo, activity). M3 code done (put-back mode, home-screen install, nightly backups + restore test). Remaining for ship: user tries it on the phone (quick-capture photos are untested on a real camera); move to the home lab server + repeat the restore test there | Done = SPV live |
 
 **Legend:** ⬜ Not Started | 🟡 In Progress | ✅ Complete | ⏭️ Skipped (N/A for this project)
 
@@ -133,6 +133,7 @@ Not every question applies — "skip" and "defer" are valid answers (mechanics i
 
 | Date | Note |
 |------|------|
+| 2026-11-03 | M3 built: put-back mode (one-part bin → +1, mixed bin → choose, item sticker → home with not-home warning, unknown → quick capture, put-back-bin contents), PWA (manifest, icons, shell-cache service worker), in-app nightly backups with integrity check + status on Activity (DEC-008), restore drill passed. 50 tests; Chrome click-through of all put-back cases passed. Real copy on the Mac backs up to ./backups. |
 | 2026-11-02 | M2 built: items/stock/units API with undo snapshots, FTS5 search, starter categories, photo upload (resized on phone). Screens: item, edit, quick capture, search + Needs details, activity, location items with inline +/−. 40 tests pass; click-through in headless Chrome (batched +/−, undo, recount, scans on the capture form, scan-to-move, unit scan) all pass. Scanner's leftover "&END!" suffix is stripped. Running on the Mac at macbip-pro.llama-arctic.ts.net. |
 | 2026-11-02 | M1 built: Hono+SQLite API (locations, sticker assign, scan resolve, moves), React app (garage/location/new-location/unassigned screens), Ctrl+B scan interceptor + burst fallback (10 tests), camera scanner (lazy-loaded), Dockerfile/compose, DEPLOY.md. 21 tests pass. Not yet deployed. |
 | 2026-11-02 | Kit 1.1.0 copied in. Phase 0 started. Trigger: a big clean-out of the workbench/garage. User answering by voice for a while — keep questions short and easy to answer aloud. |

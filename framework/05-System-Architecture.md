@@ -44,7 +44,7 @@ A single self-hosted Docker container on the home lab server (Ubuntu): a TypeScr
 | Backend | **Node + Hono** | Small, typed, serves both API and static files |
 | Validation | Zod | Shared request/response schemas |
 | Database | **SQLite** via **Drizzle ORM** (+ FTS5 for search) | One file; trivial backups; plenty for one user |
-| Photos | Files on the volume; resized/compressed on upload (e.g. `sharp`) | Keep pages light over cell |
+| Photos | Files on the volume; resized on the phone before upload (DEC-006) | Keep pages light over cell |
 | Packaging | One Docker image, `docker compose` | Volume `./data` holds DB + photos |
 | Access / HTTPS | Tailscale Serve | DEC-003 |
 | Tests | Vitest (unit/API), Playwright (a few key flows) | |
@@ -74,7 +74,7 @@ A single self-hosted Docker container on the home lab server (Ubuntu): a TypeScr
 | Attribute | Value |
 |-----------|-------|
 | **Purpose** | Nightly `sqlite3 .backup` + photo sync to a second disk or machine; keep N days |
-| **Implementation** | Host cron or a small sidecar container. **Destination: a second drive on the server** (interim). Will move to the user's main backup system once that's fixed. |
+| **Implementation** | Built into the app (DEC-008): SQLite online backup → `BACKUP_DIR/snapshots/<time>/app.db`, integrity-checked, newest 14 kept; photos synced to `BACKUP_DIR/photos`. Runs nightly at `BACKUP_HOUR` and on start if the last good backup is >24 h old. Status on the Activity screen. **Destination: a second drive on the server** (interim). Will move to the user's main backup system once that's fixed. |
 
 ---
 

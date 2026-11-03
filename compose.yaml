@@ -6,5 +6,13 @@ services:
     # Bound to localhost only; Tailscale Serve provides the HTTPS front door (DEC-003).
     ports:
       - "127.0.0.1:3000:3000"
+    environment:
+      # Nightly backup at 03:00 (container time, UTC unless TZ is set) to the second drive (F8, DEC-008).
+      BACKUP_DIR: /backup
+      BACKUP_HOUR: "3"
+      BACKUP_KEEP: "14"
+      TZ: ${TZ:-UTC}
     volumes:
       - ./data:/data
+      # Point BACKUP_PATH at a folder on the second drive, e.g. in a .env file next to this one.
+      - ${BACKUP_PATH:-/mnt/backup/stack-n-track}:/backup

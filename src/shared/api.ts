@@ -160,6 +160,9 @@ export type MoveStock = z.infer<typeof moveStockSchema>;
 export const createUnitSchema = z.object({ itemId: id, code: codeSchema, locationId: id.nullable().optional(), label: optText(100) });
 export const moveUnitSchema = z.object({ toLocationId: id });
 
+export const putBackSchema = z.object({ itemId: id, locationId: id, unitId: id.optional(), qty: z.number().int().min(1).max(100_000).optional() });
+export type PutBack = z.infer<typeof putBackSchema>;
+
 export const createCategorySchema = z.object({
   name: z.string().trim().min(1).max(100),
   defaultKind: z.enum(itemKinds).optional(),
@@ -206,7 +209,14 @@ export type ItemSummary = {
 };
 
 export type Photo = { id: number; url: string; thumbUrl: string };
-export type Unit = { id: number; code: string | null; label: string | null; locationId: number | null; path: Crumb[] };
+export type Unit = {
+  id: number;
+  code: string | null;
+  label: string | null;
+  locationId: number | null;
+  homeLocationId: number | null;
+  path: Crumb[];
+};
 
 export type EventView = {
   id: number;
@@ -249,6 +259,11 @@ export type LocationItem = {
   level: StockLevel | null;
   units: number;
   stale: boolean;
+};
+
+export type BackupInfo = {
+  enabled: boolean;
+  last: { at: string; ok: boolean; snapshot: string | null; items: number; photos: number; error: string | null } | null;
 };
 
 /** Returned by every stock action so the client can offer Undo. */

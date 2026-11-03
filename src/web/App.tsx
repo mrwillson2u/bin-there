@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { Archive, History, Home, ScanLine, Search } from "lucide-react";
-import type { LocationSummary, ScanResult } from "../shared/api";
+import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
 import { HomePage } from "./pages/HomePage";
@@ -14,6 +13,7 @@ import { ItemEditPage } from "./pages/ItemEditPage";
 import { CapturePage } from "./pages/CapturePage";
 import { SearchPage } from "./pages/SearchPage";
 import { ActivityPage } from "./pages/ActivityPage";
+import { PutBackPage } from "./pages/PutBackPage";
 import { ToastProvider } from "./components/Toast";
 
 export function App() {
@@ -49,6 +49,7 @@ export function App() {
             <Route path="/items/:id" element={<ItemPage />} />
             <Route path="/items/:id/edit" element={<ItemEditPage />} />
             <Route path="/activity" element={<ActivityPage />} />
+            <Route path="/putback" element={<PutBackPage />} />
           </Routes>
         </Shell>
       </ToastProvider>
@@ -70,12 +71,6 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
     el.classList.add("scan-flash");
   }, [lastScan]);
 
-  const { data: top } = useQuery({
-    queryKey: ["locations", null],
-    queryFn: () => api<LocationSummary[]>("/locations"),
-  });
-  const putBack = top?.find((l) => l.type === "put_back");
-
   return (
     <div ref={shellRef} className="flex min-h-dvh flex-col">
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -90,7 +85,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
             <ScanLine size={28} />
           </button>
           <NavItem to="/activity" icon={<History size={22} />} label="Activity" />
-          <NavItem to={putBack ? `/locations/${putBack.id}` : "/"} icon={<Archive size={22} />} label="Put-back" />
+          <NavItem to="/putback" icon={<Archive size={22} />} label="Put-back" />
         </div>
       </nav>
     </div>

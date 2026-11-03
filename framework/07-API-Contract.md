@@ -57,7 +57,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | POST | `/api/stock/adjust` | `{ item_id, location_id, delta }` or `{ …, level }` | +/− use or add |
 | POST | `/api/stock/recount` | `{ item_id, location_id, qty }` | Set the count, reset staleness. On a new location it adds the item there (`qty: null` = not counted yet) |
 | POST | `/api/stock/move` | `{ item_id, from_location_id, to_location_id, qty? }` | Move some or all |
-| POST | `/api/putback` | `{ code? , item_id?, location_id?, qty }` | Put-back action; server resolves ambiguity or returns `needs_choice` with candidates |
+| POST | `/api/putback` | `{ itemId, locationId, unitId?, qty? }` | Put-back action. Moves it out of the put-back bin if it was recorded there, otherwise adds it; a unit moves to the location; the first put-back sets the home. Which item/bin is resolved in the client from `/api/scan` (one-part bin → +1, mixed bin → choose, item sticker → its home, warn if not a home) |
 
 ### Units (returnables)
 | Method | Path | Purpose |
@@ -74,9 +74,10 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | GET | `/api/events?item=&location=&since=` | Activity log |
 | POST | `/api/events/:id/undo` | Undo a recent action |
 | GET | `/api/health` | Health check |
+| GET / POST | `/api/backup` | Last backup status / run a backup now (DEC-008) |
 
 ---
 
 ## Open Questions
 
-- Should `/api/putback` be a single endpoint, or should the client compose adjust/move/checkin calls? *(Leaning toward a single endpoint so the rules live in one tested place.)*
+- ~~Should `/api/putback` be a single endpoint?~~ Yes for the stock rules (tested server-side); the scan → which-item resolution lives in the client, since it's mostly UI state.

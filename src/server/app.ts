@@ -27,6 +27,8 @@ import {
 } from "./items";
 import { adjustStock, createUnit, moveStock, moveUnit, recountStock } from "./stock";
 import { listEvents, undoEvent } from "./events";
+import { putBack } from "./putback";
+import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
 import {
   adjustSchema,
   assignCodeSchema,
@@ -37,10 +39,12 @@ import {
   createUnitSchema,
   moveStockSchema,
   moveUnitSchema,
+  putBackSchema,
   recountSchema,
   setHomesSchema,
   updateItemSchema,
   updateLocationSchema,
+  type BackupInfo,
   type ScanResult,
   type StockResult,
 } from "../shared/api";
@@ -48,7 +52,7 @@ import {
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const PHOTO_FILE = /^[\w-]+\.jpg$/;
 
-export function createApi(db: Db, opts: { photoDir: string }) {
+export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfig }) {
   mkdirSync(opts.photoDir, { recursive: true });
   const api = new Hono();
   api.onError((err, c) => errorResponse(c, err));
@@ -150,6 +154,11 @@ export function createApi(db: Db, opts: { photoDir: string }) {
     return c.json(result(moveStock(db, input), input.itemId));
   });
 
+  api.post("/putback", async (c) => {
+    const input = parseBody(putBackSchema, await c.req.json());
+    return c.json(result(putBack(db, input), input.itemId));
+  });
+
   // ── Units (stickered returnables) ──
   api.post("/units", async (c) => {
     const input = parseBody(createUnitSchema, await c.req.json());
@@ -183,6 +192,16 @@ export function createApi(db: Db, opts: { photoDir: string }) {
   api.post("/events/:id/undo", (c) => {
     const { itemId } = undoEvent(db, intParam(c.req.param("id")));
     return c.json(getItem(db, itemId));
+  });
+
+  // ── Backups ──
+  api.get("/backup", async (c) =>
+    c.json<BackupInfo>({ enabled: !!opts.backup, last: opts.backup ? await readBackupStatus(opts.backup) : null }),
+  );
+  api.post("/backup", async (c) => {
+    if (!opts.backup) throw new ApiError(400, "VALIDATION", "Backups aren't set up (BACKUP_DIR)");
+    const last = await runBackup(db, opts.backup);
+    return c.json<BackupInfo>({ enabled: true, last }, last.ok ? 200 : 500);
   });
 
   return api;

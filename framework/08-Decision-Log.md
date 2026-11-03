@@ -246,6 +246,33 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 ---
 
+### DEC-008: Backups run inside the app, not host cron
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | AI (during M3 build) |
+| **Category** | Architecture |
+
+**Context:** F8 needs nightly DB + photo backups to a second drive. The architecture left "host cron or sidecar" open. The app is currently running on a laptop and will move to Docker on the server.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Timer inside the app** (SQLite online backup + photo sync, status shown in the app) | Same on laptop and Docker; nothing extra to install; failures visible in the UI; uses SQLite's safe live backup | Only runs while the app runs (it does: `restart: unless-stopped`) |
+| Host cron + `sqlite3 .backup` | Independent of the app | Separate setup per machine; failures are silent; needs sqlite3 on the host |
+| Sidecar container | Isolated | Another container to run and watch |
+
+**Decision:** In-app. `BACKUP_DIR` mounted from the second drive; nightly at `BACKUP_HOUR`, plus at start-up if overdue; each snapshot is integrity-checked; 14 kept.
+
+**Rationale:** The last attempt's lesson is that silent decay kills the system. A backup whose status shows on the Activity screen is one that gets noticed when it breaks.
+
+**Consequences:** Same-machine backups until the main backup system is fixed (noted in DEPLOY.md). Pointing `BACKUP_DIR` at the real backup system later is a config change.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -257,6 +284,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-005 | SPV = F1–F8, ship 2026-11-23 | Scope | Accepted | 2026-11-02 |
 | DEC-006 | Resize photos on the phone, not the server | Architecture | Accepted | 2026-11-02 |
 | DEC-007 | When an item leaves "Needs details" | Product | Proposed | 2026-11-02 |
+| DEC-008 | Backups run inside the app, not host cron | Architecture | Accepted | 2026-11-03 |
 
 ---
 

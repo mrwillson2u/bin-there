@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Three stacked bins in the real bin colours: 1×1 red, 2×1 yellow, 2×2 blue. -->
+  <rect width="512" height="512" fill="#0E0F11"/>
+  <rect x="136" y="300" width="240" height="88" rx="14" fill="#3B82F6"/>
+  <rect x="176" y="208" width="160" height="76" rx="14" fill="#FACC15"/>
+  <rect x="216" y="124" width="80" height="68" rx="14" fill="#EF4444"/>
+  <rect x="136" y="402" width="240" height="10" rx="5" fill="#38BDF8"/>
+</svg>
