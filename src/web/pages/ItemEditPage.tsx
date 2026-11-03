@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import {
   itemKindLabels,
   itemKinds,
@@ -14,7 +14,8 @@ import {
   type UpdateItem,
 } from "../../shared/api";
 import { api } from "../api";
-import { Button, Field, inputClass, Thumb } from "../components/ui";
+import { useToast } from "../components/Toast";
+import { Button, Field, inputClass, itemName, Thumb } from "../components/ui";
 
 const NEW_CATEGORY = -1;
 
@@ -29,6 +30,7 @@ export function ItemEditPage() {
 function ItemForm({ item, categories }: { item: ItemDetail; categories: Category[] }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const toast = useToast();
   const [name, setName] = useState(item.name);
   const [categoryId, setCategoryId] = useState<number | null>(item.categoryId);
   const [newCategory, setNewCategory] = useState("");
@@ -92,6 +94,22 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
     },
     onError: (e: Error) => setError(e.message),
   });
+
+  // Soft delete: hidden everywhere, history kept, undoable from the toast.
+  const remove = useMutation({
+    mutationFn: () => api<{ eventId: number }>(`/items/${item.id}`, { method: "DELETE" }),
+    onSuccess: (r) => {
+      navigate("/", { replace: true });
+      // Drop the deleted item's own query rather than refetching it (it would 404 now).
+      qc.removeQueries({ queryKey: ["item", item.id] });
+      qc.invalidateQueries();
+      toast.show({ message: `Deleted ${itemName(item.name)}`, undoEventId: r.eventId });
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+  const confirmRemove = () => {
+    if (window.confirm(`Delete ${itemName(item.name)}? Its history is kept and you can undo right after.`)) remove.mutate();
+  };
 
   const priceOk = price.trim() === "" || (Number.isFinite(Number(price)) && Number(price) >= 0);
   const canSave = name.trim().length > 0 && priceOk && (categoryId !== NEW_CATEGORY || newCategory.trim().length > 0);
@@ -219,6 +237,9 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
         </Button>
         <Button type="button" onClick={() => navigate(-1)}>Cancel</Button>
       </div>
+      <Button type="button" variant="danger" onClick={confirmRemove} disabled={remove.isPending} className="mt-6 self-start">
+        <Trash2 size={18} /> Delete item
+      </Button>
     </form>
   );
 }

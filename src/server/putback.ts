@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { itemHomes, items, stock, units } from "./db/schema";
+import { events, itemHomes, items, stock, units, type UndoData } from "./db/schema";
 import { ApiError } from "./errors";
 import { requireLocation } from "./items";
 import { adjustStock, checkInUnit, moveUnit, recountStock } from "./stock";
@@ -36,8 +36,15 @@ export function putBack(db: Db, input: PutBack): number | null {
     }
   }
 
-  // The first place something is put back becomes its home.
+  // The first place something is put back becomes its home. Undoing the put-back undoes that too.
   const hasHome = db.select().from(itemHomes).where(eq(itemHomes.itemId, item.id)).get();
-  if (!hasHome) db.insert(itemHomes).values({ itemId: item.id, locationId: dest }).run();
+  if (!hasHome) {
+    db.insert(itemHomes).values({ itemId: item.id, locationId: dest }).run();
+    if (eventId !== null) {
+      const ev = db.select({ undoData: events.undoData }).from(events).where(eq(events.id, eventId)).get();
+      const undoData: UndoData = { ...(ev?.undoData ?? {}), homes: ev?.undoData?.homes ?? [] };
+      db.update(events).set({ undoData }).where(eq(events.id, eventId)).run();
+    }
+  }
   return eventId;
 }

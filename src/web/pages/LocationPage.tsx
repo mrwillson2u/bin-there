@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, MoveRight, Plus, QrCode, ScanLine } from "lucide-react";
+import { Camera, MoveRight, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
 import { locationTypeLabels, type LocationDetail, type ScanResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
@@ -16,6 +16,7 @@ type Mode = "idle" | "assign" | "move";
 export function LocationPage() {
   const id = Number(useParams().id);
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data: loc, error } = useQuery({
     queryKey: ["location", id],
     queryFn: () => api<LocationDetail>(`/locations/${id}`),
@@ -40,6 +41,17 @@ export function LocationPage() {
     mutationFn: (parentId: number) =>
       api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { parentId } }),
     onSuccess: (l) => done(`Moved to ${l.path.at(-2)?.name ?? "?"}`),
+    onError: fail,
+  });
+
+  // Only an empty location can be deleted (soft delete: hidden, history kept).
+  const remove = useMutation({
+    mutationFn: () => api<{ parentId: number | null }>(`/locations/${id}`, { method: "DELETE" }),
+    onSuccess: ({ parentId }) => {
+      navigate(parentId ? `/locations/${parentId}` : "/", { replace: true });
+      qc.removeQueries({ queryKey: ["location", id] });
+      qc.invalidateQueries();
+    },
     onError: fail,
   });
 
@@ -109,6 +121,17 @@ export function LocationPage() {
           {loc.type !== "site" && (
             <Button onClick={() => { setMessage(null); setMode("move"); }}>
               <MoveRight size={18} /> Move
+            </Button>
+          )}
+          {loc.children.length === 0 && loc.items.length === 0 && (
+            <Button
+              variant="danger"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (window.confirm(`Delete ${loc.name}? It's empty, and its history is kept.`)) remove.mutate();
+              }}
+            >
+              <Trash2 size={18} /> Delete
             </Button>
           )}
         </div>

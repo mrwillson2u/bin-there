@@ -48,6 +48,15 @@ describe("put-back", () => {
     expect(r.eventId).not.toBeNull();
   });
 
+  it("makes the first put-back place the home, and undo takes the home away again", async () => {
+    const b = await bin("Bin 3");
+    const s = await item({ name: "Spacer" });
+    const r = await putBack({ itemId: s.id, locationId: b.id });
+    expect(r.item.places.find((p) => p.locationId === b.id)).toMatchObject({ qty: 1, isHome: true });
+    const undone = await ok<ItemDetail>("POST", `/events/${r.eventId}/undo`);
+    expect(undone.places).toEqual([]);
+  });
+
   it("puts a stickered unit back where it belongs, and undoes", async () => {
     const [shelf, desk] = [await bin("Shelf"), await bin("Desk")];
     const psu = await item({ code: "PSU00000001", locationId: shelf.id });

@@ -353,6 +353,32 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 ---
 
+### DEC-013: Deleting is a soft delete, and an item delete is undoable
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** The shipped SPV had no way to delete or archive anything: the database had an `archived` flag that nothing set. A mistaken quick capture was permanent. Found in the post-ship code audit.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Hard delete rows | Simple | Activity-log entries would point at nothing; no undo |
+| **Soft delete (archive flag), history kept** | Log stays whole; an item delete can be undone like any other change | Rows stay in the database (fine at this scale) |
+
+**Decision:** "Delete" sets `archived`. An archived item disappears from search, locations, scans and pins; its stickers are freed so they can go on something else; the delete is an activity-log event with Undo (which also restores the stickers, unless one has been reused since). A location can only be deleted when it holds nothing; its sticker is freed; this one isn't undoable (it was empty, so re-creating it is cheap).
+
+**Rationale:** Matches the "every change is logged and undoable" rule the rest of the app follows, and keeps the activity log honest.
+
+**Consequences:** `DELETE /api/items/:id` and `DELETE /api/locations/:id`; a new `archive` event type. No way to list or restore archived things from the UI beyond Undo; if that's ever needed it's a small addition.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -369,6 +395,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-010 | Sites as the top level of the location tree | Product | Accepted | 2026-11-03 |
 | DEC-011 | The app is called "Bin There" | Product | Accepted | 2026-11-03 |
 | DEC-012 | Kit leftovers live in `framework/kit/` | Process | Accepted | 2026-11-03 |
+| DEC-013 | Deleting is a soft delete; item delete is undoable | Product | Accepted | 2026-11-03 |
 
 ---
 

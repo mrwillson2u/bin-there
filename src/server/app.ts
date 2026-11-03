@@ -8,6 +8,7 @@ import type { Db } from "./db/client";
 import { locations, units } from "./db/schema";
 import { ApiError, errorResponse, parseBody } from "./errors";
 import {
+  archiveLocation,
   assignLocationCode,
   createLocation,
   getLocation,
@@ -16,6 +17,7 @@ import {
 } from "./locations";
 import {
   addPhoto,
+  archiveItem,
   countNeedsDetails,
   listCheckedOut,
   recentlyUsed,
@@ -94,6 +96,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const input = parseBody(updateLocationSchema, await c.req.json());
     return c.json(updateLocation(db, intParam(c.req.param("id")), input));
   });
+  api.delete("/locations/:id", (c) => c.json(archiveLocation(db, intParam(c.req.param("id")))));
   api.post("/locations/:id/code", async (c) => {
     const { code } = parseBody(assignCodeSchema, await c.req.json());
     return c.json(assignLocationCode(db, intParam(c.req.param("id")), code));
@@ -113,6 +116,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const input = parseBody(updateItemSchema, await c.req.json());
     return c.json(updateItem(db, intParam(c.req.param("id")), input));
   });
+  api.delete("/items/:id", (c) => c.json(archiveItem(db, intParam(c.req.param("id")))));
   api.put("/items/:id/homes", async (c) => {
     const { locationIds } = parseBody(setHomesSchema, await c.req.json());
     return c.json(setHomes(db, intParam(c.req.param("id")), locationIds));
@@ -233,6 +237,9 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const last = await runBackup(db, opts.backup);
     return c.json<BackupInfo>({ enabled: true, last }, last.ok ? 200 : 500);
   });
+
+  // Anything else under /api is a JSON 404, not the web app's index.html.
+  api.all("*", (c) => c.json({ error: { code: "NOT_FOUND", message: `No API route ${c.req.method} ${c.req.path}` } }, 404));
 
   return api;
 }

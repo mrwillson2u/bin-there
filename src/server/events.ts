@@ -1,7 +1,8 @@
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { events, itemHomes, items, stock, units } from "./db/schema";
+import { events, itemHomes, items, locations, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
+import { indexItem } from "./items";
 import { locationPath } from "./locations";
 import type { EventView } from "../shared/api";
 
@@ -79,8 +80,24 @@ export function undoEvent(db: Db, id: number): { itemId: number } {
       db.delete(itemHomes).where(eq(itemHomes.itemId, itemId)).run();
       for (const l of data.homes) db.insert(itemHomes).values({ itemId, locationId: l }).run();
     }
+    if (data.archive) {
+      db.update(items).set({ archived: false, updatedAt: sql`(datetime('now'))` }).where(eq(items.id, itemId)).run();
+      for (const u of data.archive.units) {
+        // A freed sticker may have gone on something else since; then the unit comes back without it.
+        const code = u.code && !codeTaken(db, u.code) ? u.code : null;
+        db.update(units).set({ status: u.status, code, updatedAt: sql`(datetime('now'))` }).where(eq(units.id, u.id)).run();
+      }
+    }
     const undo = db.insert(events).values({ type: "undo", itemId }).returning({ id: events.id }).get();
     db.update(events).set({ undoneBy: undo.id }).where(eq(events.id, id)).run();
   });
+  if (data.archive) indexItem(db, itemId);
   return { itemId };
+}
+
+function codeTaken(db: Db, code: string) {
+  return (
+    !!db.select({ id: locations.id }).from(locations).where(eq(locations.code, code)).get() ||
+    !!db.select({ id: units.id }).from(units).where(eq(units.code, code)).get()
+  );
 }

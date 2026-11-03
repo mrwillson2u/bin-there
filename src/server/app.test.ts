@@ -123,6 +123,35 @@ describe("stickers and scanning", () => {
   });
 });
 
+describe("api hygiene", () => {
+  it("answers unknown API paths with a JSON 404, not the web app", async () => {
+    const r = await call<{ error: { code: string } }>("GET", "/nope");
+    expect(r.status).toBe(404);
+    expect(r.json.error.code).toBe("NOT_FOUND");
+  });
+
+  it("answers a malformed body with a 400", async () => {
+    const res = await api.request("/locations", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{not json" });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("VALIDATION");
+  });
+});
+
+describe("deleting locations", () => {
+  it("only deletes an empty location, then hides it from lists and scans", async () => {
+    const tote = await create({ name: "Tote", type: "tote", code: "T1" });
+    const bin = await create({ name: "Bin", type: "bin", parentId: tote.id });
+    expect((await call("DELETE", `/locations/${tote.id}`)).status).toBe(400);
+    expect((await call<{ parentId: number }>("DELETE", `/locations/${bin.id}`)).json.parentId).toBe(tote.id);
+    expect((await call("DELETE", `/locations/${tote.id}`)).status).toBe(200);
+    expect((await call("GET", `/locations/${tote.id}`)).status).toBe(404);
+    expect((await call<LocationDetail>("GET", `/locations/${site.id}`)).json.children).toEqual([]);
+    // Its sticker is free to go on something else.
+    expect((await call<ScanResult>("GET", "/scan/T1")).json.kind).toBe("unassigned");
+    expect((await call("POST", "/locations", { name: "Tote 2", type: "tote", parentId: site.id, code: "T1" })).status).toBe(201);
+  });
+});
+
 describe("migrations", () => {
   it("deletes the old put-back bin and moves top-level locations into a Garage site", async () => {
     const file = join(mkdtempSync(join(tmpdir(), "snt-mig-")), "app.db");

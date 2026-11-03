@@ -16,6 +16,8 @@ None in the SPV: the app is reachable only on the tailnet (DEC-003). Later: Clou
 
 ## Error Handling
 
+A missing or malformed JSON body is a `400 VALIDATION`.
+
 ```json
 { "error": { "code": "NOT_FOUND", "message": "No location with code ABC123" } }
 ```
@@ -38,6 +40,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | POST | `/api/locations` | Create (optionally with `code`) |
 | PATCH | `/api/locations/:id` | Edit; changing `parent_id` = **move container** (F9) |
 | POST | `/api/locations/:id/code` | Assign a sticker code |
+| DELETE | `/api/locations/:id` | Soft delete an **empty** location (400 if it holds anything); frees its sticker; returns `{ parentId }` (DEC-013) |
 
 ### Items
 | Method | Path | Purpose |
@@ -48,6 +51,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | POST | `/api/items` | Create. Used by quick capture: everything optional (`name`, `code` → returnable unit, `locationId`, `qty`/`level`, `categoryId`). Needs details unless it has a name **and** a category (DEC-007) |
 | PATCH | `/api/items/:id` | Edit details (clears `needs_details` when complete) |
 | PUT | `/api/items/:id/homes` | Set designated home location(s) |
+| DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
 | POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |
 | GET | `/api/photos/:file` | Serve a stored photo (immutable cache) |
 | GET | `/api/stats` | `{ needsDetails }` count for the home screen |
@@ -82,6 +86,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | GET | `/api/events?item=&location=&since=` | Activity log |
 | POST | `/api/events/:id/undo` | Undo a recent action |
 | GET | `/api/health` | Health check |
+| any | `/api/*` (unknown) | JSON `404 NOT_FOUND`, never the web app's page |
 | GET / POST | `/api/backup` | Last backup status / run a backup now (DEC-008) |
 
 ---

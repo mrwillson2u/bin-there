@@ -15,6 +15,10 @@ export function errorResponse(c: Context, err: Error) {
   if (err instanceof ApiError) {
     return c.json({ error: { code: err.code, message: err.message } }, err.status);
   }
+  // c.req.json() on a missing or malformed body.
+  if (err instanceof SyntaxError) {
+    return c.json({ error: { code: "VALIDATION", message: "Request body isn't valid JSON" } }, 400);
+  }
   console.error(err);
   return c.json({ error: { code: "INTERNAL", message: "Something went wrong" } }, 500);
 }

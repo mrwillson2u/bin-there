@@ -35,6 +35,36 @@ const bin = (name: string, code?: string) => ok<LocationDetail>("POST", "/locati
 const item = (body: object) => ok<ItemDetail>("POST", "/items", body);
 const adjust = (body: object) => ok<StockResult>("POST", "/stock/adjust", body);
 
+describe("deleting items", () => {
+  it("hides the item, frees its sticker, and comes back on undo", async () => {
+    const shelf = await bin("Shelf", "SHELF1");
+    const psu = await item({ name: "Bench PSU", code: "PSU0001", locationId: shelf.id });
+    const { eventId } = await ok<{ eventId: number }>("DELETE", `/items/${psu.id}`);
+
+    expect((await call("GET", `/items/${psu.id}`)).status).toBe(404);
+    expect(await ok<ItemSummary[]>("GET", "/items?q=psu")).toEqual([]);
+    expect((await ok<LocationDetail>("GET", `/locations/${shelf.id}`)).items).toEqual([]);
+    expect(await ok<ScanResult>("GET", "/scan/PSU0001")).toMatchObject({ kind: "unassigned" });
+    const events = await ok<EventView[]>("GET", "/events");
+    expect(events[0]).toMatchObject({ type: "archive", itemId: psu.id, canUndo: true });
+
+    const back = await ok<ItemDetail>("POST", `/events/${eventId}/undo`);
+    expect(back.unitList[0]).toMatchObject({ code: "PSU0001", locationId: shelf.id });
+    expect(await ok<ScanResult>("GET", "/scan/PSU0001")).toMatchObject({ kind: "unit", itemId: psu.id });
+    expect(await ok<ItemSummary[]>("GET", "/items?q=psu")).toHaveLength(1);
+  });
+
+  it("lets the freed sticker go on something else; undo then restores the item without it", async () => {
+    const shelf = await bin("Shelf");
+    const old = await item({ name: "Old meter", code: "TOOL0001", locationId: shelf.id });
+    const { eventId } = await ok<{ eventId: number }>("DELETE", `/items/${old.id}`);
+    const fresh = await item({ name: "New meter", code: "TOOL0001", locationId: shelf.id });
+    const back = await ok<ItemDetail>("POST", `/events/${eventId}/undo`);
+    expect(back.unitList[0]!.code).toBeNull();
+    expect(await ok<ScanResult>("GET", "/scan/TOOL0001")).toMatchObject({ kind: "unit", itemId: fresh.id });
+  });
+});
+
 describe("quick capture", () => {
   it("turns an unassigned sticker into a returnable unit that needs details", async () => {
     const shelf = await bin("Shelf");

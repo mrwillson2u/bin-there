@@ -135,6 +135,7 @@ export const EVENT_TYPES = [
   "put_back",
   "create",
   "assign_code",
+  "archive",
   "undo",
 ] as const;
 
@@ -149,6 +150,8 @@ export type UndoData = {
   }[];
   /** The item's home locations before the event. */
   homes?: number[];
+  /** For an item archive: the units as they were, so Undo can bring the item back. */
+  archive?: { units: { id: number; code: string | null; status: (typeof UNIT_STATUSES)[number] }[] };
 };
 
 export const events = sqliteTable("events", {

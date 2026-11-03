@@ -47,7 +47,7 @@ A single self-hosted Docker container on the home lab server (Ubuntu): a TypeScr
 | Photos | Files on the volume; resized on the phone before upload (DEC-006) | Keep pages light over cell |
 | Packaging | One Docker image, `docker compose` | Volume `./data` holds DB + photos |
 | Access / HTTPS | Tailscale Serve | DEC-003 |
-| Tests | Vitest (unit/API), Playwright (a few key flows) | |
+| Tests | Vitest (API tests against an in-memory database + scanner-detector unit tests). No Playwright suite; screens are clicked through by hand or with headless Chrome against a throwaway copy before shipping | |
 
 *(See DEC-004.)*
 

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { categories, events, itemHomes, items, locations, photos, stock, units, type StockRow } from "./db/schema";
+import { categories, events, itemHomes, items, locations, photos, pins, stock, units, type StockRow } from "./db/schema";
 import { ApiError } from "./errors";
 import { listEvents } from "./events";
 import { locationPath } from "./locations";
@@ -383,6 +383,27 @@ export function setHomes(db: Db, id: number, locationIds: number[]): ItemDetail 
     for (const l of new Set(locationIds)) db.insert(itemHomes).values({ itemId: id, locationId: l }).run();
   });
   return getItem(db, id);
+}
+
+/**
+ * Soft delete: hidden everywhere, history kept. Its stickers are freed so they can go on
+ * something else. Undoable (events.ts) while it's the item's latest change.
+ */
+export function archiveItem(db: Db, id: number): { eventId: number } {
+  requireItem(db, id);
+  const unitRows = db.select({ id: units.id, code: units.code, status: units.status }).from(units).where(eq(units.itemId, id)).all();
+  const eventId = db.transaction(() => {
+    db.update(items).set({ archived: true, updatedAt: sql`(datetime('now'))` }).where(eq(items.id, id)).run();
+    db.update(units).set({ status: "retired", code: null, updatedAt: sql`(datetime('now'))` }).where(eq(units.itemId, id)).run();
+    db.delete(pins).where(eq(pins.itemId, id)).run();
+    return db
+      .insert(events)
+      .values({ type: "archive", itemId: id, undoData: { archive: { units: unitRows } } })
+      .returning({ id: events.id })
+      .get().id;
+  });
+  indexItem(db, id);
+  return { eventId };
 }
 
 export function addPhoto(db: Db, itemId: number, path: string, thumbPath: string): ItemDetail {

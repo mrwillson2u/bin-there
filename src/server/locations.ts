@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { locations, units, events } from "./db/schema";
+import { events, itemHomes, locations, pins, units } from "./db/schema";
 import { ApiError } from "./errors";
 import { locationItems } from "./items";
 import { isPinned } from "./pins";
@@ -141,6 +141,21 @@ export function updateLocation(db: Db, id: number, input: UpdateLocation): Locat
     }
   });
   return getLocation(db, id);
+}
+
+/** Soft delete an empty location: hidden from lists and scans, history kept. Its sticker is freed. */
+export function archiveLocation(db: Db, id: number): { parentId: number | null } {
+  const loc = getLocation(db, id);
+  if (loc.children.length > 0) throw new ApiError(400, "VALIDATION", "Move or delete what's inside it first");
+  if (loc.items.length > 0) throw new ApiError(400, "VALIDATION", "Move its items somewhere else first");
+  db.transaction((tx) => {
+    tx.update(locations).set({ archived: true, code: null, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
+    tx.delete(itemHomes).where(eq(itemHomes.locationId, id)).run();
+    tx.update(units).set({ homeLocationId: null }).where(eq(units.homeLocationId, id)).run();
+    tx.delete(pins).where(eq(pins.locationId, id)).run();
+    tx.insert(events).values({ type: "archive", locationId: id, fromLocationId: loc.parentId }).run();
+  });
+  return { parentId: loc.parentId };
 }
 
 export function assignLocationCode(db: Db, id: number, code: string): LocationDetail {
