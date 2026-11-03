@@ -65,8 +65,9 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 |--------|------|---------|
 | POST | `/api/units` | Create a unit (with sticker code) for an item |
 | POST | `/api/units/:id/move` | `{ toLocationId }` (undoable) |
-| POST | `/api/units/:id/checkout` | `{ to_location_id, note }` |
-| POST | `/api/units/:id/checkin` | `{ location_id? }` defaults to home |
+| POST | `/api/units/:id/checkout` | `{ toLocationId?, note? }`: at least one. Undoable |
+| POST | `/api/units/:id/checkin` | `{ locationId? }` defaults to the unit's home. Undoable. Put-back mode does this automatically when a checked-out unit is scanned |
+| GET | `/api/units/checked-out` | Every unit out right now, longest-out first, with current place, note and home |
 
 ### Pins (F11)
 | Method | Path | Purpose |

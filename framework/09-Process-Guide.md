@@ -133,6 +133,7 @@ Not every question applies — "skip" and "defer" are valid answers (mechanics i
 
 | Date | Note |
 |------|------|
+| 2026-11-03 | Overnight (user asleep): desktop/Pi layout (sidebar + two columns ≥1024px); F10 check out/in for stickered units (to a location and/or a note; Out right now page + Home banner; put-back scan checks in; undoable). 56 tests; Chrome click-throughs passed. Photo-search research running. |
 | 2026-11-03 | Pinned parts get compact − / + on Home; put-back gets "No sticker? Find it" search + "Recently taken out" (F13). Stock changes now update cached pins/location screens immediately (no flicker). 52 tests; Chrome click-through passed. |
 | 2026-11-03 | F12 sites (DEC-010): sites are the top level; existing locations migrated into "Garage"; Home shows the one site or lists several; new-location form asks what it goes inside. 51 tests; Chrome click-through passed. |
 | 2026-11-03 | Post-M3 additions while ahead of schedule: put-back bin made physical only and deleted (DEC-009); location type descriptions; F11 pins (pin parts/containers to the top of Garage). 51 tests. |

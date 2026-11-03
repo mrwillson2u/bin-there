@@ -7,6 +7,7 @@ import { locationPath } from "./locations";
 import { isPinned } from "./pins";
 import type {
   Category,
+  CheckedOutUnit,
   CreateItem,
   Crumb,
   ItemDetail,
@@ -106,6 +107,15 @@ function summaries(db: Db, rows: (typeof items.$inferSelect)[]): ItemSummary[] {
   const paths = new Map<number, Crumb[]>();
   return rows.map((r) => {
     const places = placesFor(db, r.id, r.tracking, paths);
+    const u = db
+      .select({
+        out: sql<number>`coalesce(sum(${units.status} = 'checked_out'), 0)`,
+        unplaced: sql<number>`coalesce(sum(${units.locationId} is null), 0)`,
+      })
+      .from(units)
+      .where(and(eq(units.itemId, r.id), ne(units.status, "retired")))
+      .get()!;
+    const placed = totalQty(places);
     return {
       id: r.id,
       name: r.name,
@@ -114,7 +124,9 @@ function summaries(db: Db, rows: (typeof items.$inferSelect)[]): ItemSummary[] {
       needsDetails: r.needsDetails,
       categoryName: r.categoryId ? (catNames.get(r.categoryId) ?? null) : null,
       thumbUrl: thumbMap.get(r.id) ?? null,
-      totalQty: r.tracking === "exact" || places.some((p) => p.units > 0) ? totalQty(places) : null,
+      // Units out with no location (e.g. "lent to Sam") still count.
+      totalQty: placed === null && u.unplaced === 0 ? null : (placed ?? 0) + u.unplaced,
+      checkedOut: u.out,
       places,
     };
   });
@@ -149,6 +161,7 @@ export function getItem(db: Db, id: number): ItemDetail {
       locationId: u.locationId,
       homeLocationId: u.homeLocationId,
       path: u.locationId ? locationPath(db, u.locationId) : [],
+      out: u.status === "checked_out" ? { at: u.checkedOutAt ?? u.updatedAt, note: u.checkedOutNote } : null,
     })),
     history: listEvents(db, { itemId: id, limit: 20 }),
     pinned: isPinned(db, "item", id),
@@ -213,6 +226,29 @@ export function recentlyUsed(db: Db, days = 30, limit = 20): ItemSummary[] {
     .limit(limit)
     .all();
   return searchItemsByIds(db, rows.map((r) => r.itemId).filter((x): x is number => x !== null));
+}
+
+/** Every stickered unit that's out right now, longest-out first. */
+export function listCheckedOut(db: Db): CheckedOutUnit[] {
+  const rows = db
+    .select({ u: units, name: items.name })
+    .from(units)
+    .innerJoin(items, eq(items.id, units.itemId))
+    .where(and(eq(units.status, "checked_out"), eq(items.archived, false)))
+    .orderBy(asc(units.checkedOutAt))
+    .all();
+  const thumbMap = thumbs(db, [...new Set(rows.map((r) => r.u.itemId))]);
+  return rows.map(({ u, name }) => ({
+    unitId: u.id,
+    code: u.code,
+    itemId: u.itemId,
+    itemName: name,
+    thumbUrl: thumbMap.get(u.itemId) ?? null,
+    path: u.locationId ? locationPath(db, u.locationId) : [],
+    homePath: u.homeLocationId ? locationPath(db, u.homeLocationId) : [],
+    at: u.checkedOutAt ?? u.updatedAt,
+    note: u.checkedOutNote,
+  }));
 }
 
 export function countNeedsDetails(db: Db): number {

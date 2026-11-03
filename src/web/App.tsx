@@ -14,6 +14,7 @@ import { CapturePage } from "./pages/CapturePage";
 import { SearchPage } from "./pages/SearchPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PutBackPage } from "./pages/PutBackPage";
+import { CheckedOutPage } from "./pages/CheckedOutPage";
 import { ToastProvider } from "./components/Toast";
 
 export function App() {
@@ -50,6 +51,7 @@ export function App() {
             <Route path="/items/:id/edit" element={<ItemEditPage />} />
             <Route path="/activity" element={<ActivityPage />} />
             <Route path="/putback" element={<PutBackPage />} />
+            <Route path="/out" element={<CheckedOutPage />} />
           </Routes>
         </Shell>
       </ToastProvider>

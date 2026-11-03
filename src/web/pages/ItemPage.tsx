@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, ExternalLink, House, MapPinPlus, MoveRight, Pencil, QrCode, ScanLine } from "lucide-react";
+import { Camera, ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, ScanLine } from "lucide-react";
 import {
   itemKindLabels,
   trackingLabels,
@@ -15,7 +15,7 @@ import { useWide } from "../lib/useWide";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
-import { EventList } from "../components/EventList";
+import { EventList, timeAgo } from "../components/EventList";
 import { useToast } from "../components/Toast";
 import { PinButton } from "../components/PinButton";
 import { Badge, Button, Card, inputClass, itemName, pathText } from "../components/ui";
@@ -25,6 +25,7 @@ type Mode =
   | { kind: "addPlace" }
   | { kind: "moveUnit"; unitId: number; code: string | null }
   | { kind: "addUnit" }
+  | { kind: "checkOut"; unitId: number; code: string | null }
   | null;
 
 export function ItemPage() {
@@ -69,19 +70,37 @@ export function ItemPage() {
       {item.unitList.length > 0 && (
         <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
           {item.unitList.map((u) => (
-            <li key={u.id} className="flex min-h-12 items-center gap-3 px-4 py-2">
+            <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
               <span className="min-w-0 flex-1">
-                <span className="block font-mono text-sm">{u.code ?? "no sticker"}</span>
-                <span className="block truncate text-[13px] text-muted">{u.path.length ? pathText(u.path) : "No location"}</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-mono text-sm">{u.code ?? "no sticker"}</span>
+                  {u.out && <Badge tone="info">out {timeAgo(u.out.at)}</Badge>}
+                </span>
+                <span className="block truncate text-[13px] text-muted">
+                  {u.path.length ? pathText(u.path) : u.out ? "" : "No location"}
+                  {u.out?.note && `${u.path.length ? " · " : ""}${u.out.note}`}
+                </span>
               </span>
-              <Button variant="ghost" onClick={() => setMode({ kind: "moveUnit", unitId: u.id, code: u.code })}>
-                <MoveRight size={18} /> Move
-              </Button>
+              <span className="flex">
+                {u.out ? (
+                  <UnitCheckIn unitId={u.id} />
+                ) : (
+                  <>
+                    <Button variant="ghost" onClick={() => setMode({ kind: "checkOut", unitId: u.id, code: u.code })}>
+                      <LogOut size={18} /> Check out
+                    </Button>
+                    <Button variant="ghost" onClick={() => setMode({ kind: "moveUnit", unitId: u.id, code: u.code })} aria-label="Move">
+                      <MoveRight size={18} />
+                    </Button>
+                  </>
+                )}
+              </span>
             </li>
           ))}
         </ul>
       )}
       {mode?.kind === "moveUnit" && <MoveUnit unitId={mode.unitId} code={mode.code} done={() => setMode(null)} />}
+      {mode?.kind === "checkOut" && <CheckOutUnit unitId={mode.unitId} code={mode.code} done={() => setMode(null)} />}
       {mode?.kind === "addUnit" && <AddUnit item={item} done={() => setMode(null)} />}
       {mode === null && (
         <Button onClick={() => setMode({ kind: "addUnit" })} className="self-start">
@@ -290,6 +309,47 @@ function MoveUnit({ unitId, code, done }: { unitId: number; code: string | null;
     onSettled: done,
   });
   return <PickLocation title={`Move ${code ?? "unit"}: scan where it's going`} onPick={(l) => move.mutate(l)} onCancel={done} />;
+}
+
+/** Take a stickered unit out: scan where it's going (bench, project), or just note who has it. */
+function CheckOutUnit({ unitId, code, done }: { unitId: number; code: string | null; done: () => void }) {
+  const handlers = useStockMutation();
+  const [note, setNote] = useState("");
+  const out = useMutation({
+    mutationFn: (to: { id: number; name: string } | null) =>
+      api<StockResult>(`/units/${unitId}/checkout`, { method: "POST", body: { toLocationId: to?.id ?? null, note: note.trim() || null } }),
+    ...handlers((_, to: { name: string } | null) => `Checked out${to ? ` to ${to.name}` : ""}`),
+    onSettled: done,
+  });
+  return (
+    <PickLocation title={`Check out ${code ?? "unit"}: scan where it's going`} onPick={(l) => out.mutate(l)} onCancel={done}>
+      <div className="flex gap-2">
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Note (optional), e.g. lent to Sam"
+          aria-label="Note"
+          className={`${inputClass} min-w-0 flex-1`}
+        />
+        <Button onClick={() => out.mutate(null)} disabled={!note.trim()} title="Out with just the note, no location">
+          Just mark out
+        </Button>
+      </div>
+    </PickLocation>
+  );
+}
+
+export function UnitCheckIn({ unitId }: { unitId: number }) {
+  const handlers = useStockMutation();
+  const back = useMutation({
+    mutationFn: () => api<StockResult>(`/units/${unitId}/checkin`, { method: "POST", body: {} }),
+    ...handlers(() => "Checked back in"),
+  });
+  return (
+    <Button variant="ghost" onClick={() => back.mutate()} disabled={back.isPending}>
+      <LogIn size={18} /> Check in
+    </Button>
+  );
 }
 
 function AddUnit({ item, done }: { item: ItemDetail; done: () => void }) {

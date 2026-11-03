@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Camera, ChevronRight, Pin, Plus, Search, Warehouse } from "lucide-react";
+import { Camera, ChevronRight, LogOut, Pin, Plus, Search, Warehouse } from "lucide-react";
 import type { ItemSummary, LocationDetail, LocationSummary, Pins } from "../../shared/api";
 import { api } from "../api";
 import { LocationList } from "../components/LocationList";
@@ -21,7 +21,7 @@ export function HomePage() {
     queryFn: () => api<LocationDetail>(`/locations/${single!.id}`),
     enabled: single !== null,
   });
-  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: () => api<{ needsDetails: number }>("/stats") });
+  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: () => api<{ needsDetails: number; checkedOut: number }>("/stats") });
   const { data: pins } = useQuery({ queryKey: ["pins"], queryFn: () => api<Pins>("/pins") });
 
   const hasPins = !!pins && (pins.items.length > 0 || pins.locations.length > 0);
@@ -55,6 +55,14 @@ export function HomePage() {
           <span className="flex-1">
             {stats.needsDetails} item{stats.needsDetails === 1 ? "" : "s"} need{stats.needsDetails === 1 ? "s" : ""} details
           </span>
+          <ChevronRight size={18} />
+        </Link>
+      )}
+
+      {stats && stats.checkedOut > 0 && (
+        <Link to="/out" className="flex min-h-12 items-center gap-2 rounded-xl border border-info/40 bg-info/10 px-4 text-info">
+          <LogOut size={18} />
+          <span className="flex-1">{stats.checkedOut} checked out</span>
           <ChevronRight size={18} />
         </Link>
       )}

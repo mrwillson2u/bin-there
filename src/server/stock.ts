@@ -187,3 +187,71 @@ export function moveUnit(db: Db, unitId: number, toLocationId: number): { eventI
   });
   return { eventId, itemId: unit.itemId };
 }
+
+// ── Check out / check in (F10): stickered returnables ──────────────────────────
+
+function requireUnit(db: Db, id: number) {
+  const unit = db.select().from(units).where(eq(units.id, id)).get();
+  if (!unit) throw new ApiError(404, "NOT_FOUND", `No unit ${id}`);
+  return unit;
+}
+
+const unitSnapshot = (u: typeof units.$inferSelect) => ({
+  id: u.id,
+  locationId: u.locationId,
+  out: { status: u.status, checkedOutAt: u.checkedOutAt, checkedOutNote: u.checkedOutNote },
+});
+
+/** Take a unit out to a location (bench, project) and/or with a note ("lent to Sam"). */
+export function checkOutUnit(db: Db, unitId: number, input: { toLocationId?: number | null; note?: string | null }) {
+  const unit = requireUnit(db, unitId);
+  if (unit.status === "checked_out") throw new ApiError(409, "CONFLICT", "Already checked out");
+  if (input.toLocationId) requireLocation(db, input.toLocationId);
+  if (!input.toLocationId && !input.note) throw new ApiError(400, "VALIDATION", "Say where it's going or add a note");
+  const eventId = db.transaction(() => {
+    db.update(units)
+      .set({
+        status: "checked_out",
+        locationId: input.toLocationId ?? null,
+        checkedOutAt: now,
+        checkedOutNote: input.note ?? null,
+        updatedAt: now,
+      })
+      .where(eq(units.id, unitId))
+      .run();
+    return record(db, {
+      type: "check_out",
+      itemId: unit.itemId,
+      unitId,
+      fromLocationId: unit.locationId,
+      toLocationId: input.toLocationId ?? null,
+      delta: 1,
+      undoData: { units: [unitSnapshot(unit)] },
+    });
+  });
+  return { eventId, itemId: unit.itemId };
+}
+
+/** Bring a unit back: to its home unless told otherwise. */
+export function checkInUnit(db: Db, unitId: number, input: { locationId?: number | null } = {}) {
+  const unit = requireUnit(db, unitId);
+  const dest = input.locationId ?? unit.homeLocationId;
+  if (!dest) throw new ApiError(400, "VALIDATION", "It has no home yet: say where it's going");
+  requireLocation(db, dest);
+  const eventId = db.transaction(() => {
+    db.update(units)
+      .set({ status: "home", locationId: dest, checkedOutAt: null, checkedOutNote: null, updatedAt: now })
+      .where(eq(units.id, unitId))
+      .run();
+    return record(db, {
+      type: "check_in",
+      itemId: unit.itemId,
+      unitId,
+      fromLocationId: unit.locationId,
+      toLocationId: dest,
+      delta: 1,
+      undoData: { units: [unitSnapshot(unit)] },
+    });
+  });
+  return { eventId, itemId: unit.itemId };
+}

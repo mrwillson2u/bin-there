@@ -17,6 +17,7 @@ import {
 import {
   addPhoto,
   countNeedsDetails,
+  listCheckedOut,
   recentlyUsed,
   createCategory,
   createItem,
@@ -26,7 +27,7 @@ import {
   setHomes,
   updateItem,
 } from "./items";
-import { adjustStock, createUnit, moveStock, moveUnit, recountStock } from "./stock";
+import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock } from "./stock";
 import { listEvents, undoEvent } from "./events";
 import { putBack } from "./putback";
 import { listPins, setPinned } from "./pins";
@@ -41,6 +42,8 @@ import {
   createUnitSchema,
   moveStockSchema,
   moveUnitSchema,
+  checkInSchema,
+  checkOutSchema,
   putBackSchema,
   recountSchema,
   setHomesSchema,
@@ -66,7 +69,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   };
 
   api.get("/health", (c) => c.json({ ok: true }));
-  api.get("/stats", (c) => c.json({ needsDetails: countNeedsDetails(db) }));
+  api.get("/stats", (c) => c.json({ needsDetails: countNeedsDetails(db), checkedOut: listCheckedOut(db).length }));
 
   api.get("/scan/:code", (c) => {
     const code = parseBody(codeSchema, c.req.param("code"));
@@ -166,6 +169,17 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.post("/units", async (c) => {
     const input = parseBody(createUnitSchema, await c.req.json());
     return c.json(result(createUnit(db, input), input.itemId), 201);
+  });
+  api.get("/units/checked-out", (c) => c.json(listCheckedOut(db)));
+  api.post("/units/:id/checkout", async (c) => {
+    const input = parseBody(checkOutSchema, await c.req.json());
+    const { eventId, itemId } = checkOutUnit(db, intParam(c.req.param("id")), input);
+    return c.json(result(eventId, itemId));
+  });
+  api.post("/units/:id/checkin", async (c) => {
+    const input = parseBody(checkInSchema, await c.req.json().catch(() => ({})));
+    const { eventId, itemId } = checkInUnit(db, intParam(c.req.param("id")), input);
+    return c.json(result(eventId, itemId));
   });
   api.post("/units/:id/move", async (c) => {
     const { toLocationId } = parseBody(moveUnitSchema, await c.req.json());

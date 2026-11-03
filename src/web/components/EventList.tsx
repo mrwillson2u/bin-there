@@ -19,6 +19,10 @@ function describe(e: EventView): string {
       return `Recounted${at}${e.delta ? ` (${e.delta > 0 ? "+" : ""}${e.delta})` : ""}`;
     case "move":
       return `Moved${e.delta ? ` ${e.delta}` : ""} ${e.from ? `from ${e.from} ` : ""}to ${e.to ?? "top level"}`;
+    case "check_out":
+      return `Checked out${e.to ? ` to ${e.to}` : ""}`;
+    case "check_in":
+      return `Checked back in${e.to ? ` to ${e.to}` : ""}`;
     case "assign_code":
       return "Sticker assigned";
     default:

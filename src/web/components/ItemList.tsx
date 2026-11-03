@@ -36,6 +36,7 @@ export function ItemList({ items, empty }: { items: ItemSummary[]; empty: string
               <span className="flex items-center gap-2">
                 <span className={`truncate ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
                 {i.needsDetails && <Badge tone="warn">needs details</Badge>}
+                {i.checkedOut > 0 && <Badge tone="info">{i.checkedOut} out</Badge>}
               </span>
               {i.places.length === 0 ? (
                 <span className="block text-[13px] text-muted">No location</span>

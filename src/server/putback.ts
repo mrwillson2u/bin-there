@@ -3,7 +3,7 @@ import type { Db } from "./db/client";
 import { itemHomes, items, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
 import { requireLocation } from "./items";
-import { adjustStock, moveUnit, recountStock } from "./stock";
+import { adjustStock, checkInUnit, moveUnit, recountStock } from "./stock";
 import type { PutBack } from "../shared/api";
 
 // Put-back mode (PRD F6): "this is going back into that location".
@@ -20,8 +20,10 @@ export function putBack(db: Db, input: PutBack): number | null {
   if (input.unitId) {
     const unit = db.select().from(units).where(eq(units.id, input.unitId)).get();
     if (!unit || unit.itemId !== item.id) throw new ApiError(400, "VALIDATION", "That sticker isn't on this item");
-    if (unit.locationId === dest) throw new ApiError(400, "VALIDATION", "Already there");
-    eventId = moveUnit(db, unit.id, dest).eventId;
+    // Scanning a checked-out unit in put-back mode checks it back in (F6 + F10).
+    if (unit.status === "checked_out") eventId = checkInUnit(db, unit.id, { locationId: dest }).eventId;
+    else if (unit.locationId === dest) throw new ApiError(400, "VALIDATION", "Already there");
+    else eventId = moveUnit(db, unit.id, dest).eventId;
   } else {
     const atDest = db.select().from(stock).where(and(eq(stock.itemId, item.id), eq(stock.locationId, dest))).get();
     if (item.tracking === "level") {

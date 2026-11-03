@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
 import { msUntilHour, runBackup } from "./backup";
-import type { BackupInfo, ItemDetail, LocationDetail, StockResult } from "../shared/api";
+import type { BackupInfo, CheckedOutUnit, ItemDetail, LocationDetail, StockResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
 let dir: string;
@@ -136,5 +136,51 @@ describe("recently used", () => {
     await ok("POST", `/events/${undone.eventId}/undo`);
     const list = await ok<{ name: string }[]>("GET", "/items/recently-used");
     expect(list.map((i) => i.name)).toEqual(["10k resistor", "100uF cap"]);
+  });
+});
+
+describe("check out / check in", () => {
+  it("checks a unit out to the bench and back home, with undo", async () => {
+    const [shelf, bench] = [await bin("Shelf"), await bin("Bench")];
+    const psu = await item({ code: "PSU00000001", locationId: shelf.id });
+    const unitId = psu.unitList[0]!.id;
+    const out = await ok<StockResult>("POST", `/units/${unitId}/checkout`, { toLocationId: bench.id, note: "LED strip test" });
+    expect(out.item.unitList[0]).toMatchObject({ locationId: bench.id, out: { note: "LED strip test" } });
+    expect(out.item.checkedOut).toBe(1);
+    const list = await ok<CheckedOutUnit[]>("GET", "/units/checked-out");
+    expect(list.map((u) => [u.code, u.path.at(-1)?.name, u.homePath.at(-1)?.name])).toEqual([["PSU00000001", "Bench", "Shelf"]]);
+    expect((await call("POST", `/units/${unitId}/checkout`, { note: "again" })).status).toBe(409);
+
+    const back = await ok<StockResult>("POST", `/units/${unitId}/checkin`, {});
+    expect(back.item.unitList[0]).toMatchObject({ locationId: shelf.id, out: null });
+    expect(await ok<CheckedOutUnit[]>("GET", "/units/checked-out")).toEqual([]);
+
+    const undone = await ok<ItemDetail>("POST", `/events/${back.eventId}/undo`);
+    expect(undone.unitList[0]).toMatchObject({ locationId: bench.id, out: { note: "LED strip test" } });
+  });
+
+  it("can lend something out with just a note, and it still counts", async () => {
+    const shelf = await bin("Shelf");
+    const psu = await item({ code: "PSU00000001", locationId: shelf.id });
+    const r = await ok<StockResult>("POST", `/units/${psu.unitList[0]!.id}/checkout`, { note: "Lent to Sam" });
+    expect(r.item.unitList[0]!.path).toEqual([]);
+    expect(r.item.totalQty).toBe(1);
+    expect((await call("POST", `/units/${psu.unitList[0]!.id}/checkout`, {})).status).toBe(409);
+  });
+
+  it("needs a place or a note", async () => {
+    const shelf = await bin("Shelf");
+    const psu = await item({ code: "PSU00000001", locationId: shelf.id });
+    expect((await call("POST", `/units/${psu.unitList[0]!.id}/checkout`, {})).status).toBe(400);
+  });
+
+  it("put-back mode checks a checked-out unit back in", async () => {
+    const [shelf, bench] = [await bin("Shelf"), await bin("Bench")];
+    const psu = await item({ code: "PSU00000001", locationId: shelf.id });
+    const unitId = psu.unitList[0]!.id;
+    await ok("POST", `/units/${unitId}/checkout`, { toLocationId: bench.id });
+    const r = await putBack({ itemId: psu.id, locationId: shelf.id, unitId });
+    expect(r.item.unitList[0]).toMatchObject({ locationId: shelf.id, out: null });
+    expect(r.item.history[0]?.type).toBe("check_in");
   });
 });

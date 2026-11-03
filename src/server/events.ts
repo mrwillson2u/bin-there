@@ -73,7 +73,7 @@ export function undoEvent(db: Db, id: number): { itemId: number } {
       if (s.row) db.insert(stock).values(s.row).run();
     }
     for (const u of data.units ?? []) {
-      db.update(units).set({ locationId: u.locationId }).where(eq(units.id, u.id)).run();
+      db.update(units).set({ locationId: u.locationId, ...(u.out ?? {}) }).where(eq(units.id, u.id)).run();
     }
     if (data.homes) {
       db.delete(itemHomes).where(eq(itemHomes.itemId, itemId)).run();

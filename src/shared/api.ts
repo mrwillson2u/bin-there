@@ -177,6 +177,9 @@ export type MoveStock = z.infer<typeof moveStockSchema>;
 export const createUnitSchema = z.object({ itemId: id, code: codeSchema, locationId: id.nullable().optional(), label: optText(100) });
 export const moveUnitSchema = z.object({ toLocationId: id });
 
+export const checkOutSchema = z.object({ toLocationId: id.nullable().optional(), note: optText(200) });
+export const checkInSchema = z.object({ locationId: id.nullable().optional() });
+
 export const putBackSchema = z.object({ itemId: id, locationId: id, unitId: id.optional(), qty: z.number().int().min(1).max(100_000).optional() });
 export type PutBack = z.infer<typeof putBackSchema>;
 
@@ -222,6 +225,8 @@ export type ItemSummary = {
   thumbUrl: string | null;
   /** Sum of counted stock + units; null when nothing is counted. */
   totalQty: number | null;
+  /** Stickered units checked out right now (F10). */
+  checkedOut: number;
   places: Place[];
 };
 
@@ -233,6 +238,21 @@ export type Unit = {
   locationId: number | null;
   homeLocationId: number | null;
   path: Crumb[];
+  /** Checked out (F10): to `path` if set, and/or with a note. */
+  out: { at: string; note: string | null } | null;
+};
+
+/** A stickered unit that's out right now. */
+export type CheckedOutUnit = {
+  unitId: number;
+  code: string | null;
+  itemId: number;
+  itemName: string;
+  thumbUrl: string | null;
+  path: Crumb[];
+  homePath: Crumb[];
+  at: string;
+  note: string | null;
 };
 
 export type EventView = {

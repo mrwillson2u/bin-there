@@ -45,6 +45,7 @@ export function useStockMutation() {
         qc.invalidateQueries({ queryKey: ["items"] });
         qc.invalidateQueries({ queryKey: ["events"] });
         qc.invalidateQueries({ queryKey: ["pins"] });
+        qc.invalidateQueries({ queryKey: ["stats"] });
         const m = message(r, vars);
         if (m) toast.show({ message: m, undoEventId: r.eventId });
       },

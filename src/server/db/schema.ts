@@ -141,7 +141,12 @@ export const EVENT_TYPES = [
 export type StockRow = typeof stock.$inferSelect;
 export type UndoData = {
   stock?: { itemId: number; locationId: number; row: StockRow | null }[];
-  units?: { id: number; locationId: number | null }[];
+  units?: {
+    id: number;
+    locationId: number | null;
+    /** Check-out state, for check-out/check-in events. */
+    out?: { status: (typeof UNIT_STATUSES)[number]; checkedOutAt: string | null; checkedOutNote: string | null };
+  }[];
   /** The item's home locations before the event. */
   homes?: number[];
 };
