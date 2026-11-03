@@ -28,6 +28,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
                  │ 1──* Photo
  Event (activity log) → references item / unit / location(s)
  Sticker code: unique; on Location.code or Unit.code (pre-printed IDs, assigned on first scan)
+   Sticker format (confirmed 2026-11-02): the QR holds only a 12-character random ID, letters + digits (e.g. HnVbi6RSP4ar), no prefix or URL. Recognize a sticker as ^[A-Za-z0-9]{12}$ with at least one letter, so a 12-digit UPC-A product barcode is never mistaken for one.
 ```
 
 ---

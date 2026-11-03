@@ -42,7 +42,7 @@ After the SPV is defined: scope additions go to the Post-Ship Backlog in `02-PRD
 | 4 - Architecture | ✅ Complete | 2026-11-02 | Stack DEC-004 + access DEC-003 proposed; data model/API drafted by AI | |
 | 5 - Visual Design | ✅ Complete | 2026-11-02 | Dark-first, clean/minimal; bin colors from real Allit bins | |
 | 6 - MVP & Roadmap | ✅ Complete | 2026-11-02 | SPV = F1–F8, ship 2026-11-23 (DEC-005) | Sets the Ship Target above |
-| 7 - Ship | 🟡 In Progress | 2026-11-02 | M1 code done (locations, stickers, scan detector, camera, Docker). Remaining for M1: deploy to server + test on real hardware | Done = SPV live |
+| 7 - Ship | 🟡 In Progress | 2026-11-02 | M1 code done (locations, stickers, scan detector, camera, Docker). ✅ iPhone camera scanned a real sticker over Tailscale HTTPS (2026-11-02, running on the Mac for now). Remaining for M1: hardware scanner prefix test in a desktop browser; move to the home lab server | Done = SPV live |
 
 **Legend:** ⬜ Not Started | 🟡 In Progress | ✅ Complete | ⏭️ Skipped (N/A for this project)
 
