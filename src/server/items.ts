@@ -202,6 +202,19 @@ export function searchItemsByIds(db: Db, ids: number[]): ItemSummary[] {
   return summaries(db, ids.map((id) => byId.get(id)).filter((r): r is (typeof rows)[number] => !!r));
 }
 
+/** Parts you've taken some of lately: likely what's sitting in the put-back bin. Most recent first. */
+export function recentlyUsed(db: Db, days = 30, limit = 20): ItemSummary[] {
+  const rows = db
+    .select({ itemId: events.itemId, last: sql<number>`max(${events.id})` })
+    .from(events)
+    .where(and(eq(events.type, "use"), isNull(events.undoneBy), sql`${events.at} >= datetime('now', ${`-${days} days`})`))
+    .groupBy(events.itemId)
+    .orderBy(desc(sql`max(${events.id})`))
+    .limit(limit)
+    .all();
+  return searchItemsByIds(db, rows.map((r) => r.itemId).filter((x): x is number => x !== null));
+}
+
 export function countNeedsDetails(db: Db): number {
   return db
     .select({ n: sql<number>`count(*)` })

@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Archive, Camera, House, ScanLine } from "lucide-react";
-import type { ItemDetail, LocationDetail, ScanResult, StockResult } from "../../shared/api";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Archive, Camera, ChevronRight, House, ScanLine, Search, X } from "lucide-react";
+import type { ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl } from "../components/StockControl";
 import { useToast } from "../components/Toast";
-import { Button, Card, itemName, pathText, Thumb } from "../components/ui";
+import { Button, Card, inputClass, itemName, pathText, Thumb } from "../components/ui";
 
 type Loc = { id: number; name: string };
 type Step =
@@ -111,6 +111,8 @@ export function PutBackPage() {
 
       {step.kind === "placed" && <Placed itemId={step.itemId} location={step.location} onNext={openCamera} />}
 
+      {(step.kind === "ready" || step.kind === "placed") && <FindPart onPick={(id) => startItem(id)} />}
+
       {step.kind === "choose" && (
         <Card className="flex flex-col gap-3 p-4">
           <p className="font-semibold">Which one goes back in {step.location.name}?</p>
@@ -212,5 +214,83 @@ function Placed({ itemId, location, onNext }: { itemId: number; location: Loc; o
         <Camera size={22} /> Scan the next one
       </Button>
     </Card>
+  );
+}
+
+/**
+ * No sticker and not sure where it lives? Search by what it is, and match it by photo.
+ * Before typing, shows parts you took some of lately: leftovers are usually among them.
+ */
+function FindPart({ onPick }: { onPick: (itemId: number) => void }) {
+  const [text, setText] = useState("");
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQ(text.trim()), 200);
+    return () => clearTimeout(t);
+  }, [text]);
+
+  const { data: results } = useQuery({
+    queryKey: ["items", { q }],
+    queryFn: () => api<ItemSummary[]>(`/items?q=${encodeURIComponent(q)}`),
+    enabled: q !== "",
+    placeholderData: keepPreviousData,
+  });
+  const { data: recent } = useQuery({
+    queryKey: ["items", "recently-used"],
+    queryFn: () => api<ItemSummary[]>("/items/recently-used"),
+  });
+  const list = q ? results : recent;
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">No sticker? Find it</h2>
+      <div className="relative">
+        <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+        <input
+          type="text"
+          enterKeyHint="search"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="What is it? e.g. cap 100uF"
+          aria-label="Search for the part"
+          autoCapitalize="none"
+          autoCorrect="off"
+          className={`${inputClass} w-full pl-10 pr-10`}
+        />
+        {text && (
+          <button onClick={() => setText("")} aria-label="Clear search" className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center text-muted">
+            <X size={18} />
+          </button>
+        )}
+      </div>
+      {!q && recent && recent.length > 0 && <p className="text-[13px] text-muted">Recently taken out:</p>}
+      {list && list.length > 0 && (
+        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+          {list.map((i) => {
+            const home = i.places.find((p) => p.isHome) ?? i.places[0];
+            return (
+              <li key={i.id}>
+                <button onClick={() => onPick(i.id)} className="flex min-h-16 w-full items-center gap-3 px-3 py-2 text-left active:bg-surface-2">
+                  <Thumb url={i.thumbUrl} size={52} />
+                  <span className="min-w-0 flex-1">
+                    <span className={`block truncate ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
+                    <span className="block truncate text-[13px] text-muted">
+                      {home ? pathText(home.path) : "No home yet"}
+                      {i.places.length > 1 && ` · +${i.places.length - 1}`}
+                    </span>
+                  </span>
+                  <ChevronRight size={18} className="shrink-0 text-muted" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {q && results && results.length === 0 && (
+        <p className="px-1 py-3 text-center text-sm text-muted">
+          Nothing matches “{q}”. If it's new, <Link to="/capture" className="text-accent">quick capture it</Link>.
+        </p>
+      )}
+    </section>
   );
 }

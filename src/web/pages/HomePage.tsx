@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Camera, ChevronRight, Pin, Plus, Search, Warehouse } from "lucide-react";
-import type { LocationDetail, LocationSummary, Pins } from "../../shared/api";
+import type { ItemSummary, LocationDetail, LocationSummary, Pins } from "../../shared/api";
 import { api } from "../api";
 import { LocationList } from "../components/LocationList";
-import { ItemList, LocationItemList } from "../components/ItemList";
-import { BinChip, Button, inputClass, pathText } from "../components/ui";
+import { LocationItemList, QtyBadge } from "../components/ItemList";
+import { StockControl } from "../components/StockControl";
+import { BinChip, Button, inputClass, itemName, pathText, Thumb } from "../components/ui";
 
 /** Home: with one site, that site's contents; with several, the list of sites. */
 export function HomePage() {
@@ -135,7 +136,45 @@ function Pinned({ pins }: { pins: Pins }) {
           ))}
         </ul>
       )}
-      {pins.items.length > 0 && <ItemList items={pins.items} empty="" />}
+      {pins.items.length > 0 && (
+        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+          {pins.items.map((i) => (
+            <PinnedItem key={i.id} item={i} />
+          ))}
+        </ul>
+      )}
     </section>
+  );
+}
+
+/** A pinned part with − / + right on Home, for the place you take it from (its home, if it has one). */
+function PinnedItem({ item }: { item: ItemSummary }) {
+  const stocked = item.places.filter((p) => p.hasStock);
+  const place = stocked.find((p) => p.isHome) ?? stocked[0];
+  const others = item.places.length - (place ? 1 : 0);
+  const placeName = place?.path.at(-1)?.name ?? "";
+  return (
+    <li className="flex flex-col gap-2 px-3 py-2.5">
+      <div className="flex items-center gap-3">
+        <Link to={`/items/${item.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+          <Thumb url={item.thumbUrl} size={44} />
+          <span className="min-w-0">
+            <span className={`block truncate ${item.name ? "" : "italic text-muted"}`}>{itemName(item.name)}</span>
+            <span className="block truncate text-[13px] text-muted">
+              {place ? placeName : "No location"}
+              {others > 0 && ` · +${others} more place${others === 1 ? "" : "s"}`}
+            </span>
+          </span>
+        </Link>
+        {place && item.tracking === "exact" ? (
+          <StockControl compact itemId={item.id} locationId={place.locationId} placeName={placeName} tracking="exact" qty={place.qty} level={null} />
+        ) : (
+          !place && item.totalQty !== null && <QtyBadge qty={null} level={null} units={item.totalQty} tracking="exact" />
+        )}
+      </div>
+      {place && item.tracking === "level" && (
+        <StockControl compact itemId={item.id} locationId={place.locationId} placeName={placeName} tracking="level" qty={null} level={place.level} />
+      )}
+    </li>
   );
 }

@@ -17,6 +17,7 @@ import {
 import {
   addPhoto,
   countNeedsDetails,
+  recentlyUsed,
   createCategory,
   createItem,
   getItem,
@@ -99,6 +100,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.get("/items", (c) =>
     c.json(searchItems(db, { q: c.req.query("q"), needsDetails: c.req.query("needs") === "1" })),
   );
+  api.get("/items/recently-used", (c) => c.json(recentlyUsed(db, Number(c.req.query("days") ?? 30) || 30)));
   api.get("/items/:id", (c) => c.json(getItem(db, intParam(c.req.param("id")))));
   api.post("/items", async (c) => {
     const input = parseBody(createItemSchema, await c.req.json());

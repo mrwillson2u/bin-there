@@ -122,3 +122,19 @@ describe("backups", () => {
     expect(msUntilHour(3, new Date(2026, 10, 3, 3, 0))).toBe(24 * 3600_000);
   });
 });
+
+describe("recently used", () => {
+  it("lists parts you've taken some of, most recent first, ignoring undone ones", async () => {
+    const b = await bin("Bin");
+    const cap = await item({ name: "100uF cap", locationId: b.id, qty: 10 });
+    const res = await item({ name: "10k resistor", locationId: b.id, qty: 10 });
+    const led = await item({ name: "Red LED", locationId: b.id, qty: 10 });
+    await item({ name: "Never used", locationId: b.id, qty: 10 });
+    await ok("POST", "/stock/adjust", { itemId: cap.id, locationId: b.id, delta: -2 });
+    await ok("POST", "/stock/adjust", { itemId: res.id, locationId: b.id, delta: -1 });
+    const undone = await ok<StockResult>("POST", "/stock/adjust", { itemId: led.id, locationId: b.id, delta: -1 });
+    await ok("POST", `/events/${undone.eventId}/undo`);
+    const list = await ok<{ name: string }[]>("GET", "/items/recently-used");
+    expect(list.map((i) => i.name)).toEqual(["10k resistor", "100uF cap"]);
+  });
+});

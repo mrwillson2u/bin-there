@@ -28,7 +28,8 @@ Stack-n-Track (working name) is a self-hosted, mobile-first web app for my garag
 | **F8. Backups** | Automated database + photo backup | Must-have | Nightly backup runs; restore tested once |
 | **F9. Bulk move** (J3) | Move a whole container (with everything in it) or a selected group of items | Should-have | Moving a box moves all of its bins and contents in one action |
 | **F12. Sites** (added 2026-11-03) | More than one place to keep things (garage, basement, office…) | Should-have | Sites are the top level; everything lives in a site; paths and search show the site; with one site, Home shows it directly (DEC-010) |
-| **F11. Pins** (added 2026-11-03) | Pin parts or containers you're actively working with; they show at the top of the Garage screen | Should-have | Pin/unpin from any item or location screen; pinned things are one tap from Garage, newest first; pins are the same on every device |
+| **F11. Pins** (added 2026-11-03) | Pin parts or containers you're actively working with; they show at the top of Home | Should-have | Pin/unpin from any item or location screen; pinned things are one tap from Home, newest first; pinned parts have their own − / + on Home (for their home location); pins are the same on every device |
+| **F13. Find it in put-back** (added 2026-11-03) | For sticker-less parts you can't place: search by name/value with photos and home paths, plus a "Recently taken out" list (parts with − in the last 30 days) | Should-have | Search or tap a recent part → its home → one tap puts it back |
 | **F10. Check out / check in** (J8) | Returnables checked out to a location/project and back, with history | Should-have | "Where are all my 12 V supplies?" shows each unit's current place and last use |
 
 ### Out of Scope (for MVP)
@@ -52,6 +53,7 @@ Stack-n-Track (working name) is a self-hosted, mobile-first web app for my garag
 | **Viewer access** for spouse / friends (read-only search + location), via accounts or a lighter mechanism | 2026-11-02 | Owner-only use proves the app first |
 | **Pi garage station**: kiosk browser, USB scanner, Put-back mode as default. Option: put the HW0006 Pro in **USB-COM (virtual serial) mode** and read it via Web Serial in Chromium, so scans never pass through keyboard input at all | 2026-11-02 | Setup only, no app rework (DEC-002) |
 | **AI assistant chat**: preset "inventory assistant" prompt; finds parts and suggests what I have during a conversation; nudges ("put-back bin hasn't been emptied in 9 days") | 2026-11-02 | Needs a stable data model + activity log first. ⚠️ **Conflicts with $0 running cost**: cloud LLM APIs cost money per use; a local model on the home lab server is free but weaker. Decide before building. |
+| **Identify a part from a photo** in put-back mode (snap the mystery capacitor, get likely matches from the catalog photos) | 2026-11-03 | Search + "recently taken out" covers most cases; same $0-cost question as the AI items |
 | **AI data fill**: look up part number, supplier, price, specs (web search; possibly from the quick-capture photo) and suggest values for "needs details" items | 2026-11-02 | Same cost question as above; manual fill-in works for the MVP |
 | **Recount flow + staleness review** list | 2026-11-02 | Staleness flag is in MVP; a dedicated review flow can follow |
 | **Low-stock / shopping list** | 2026-11-02 | Not needed to keep data current |

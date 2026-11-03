@@ -133,6 +133,7 @@ Not every question applies — "skip" and "defer" are valid answers (mechanics i
 
 | Date | Note |
 |------|------|
+| 2026-11-03 | Pinned parts get compact − / + on Home; put-back gets "No sticker? Find it" search + "Recently taken out" (F13). Stock changes now update cached pins/location screens immediately (no flicker). 52 tests; Chrome click-through passed. |
 | 2026-11-03 | F12 sites (DEC-010): sites are the top level; existing locations migrated into "Garage"; Home shows the one site or lists several; new-location form asks what it goes inside. 51 tests; Chrome click-through passed. |
 | 2026-11-03 | Post-M3 additions while ahead of schedule: put-back bin made physical only and deleted (DEC-009); location type descriptions; F11 pins (pin parts/containers to the top of Garage). 51 tests. |
 | 2026-11-03 | M3 built: put-back mode (one-part bin → +1, mixed bin → choose, item sticker → home with not-home warning, unknown → quick capture, put-back-bin contents), PWA (manifest, icons, shell-cache service worker), in-app nightly backups with integrity check + status on Activity (DEC-008), restore drill passed. 50 tests; Chrome click-through of all put-back cases passed. Real copy on the Mac backs up to ./backups. |
