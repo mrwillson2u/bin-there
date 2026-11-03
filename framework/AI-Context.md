@@ -25,7 +25,7 @@
 
 ## Handoff (current state; keep this updated at the end of each session)
 
-*Last updated 2026-11-03, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), and the four backlog quick wins (DEC-015 to DEC-018).*
+*Last updated 2026-11-03, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), the four backlog quick wins (DEC-015 to DEC-018), and project kits (DEC-019).*
 
 ### Where things run
 
@@ -54,11 +54,11 @@ Tailscale Serve config persists across reboots; it was set once with `sudo tails
 
 ### Developing
 
-`npm install`, then `npm test` (Vitest, 70 tests) and `npm run build`. For a throwaway copy: `PORT=3001 DATA_DIR=/tmp/bt-test npm start`. Schema changes: edit `src/server/db/schema.ts`, run `npm run db:generate`, and check the migration against an old-shaped database (see the migration test in `src/server/app.test.ts`). Code map: `README.md`.
+`npm install`, then `npm test` (Vitest, 73 tests) and `npm run build`. For a throwaway copy: `PORT=3001 DATA_DIR=/tmp/bt-test npm start`. Schema changes: edit `src/server/db/schema.ts`, run `npm run db:generate`, and check the migration against an old-shaped database (see the migration test in `src/server/app.test.ts`). Code map: `README.md`.
 
 ### What's built
 
-PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, delete/archive (DEC-013, 2026-11-03), the grid view of gridded boxes with drag-and-drop bin placement (DEC-014, 2026-11-03), the staleness review list, low-stock list, nightly purge of old deletions, and light mode (DEC-015 to DEC-018, 2026-11-03), a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
+PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, delete/archive (DEC-013, 2026-11-03), the grid view of gridded boxes with drag-and-drop bin placement (DEC-014, 2026-11-03), the staleness review list, low-stock list, nightly purge of old deletions, and light mode (DEC-015 to DEC-018, 2026-11-03), project kits (DEC-019, 2026-11-03), a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
 
 ### Shipped 2026-11-03
 
@@ -67,7 +67,7 @@ All SPV checks done on 2026-11-03: Colin used it for real on the phone (quick-ca
 ### Next up (post-ship, Colin's interest)
 
 - **Photo search** (identify a part from a photo): plan in `reports/Self hosted photo part search.md`, hardware notes in the PRD backlog. Step 1 is Phase 0: an offline script scoring ~50 of Colin's parts, photographed in two sessions, against the catalog (DINOv3 embeddings on CPU, no GPU needed). Go bar: right item in the top 5 for ≥80% of modules/ICs/connectors and ≥70% overall, and it must beat the "recently taken out" list. Not started; needs Colin's photos. For the VLM half: Ollama on ubuntubot (not installed yet); take down the unused `neutts` container (holds 5 GB of VRAM) to fit the 8B Qwen.
-- Other backlog: `02-PRD.md` → Post-Ship Backlog (project kits, viewer access, Pi station, AI data fill, BOM check…). Small follow-ups noticed while building: no screen yet to rename a location or change a box's grid size.
+- Other backlog: `02-PRD.md` → Post-Ship Backlog (viewer access, Pi station, AI data fill, BOM check…). Small follow-ups noticed while building: no screen yet to rename a location or change a box's grid size.
 - Backups should eventually move to Colin's main backup system (borgmatic on ubuntubot, currently being fixed).
 
 ---

@@ -43,6 +43,15 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | DELETE | `/api/locations/:id` | Soft delete an **empty** location (400 if it holds anything); frees its sticker; returns `{ parentId }` (DEC-013) |
 | PUT | `/api/locations/:id/slot` | Place a bin on its gridded box's grid: body `{ x, y, rotated? }` (top-left cell; `y = rows` is the front-strip row) or `null` to take it off. 400 if not a bin in a gridded box; 409 if it overlaps, overhangs, or is the wrong row for a strip (DEC-014) |
 
+### Project kits (DEC-019)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/projects` | Active kits (`project` locations), newest first, with how many distinct parts each holds |
+| POST | `/api/projects/:id/return` | Body `{ itemId?, finish? }`. Sends the kit's stock to each item's first home and each unit to its own home (check-in or move), one logged, undoable event per thing. Things with no home stay and come back in `left[]`. With `finish`, an emptied kit is soft-deleted. Returns `{ returned, left, finished }` |
+
+A kit is created like any location with `type: "project"`. Nothing ever makes a kit a home: moving everything into one keeps the home, and items or units created in one have no home until placed somewhere real.
+
 ### Items
 | Method | Path | Purpose |
 |--------|------|---------|

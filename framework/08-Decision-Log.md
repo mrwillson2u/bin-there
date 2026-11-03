@@ -481,6 +481,30 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Consequences:** `src/web/theme.ts`, light tokens in `index.css`. New UI must use the tokens (no hard-coded colors) to work in both.
 
+### DEC-019: Project kits are locations that are never a home
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** J4: pull parts from all over into a kit for one project, have each remember its home, and see the kit as one of the places a part exists, even years later if the project is shelved. The `project` location type was reserved for this.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| A separate "kit" table with its own membership rows | Explicit | Parts in a kit would not be ordinary stock, so search, totals, +/− and the activity log would all need a second path |
+| **A kit is a `project` location; stock and units sit in it like anywhere else, but a kit is never a home** | Everything that works for locations works for kits; "return" is just moves back to the home the data already keeps | One rule to enforce in a few places (move, put-back, create) |
+
+**Decision:** A kit is a location of type `project` (usually under the site). Pulling into it is a normal move or check-out, except that moving everything out of a home into a kit does not move the home, and nothing created or put back inside a kit gets the kit as its home. The kit screen has **Pull in a part** (search, or scan a part's sticker to check it out, or a bin's sticker to pick from its contents), per-part **Return**, **Return everything**, and **Finish project** (return everything, then delete the kit if it's empty). What the project used up is taken off with − before finishing. Things with no home are left in the kit and listed, rather than guessed at. Each return is one ordinary move or check-in event, undoable one at a time.
+
+**Rationale:** Reusing stock and units keeps one set of rules; the single "never a home" invariant is enough to make return work. A level-tracked item (screws) can't be moved by count, so pulling it into a kit just records that some are there.
+
+**Consequences:** `GET /api/projects`, `POST /api/projects/:id/return`; `isProject` guard in items/stock/put-back; `homePath` on location items; Projects section on Home (kits don't also appear in the Locations list). A shelved project is simply a kit left alone.
+
 ---
 
 ## Decision Index
@@ -505,6 +529,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-016 | Low-stock list from levels plus a per-item threshold | Product | Accepted | 2026-11-03 |
 | DEC-017 | Deletions purged for good after 30 days, history included | Product | Accepted | 2026-11-03 |
 | DEC-018 | Light mode is a per-device setting, default dark | UX | Accepted | 2026-11-03 |
+| DEC-019 | Project kits are locations that are never a home | Product | Accepted | 2026-11-03 |
 
 ---
 

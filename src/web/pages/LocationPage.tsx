@@ -8,6 +8,7 @@ import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
 import { BoxGrid } from "../components/BoxGrid";
+import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
 import { PinButton } from "../components/PinButton";
@@ -139,9 +140,11 @@ export function LocationPage() {
         </Card>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
-            <Plus size={18} /> Add inside
-          </Link>
+          {loc.type !== "project" && (
+            <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
+              <Plus size={18} /> Add inside
+            </Link>
+          )}
           <Button onClick={() => { setMessage(null); setMode("assign"); }}>
             <QrCode size={18} /> {loc.code ? "Replace sticker" : "Assign sticker"}
           </Button>
@@ -164,7 +167,9 @@ export function LocationPage() {
         </div>
       )}
 
-      {/* Desktop / Pi: items beside what's inside. */}
+      {loc.type === "project" ? (
+        <KitPanel kit={loc} scanActive={mode === "idle"} />
+      ) : (
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
@@ -215,6 +220,7 @@ export function LocationPage() {
           )
         )}
       </div>
+      )}
     </div>
   );
 }

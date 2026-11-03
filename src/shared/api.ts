@@ -40,7 +40,7 @@ export const locationTypeHints: Record<LocationType, string> = {
   tub: "An open container, bucket or tray without a lid or grid.",
   bin: "One bin inside a gridded box. Pick its size: red 1×1, yellow 2×1, blue 2×2, or the front strip.",
   shelf: "A shelf, drawer or spot on the bench where things sit loose.",
-  project: "A temporary kit for a project (coming after launch).",
+  project: "A kit for one project. Parts pulled into it remember their home, so they can all go back in one tap when you're done.",
   other: "Anything else: a cabinet, pegboard, toolbox…",
 };
 
@@ -259,6 +259,24 @@ export type ReviewEntry = {
 
 export type Stats = { needsDetails: number; checkedOut: number; stale: number; low: number };
 
+// ── Project kits (J4, DEC-019) ───────────────────────────────────────────────
+
+/** An active project kit: a `project` location, wherever it sits in the tree. */
+export type ProjectSummary = { id: number; name: string; path: Crumb[]; items: number; updatedAt: string };
+
+/** Return one item (`itemId`) or everything in a kit to its home; `finish` also deletes the kit if that empties it. */
+export const returnProjectSchema = z.object({ itemId: z.number().int().positive().optional(), finish: z.boolean().optional() });
+export type ReturnProject = z.infer<typeof returnProjectSchema>;
+
+export type ReturnResult = {
+  /** Stock rows and units sent home. */
+  returned: number;
+  /** What's still in the kit and why it couldn't go home on its own. */
+  left: { itemId: number; name: string; reason: string }[];
+  /** The kit was deleted (only with `finish`, and only if nothing was left). */
+  finished: boolean;
+};
+
 export type Photo = { id: number; url: string; thumbUrl: string };
 export type Unit = {
   id: number;
@@ -326,6 +344,8 @@ export type LocationItem = {
   level: StockLevel | null;
   units: number;
   stale: boolean;
+  /** The item's first home (empty if it has none). Shown in project kits. */
+  homePath: Crumb[];
 };
 
 export type BackupInfo = {

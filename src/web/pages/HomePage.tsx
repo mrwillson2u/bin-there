@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Camera, ChevronRight, ClipboardCheck, LogOut, Pin, Plus, Search, ShoppingCart, SunMoon, Warehouse } from "lucide-react";
-import type { ItemSummary, LocationDetail, LocationSummary, Pins, Stats } from "../../shared/api";
+import { Camera, ChevronRight, ClipboardCheck, FolderKanban, LogOut, Pin, Plus, Search, ShoppingCart, SunMoon, Warehouse } from "lucide-react";
+import type { ItemSummary, LocationDetail, LocationSummary, Pins, ProjectSummary, Stats } from "../../shared/api";
 import { getTheme, setTheme, themeLabels, themes, type Theme } from "../theme";
 import { api } from "../api";
 import { LocationList } from "../components/LocationList";
@@ -24,6 +24,7 @@ export function HomePage() {
   });
   const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: () => api<Stats>("/stats") });
   const { data: pins } = useQuery({ queryKey: ["pins"], queryFn: () => api<Pins>("/pins") });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: () => api<ProjectSummary[]>("/projects") });
 
   const hasPins = !!pins && (pins.items.length > 0 || pins.locations.length > 0);
   if (isLoading || !sites) return <p className="text-muted">Loading…</p>;
@@ -87,12 +88,14 @@ export function HomePage() {
       <div className={`flex flex-col gap-4 ${hasPins ? "lg:grid lg:grid-cols-2 lg:items-start lg:gap-6" : ""}`}>
         {hasPins && <Pinned pins={pins!} />}
 
+        {projects && projects.length > 0 && <Projects projects={projects} newIn={single?.id ?? null} />}
+
         {single ? (
           site && (
             <div className="flex flex-col gap-4">
               <section className="flex flex-col gap-2">
                 <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Locations</h2>
-                <LocationList locations={site.children} empty="Nothing here yet. Add a rack, box or tote to start." />
+                <LocationList locations={site.children.filter((c) => c.type !== "project")} empty="Nothing here yet. Add a rack, box or tote to start." />
               </section>
               {site.items.length > 0 && (
                 <section className="flex flex-col gap-2">
@@ -110,9 +113,16 @@ export function HomePage() {
         )}
       </div>
 
-      <Link to="/locations/new?type=site" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
-        <Warehouse size={16} /> Add a site{single ? " (another place you keep things)" : ""}
-      </Link>
+      <div className="flex flex-wrap justify-center gap-x-6">
+        {(!projects || projects.length === 0) && (
+          <Link to={`/locations/new?type=project${single ? `&parent=${single.id}` : ""}`} className="flex min-h-11 items-center gap-2 text-sm text-muted">
+            <FolderKanban size={16} /> Start a project kit
+          </Link>
+        )}
+        <Link to="/locations/new?type=site" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
+          <Warehouse size={16} /> Add a site{single ? " (another place you keep things)" : ""}
+        </Link>
+      </div>
 
       <ThemePicker />
     </div>
@@ -141,6 +151,36 @@ function ThemePicker() {
         </button>
       ))}
     </div>
+  );
+}
+
+/** Active project kits (J4): parts pulled together for a while, each remembering its home. */
+function Projects({ projects, newIn }: { projects: ProjectSummary[]; newIn: number | null }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-muted">
+          <FolderKanban size={14} /> Projects
+        </h2>
+        <Link to={`/locations/new?type=project${newIn ? `&parent=${newIn}` : ""}`} className="inline-flex min-h-11 items-center gap-1 px-1 text-sm text-accent">
+          <Plus size={16} /> New kit
+        </Link>
+      </div>
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+        {projects.map((p) => (
+          <li key={p.id}>
+            <Link to={`/locations/${p.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2.5 active:bg-surface-2">
+              <FolderKanban size={20} className="shrink-0 text-muted" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{p.name}</span>
+                <span className="block truncate text-[13px] text-muted">{p.items === 0 ? "Empty" : `${p.items} part${p.items === 1 ? "" : "s"} in it`}</span>
+              </span>
+              <ChevronRight size={18} className="text-muted" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

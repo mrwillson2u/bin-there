@@ -35,12 +35,14 @@ import {
 import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock } from "./stock";
 import { listEvents, undoEvent } from "./events";
 import { putBack } from "./putback";
+import { listProjects, returnFromProject } from "./projects";
 import { listPins, setPinned } from "./pins";
 import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
 import {
   adjustSchema,
   assignCodeSchema,
   placeBinSchema,
+  returnProjectSchema,
   codeSchema,
   createCategorySchema,
   createItemSchema,
@@ -111,6 +113,13 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.put("/locations/:id/slot", async (c) => {
     const slot = parseBody(placeBinSchema, await c.req.json());
     return c.json(placeBin(db, intParam(c.req.param("id")), slot && { x: slot.x, y: slot.y, rotated: slot.rotated ?? false }));
+  });
+
+  // ── Project kits (DEC-019) ──
+  api.get("/projects", (c) => c.json(listProjects(db)));
+  api.post("/projects/:id/return", async (c) => {
+    const input = parseBody(returnProjectSchema, await c.req.json().catch(() => ({})));
+    return c.json(returnFromProject(db, intParam(c.req.param("id")), input));
   });
 
   // ── Items ──

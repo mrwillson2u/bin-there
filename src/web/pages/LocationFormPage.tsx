@@ -18,8 +18,9 @@ import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { PickLocation } from "../components/PickLocation";
 import { BinChip, Breadcrumbs, Button, Field, inputClass, pathText } from "../components/ui";
 
-const creatableTypes = locationTypes.filter((t) => t !== "project");
+const creatableTypes = locationTypes;
 const insideTypes = creatableTypes.filter((t) => t !== "site");
+const isType = (v: string | null): v is LocationType => locationTypes.includes(v as LocationType);
 
 export function LocationFormPage() {
   const [params] = useSearchParams();
@@ -40,8 +41,9 @@ export function LocationFormPage() {
   });
 
   const [name, setName] = useState("");
-  const [type, setType] = useState<LocationType>(params.get("type") === "site" ? "site" : "rack");
-  const [typeTouched, setTypeTouched] = useState(params.get("type") === "site");
+  const askedType = params.get("type");
+  const [type, setType] = useState<LocationType>(isType(askedType) ? askedType : "rack");
+  const [typeTouched, setTypeTouched] = useState(isType(askedType));
   // Sensible default once the parent loads: racks go in sites, boxes on racks, bins in gridded boxes.
   useEffect(() => {
     if (!parent || typeTouched) return;
@@ -84,7 +86,9 @@ export function LocationFormPage() {
     <form onSubmit={submit} className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-2xl">
       <div className="flex flex-col gap-1">
         {parent && !isSite && <Breadcrumbs path={[...parent.path, { id: -1, name: "" }]} />}
-        <h1 className="text-xl font-semibold">{isSite ? "New site" : `New location${parent ? ` in ${parent.name}` : ""}`}</h1>
+        <h1 className="text-xl font-semibold">
+          {isSite ? "New site" : type === "project" ? "New project kit" : `New location${parent ? ` in ${parent.name}` : ""}`}
+        </h1>
       </div>
 
       {!isSite && fixedParent === null && (
@@ -145,7 +149,14 @@ export function LocationFormPage() {
       )}
 
       <Field label="Name">
-        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder={isSite ? "e.g. Garage, Basement, Office" : "e.g. Rack A, Screws box, Tote 4"} required autoFocus />
+        <input
+          className={inputClass}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={isSite ? "e.g. Garage, Basement, Office" : type === "project" ? "e.g. Weather station, Robot arm" : "e.g. Rack A, Screws box, Tote 4"}
+          required
+          autoFocus
+        />
       </Field>
 
       <Field label="Sticker (scan it now, or leave blank)">
@@ -160,7 +171,7 @@ export function LocationFormPage() {
       {create.error && <p className="text-danger">{(create.error as Error).message}</p>}
 
       <Button variant="primary" type="submit" disabled={!name.trim() || (!isSite && parentId === null) || create.isPending} className="mt-2">
-        {isSite ? "Save site" : "Save location"}
+        {isSite ? "Save site" : type === "project" ? "Create kit" : "Save location"}
       </Button>
     </form>
   );

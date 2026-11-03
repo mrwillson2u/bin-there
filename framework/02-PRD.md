@@ -48,7 +48,7 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 
 | Feature / Idea | Added | Why It Can Wait |
 |----------------|-------|-----------------|
-| **Project kits** (J4): temporary project locations; items remember their home | 2026-11-02 | Core loop works without it; can use a normal bin as a kit initially |
+| ~~**Project kits** (J4)~~ | 2026-11-02 | **Built 2026-11-03** (DEC-019): kits on Home; pull parts in by search or by scanning a part or bin; − for what's used up; Return / Finish send the rest home |
 | ~~**Visual grid view** (J5) for gridded organizer boxes~~ | 2026-11-02 | **Built 2026-11-03** (DEC-014): the box screen draws the 6 × 4 grid + front strip with bins in their colors; Arrange mode places them by drag-and-drop with snapping. Not yet: a way to set a different grid size per box (data supports it) |
 | **Viewer access** for spouse / friends (read-only search + location), via accounts or a lighter mechanism | 2026-11-02 | Owner-only use proves the app first |
 | **Pi garage station**: kiosk browser, USB scanner, Put-back mode as default. Option: put the HW0006 Pro in **USB-COM (virtual serial) mode** and read it via Web Serial in Chromium, so scans never pass through keyboard input at all | 2026-11-02 | Setup only, no app rework (DEC-002) |
@@ -179,3 +179,4 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | 2026-11-03 | AI | Post-ship: delete/archive added (DEC-013) |
 | 2026-11-03 | AI | Post-ship: grid view of gridded boxes built (DEC-014) |
 | 2026-11-03 | AI | Post-ship quick wins: staleness review (DEC-015), low-stock list (DEC-016), purge of old deletions (DEC-017), light mode (DEC-018) |
+| 2026-11-03 | AI | Post-ship: project kits built (DEC-019) |

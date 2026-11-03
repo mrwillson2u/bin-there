@@ -68,6 +68,8 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `items.ts`: items, categories, search. Search uses an FTS5 table kept in sync by `indexItem`;
     any change to an item's searchable fields must call it.
   - `stock.ts`: adjust, recount, move, and stickered units (create, move, check out, check in).
+  - `projects.ts`: project kits (DEC-019). A kit is a `project` location that is never an item's or
+    unit's home (`isProject` guards in items/stock/putback), which is what lets "return" send things back.
   - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.

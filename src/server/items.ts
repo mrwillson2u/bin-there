@@ -43,6 +43,12 @@ export function requireLocation(db: Db, id: number) {
   if (!loc) throw new ApiError(400, "VALIDATION", `Location ${id} does not exist`);
 }
 
+/** A project kit is temporary (DEC-019): nothing ever calls it home. */
+export function isProject(db: Db, id: number | null | undefined): boolean {
+  if (id == null) return false;
+  return db.select({ type: locations.type }).from(locations).where(eq(locations.id, id)).get()?.type === "project";
+}
+
 function thumbs(db: Db, itemIds: number[]) {
   const map = new Map<number, string>();
   if (itemIds.length === 0) return map;
@@ -339,7 +345,7 @@ export function locationItems(db: Db, locationId: number): LocationItem[] {
   const entry = (i: typeof items.$inferSelect) => {
     let e = byItem.get(i.id);
     if (!e) {
-      e = { itemId: i.id, name: i.name, thumbUrl: null, tracking: i.tracking, needsDetails: i.needsDetails, hasStock: false, qty: null, level: null, units: 0, stale: false };
+      e = { itemId: i.id, name: i.name, thumbUrl: null, tracking: i.tracking, needsDetails: i.needsDetails, hasStock: false, qty: null, level: null, units: 0, stale: false, homePath: [] };
       byItem.set(i.id, e);
     }
     return e;
@@ -347,8 +353,12 @@ export function locationItems(db: Db, locationId: number): LocationItem[] {
   for (const { s, i } of stockRows) Object.assign(entry(i), { hasStock: true, qty: s.qty, level: s.level, stale: isStale(i.tracking, s) });
   for (const { i, n } of unitRows) entry(i).units = n;
   const thumbMap = thumbs(db, [...byItem.keys()]);
+  const homeOf = (itemId: number) => db.select({ l: itemHomes.locationId }).from(itemHomes).where(eq(itemHomes.itemId, itemId)).get()?.l;
   return [...byItem.values()]
-    .map((e) => ({ ...e, thumbUrl: thumbMap.get(e.itemId) ?? null }))
+    .map((e) => {
+      const home = homeOf(e.itemId);
+      return { ...e, thumbUrl: thumbMap.get(e.itemId) ?? null, homePath: home ? locationPath(db, home) : [] };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -367,6 +377,7 @@ export function createItem(db: Db, input: CreateItem): ItemDetail {
   // A sticker of its own means a returnable (labeling rules, UX framework).
   const kind = input.kind ?? (input.code ? "returnable" : (cat?.defaultKind ?? "consumable"));
   const tracking = input.tracking ?? (input.level ? "level" : (cat?.defaultTracking ?? "exact"));
+  const homeId = isProject(db, input.locationId) ? null : (input.locationId ?? null);
 
   const id = db.transaction(() => {
     const item = db
@@ -376,7 +387,7 @@ export function createItem(db: Db, input: CreateItem): ItemDetail {
       .returning({ id: items.id })
       .get();
     if (input.code) {
-      db.insert(units).values({ itemId: item.id, code: input.code, locationId: input.locationId ?? null, homeLocationId: input.locationId ?? null }).run();
+      db.insert(units).values({ itemId: item.id, code: input.code, locationId: input.locationId ?? null, homeLocationId: homeId }).run();
     }
     if (input.locationId) {
       // A stickered unit is counted by the unit itself; bulk stock only when a quantity/level was given or there's no sticker.
@@ -390,7 +401,7 @@ export function createItem(db: Db, input: CreateItem): ItemDetail {
           })
           .run();
       }
-      db.insert(itemHomes).values({ itemId: item.id, locationId: input.locationId }).run();
+      if (homeId) db.insert(itemHomes).values({ itemId: item.id, locationId: homeId }).run();
     }
     db.insert(events)
       .values({ type: "create", itemId: item.id, locationId: input.locationId ?? null, delta: input.qty ?? null })

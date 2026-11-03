@@ -50,7 +50,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 | grid_rotated | boolean | A 2×1 bin standing tall (1 wide, 2 high). Migration 0007 |
 | notes, created_at, updated_at | | |
 
-The put-back bin is **physical only** (DEC-009): the app doesn't track what's in it, and the old built-in location was deleted (migration 0004). `project` type is reserved for post-ship project kits.
+The put-back bin is **physical only** (DEC-009): the app doesn't track what's in it, and the old built-in location was deleted (migration 0004). `project` type is a **project kit** (DEC-019, built 2026-11-03): a temporary location parts are pulled into. It never appears in `item_homes` or as a unit's `home_location_id`, which is what lets "return everything" send things back.
 
 ### Category
 

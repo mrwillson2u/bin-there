@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { events, itemHomes, items, locations, stock, units, type UndoData } from "./db/schema";
 import { ApiError } from "./errors";
-import { indexItem, requireLocation } from "./items";
+import { indexItem, isProject, requireLocation } from "./items";
 import type { Adjust, MoveStock, Recount } from "../shared/api";
 
 // Every action here writes one event in the same transaction, with a snapshot of
@@ -80,7 +80,7 @@ export function recountStock(db: Db, input: Recount): number {
       db.update(stock).set({ qty, level, lastCountedAt: now, changesSinceCount: 0 }).where(whereRow(itemId, locationId)).run();
     } else {
       db.insert(stock).values({ itemId, locationId, qty, level }).run();
-      if (homes.length === 0) db.insert(itemHomes).values({ itemId, locationId }).run();
+      if (homes.length === 0 && !isProject(db, locationId)) db.insert(itemHomes).values({ itemId, locationId }).run();
     }
     const delta = qty !== null ? qty - (before?.qty ?? 0) : null;
     return record(db, {
@@ -110,6 +110,8 @@ export function moveStock(db: Db, input: MoveStock): number {
   if (amount !== null && amount > fromRow.qty!) throw new ApiError(400, "VALIDATION", `Only ${fromRow.qty} there`);
   if (amount === 0) throw new ApiError(400, "VALIDATION", "Nothing to move");
   const movesAll = amount === null || amount === fromRow.qty;
+  // Pulling everything into a project kit doesn't move the home: the kit is temporary (DEC-019).
+  const toKit = isProject(db, to);
 
   return db.transaction(() => {
     if (movesAll) db.delete(stock).where(whereRow(itemId, from)).run();
@@ -126,7 +128,7 @@ export function moveStock(db: Db, input: MoveStock): number {
         .run();
     }
 
-    if (movesAll && homes.includes(from)) {
+    if (movesAll && homes.includes(from) && !toKit) {
       db.delete(itemHomes).where(and(eq(itemHomes.itemId, itemId), eq(itemHomes.locationId, from))).run();
       if (!homes.includes(to)) db.insert(itemHomes).values({ itemId, locationId: to }).run();
     }
@@ -158,7 +160,13 @@ export function createUnit(db: Db, input: { itemId: number; code: string; locati
   const id = db.transaction(() => {
     const unit = db
       .insert(units)
-      .values({ itemId: input.itemId, code: input.code, label: input.label ?? null, locationId: input.locationId ?? null, homeLocationId: input.locationId ?? null })
+      .values({
+        itemId: input.itemId,
+        code: input.code,
+        label: input.label ?? null,
+        locationId: input.locationId ?? null,
+        homeLocationId: isProject(db, input.locationId) ? null : (input.locationId ?? null),
+      })
       .returning({ id: units.id })
       .get();
     record(db, { type: "add", itemId: input.itemId, unitId: unit.id, locationId: input.locationId ?? null, delta: 1 });
