@@ -43,6 +43,13 @@
       "when": 1793695750580,
       "tag": "0005_pins",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793695981212,
+      "tag": "0006_sites",
+      "breakpoints": true
     }
   ]
 }

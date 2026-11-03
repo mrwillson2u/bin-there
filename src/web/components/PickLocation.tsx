@@ -75,7 +75,7 @@ function Browser({ onPick }: { onPick: (loc: { id: number; name: string }) => vo
             className="flex min-h-11 items-center gap-1 text-muted"
             aria-label="Up one level"
           >
-            <ChevronLeft size={18} /> {at.path.length > 1 ? at.path[at.path.length - 2]!.name : "Garage"}
+            <ChevronLeft size={18} /> {at.path.length > 1 ? at.path[at.path.length - 2]!.name : "All sites"}
           </button>
           <span className="flex-1" />
           <Button variant="primary" onClick={() => onPick(at)}>Put in {at.name}</Button>

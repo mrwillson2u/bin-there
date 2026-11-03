@@ -16,6 +16,7 @@ const timestamps = {
 };
 
 export const LOCATION_TYPES = [
+  "site",
   "rack",
   "gridded_box",
   "tote",

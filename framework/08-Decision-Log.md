@@ -292,6 +292,27 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 ---
 
+### DEC-010: Sites as the top level of the location tree
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** Some things aren't kept in the garage. Needed a name and a model for "other places".
+
+**Options Considered:** "Facility" (sounds like a warehouse), "Place"/"Area" (too vague next to "location"), **"Site"**.
+
+**Decision:** A location type `site`. Sites are the only top-level locations; everything else must be inside one (enforced by the API). Existing top-level locations moved into a "Garage" site (migration 0006). With one site, Home shows that site's contents directly; with several, Home lists them. Sites can't be moved and don't nag for stickers.
+
+**Rationale:** Reuses the location tree (paths, search, moves all just work) instead of adding a separate concept.
+
+**Consequences:** Every path starts with the site ("Garage › Rack A › …"). A fresh install asks you to name your first site.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -305,6 +326,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-007 | When an item leaves "Needs details" | Product | Proposed | 2026-11-02 |
 | DEC-008 | Backups run inside the app, not host cron | Architecture | Accepted | 2026-11-03 |
 | DEC-009 | The put-back bin is physical only | Product | Accepted | 2026-11-03 |
+| DEC-010 | Sites as the top level of the location tree | Product | Accepted | 2026-11-03 |
 
 ---
 

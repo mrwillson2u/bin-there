@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ScanLine } from "lucide-react";
+import { MapPin, ScanLine } from "lucide-react";
 import {
   binSizeLabels,
   binSizes,
@@ -10,18 +10,26 @@ import {
   locationTypes,
   type BinSize,
   type LocationDetail,
+  type LocationSummary,
   type LocationType,
 } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
-import { BinChip, Breadcrumbs, Button, Field, inputClass } from "../components/ui";
+import { PickLocation } from "../components/PickLocation";
+import { BinChip, Breadcrumbs, Button, Field, inputClass, pathText } from "../components/ui";
 
 const creatableTypes = locationTypes.filter((t) => t !== "project");
+const insideTypes = creatableTypes.filter((t) => t !== "site");
 
 export function LocationFormPage() {
   const [params] = useSearchParams();
-  const parentId = params.get("parent") ? Number(params.get("parent")) : null;
+  const fixedParent = params.get("parent") ? Number(params.get("parent")) : null;
   const navigate = useNavigate();
+  const { data: sites } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations") });
+  const [chosenParent, setChosenParent] = useState<number | null>(null);
+  const [picking, setPicking] = useState(false);
+  // With one site, new things go in it unless you choose otherwise.
+  const parentId = fixedParent ?? chosenParent ?? (sites?.length === 1 ? sites[0]!.id : null);
   const qc = useQueryClient();
   const { openCamera } = useScan();
 
@@ -32,13 +40,19 @@ export function LocationFormPage() {
   });
 
   const [name, setName] = useState("");
-  const [type, setType] = useState<LocationType>("rack");
-  const [typeTouched, setTypeTouched] = useState(false);
-  // Sensible default once the parent loads: bins go in gridded boxes, boxes go on racks.
+  const [type, setType] = useState<LocationType>(params.get("type") === "site" ? "site" : "rack");
+  const [typeTouched, setTypeTouched] = useState(params.get("type") === "site");
+  // Sensible default once the parent loads: racks go in sites, boxes on racks, bins in gridded boxes.
   useEffect(() => {
     if (!parent || typeTouched) return;
-    setType(parent.type === "gridded_box" ? "bin" : parent.type === "rack" || parent.type === "shelf" ? "gridded_box" : "bin");
+    setType(
+      parent.type === "site" ? "rack"
+      : parent.type === "gridded_box" ? "bin"
+      : parent.type === "rack" || parent.type === "shelf" ? "gridded_box"
+      : "bin",
+    );
   }, [parent, typeTouched]);
+  const isSite = type === "site";
   const [binSize, setBinSize] = useState<BinSize>("1x1");
   const [code, setCode] = useState(params.get("code") ?? "");
 
@@ -52,7 +66,7 @@ export function LocationFormPage() {
     mutationFn: () =>
       api<LocationDetail>("/locations", {
         method: "POST",
-        body: { name, type, parentId, code: code.trim() || null, binSize: type === "bin" ? binSize : null },
+        body: { name, type, parentId: isSite ? null : parentId, code: code.trim() || null, binSize: type === "bin" ? binSize : null },
       }),
     onSuccess: (loc) => {
       qc.invalidateQueries({ queryKey: ["locations"] });
@@ -69,13 +83,33 @@ export function LocationFormPage() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        {parent && <Breadcrumbs path={[...parent.path, { id: -1, name: "" }]} />}
-        <h1 className="text-xl font-semibold">New location{parent ? ` in ${parent.name}` : ""}</h1>
+        {parent && !isSite && <Breadcrumbs path={[...parent.path, { id: -1, name: "" }]} />}
+        <h1 className="text-xl font-semibold">{isSite ? "New site" : `New location${parent ? ` in ${parent.name}` : ""}`}</h1>
       </div>
+
+      {!isSite && fixedParent === null && (
+        <Field label="Inside">
+          <button type="button" onClick={() => setPicking(true)} className={`${inputClass} flex items-center gap-2 text-left`}>
+            <MapPin size={18} className="text-muted" />
+            <span className={`flex-1 ${parent ? "" : "text-muted"}`}>{parent ? pathText(parent.path) : "Choose where it goes"}</span>
+            <span className="text-sm text-accent">Change</span>
+          </button>
+        </Field>
+      )}
+      {picking && (
+        <PickLocation
+          title="Scan or pick what it goes inside"
+          onPick={(l) => {
+            setChosenParent(l.id);
+            setPicking(false);
+          }}
+          onCancel={() => setPicking(false)}
+        />
+      )}
 
       <Field label="Type">
         <div className="flex flex-wrap gap-2">
-          {creatableTypes.map((t) => (
+          {(fixedParent === null ? creatableTypes : insideTypes).map((t) => (
             <button
               type="button"
               key={t}
@@ -111,7 +145,7 @@ export function LocationFormPage() {
       )}
 
       <Field label="Name">
-        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rack A, Screws box, Tote 4" required autoFocus />
+        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder={isSite ? "e.g. Garage, Basement, Office" : "e.g. Rack A, Screws box, Tote 4"} required autoFocus />
       </Field>
 
       <Field label="Sticker (scan it now, or leave blank)">
@@ -125,8 +159,8 @@ export function LocationFormPage() {
 
       {create.error && <p className="text-danger">{(create.error as Error).message}</p>}
 
-      <Button variant="primary" type="submit" disabled={!name.trim() || create.isPending} className="mt-2">
-        Save location
+      <Button variant="primary" type="submit" disabled={!name.trim() || (!isSite && parentId === null) || create.isPending} className="mt-2">
+        {isSite ? "Save site" : "Save location"}
       </Button>
     </form>
   );

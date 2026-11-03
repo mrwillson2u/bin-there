@@ -13,7 +13,7 @@ export function PinButton({ kind, id, pinned }: { kind: "item" | "location"; id:
     onSuccess: (pins) => {
       qc.setQueryData(["pins"], pins);
       qc.invalidateQueries({ queryKey: [kind, id] });
-      toast.show({ message: pinned ? "Unpinned" : "Pinned to the Garage screen" });
+      toast.show({ message: pinned ? "Unpinned" : "Pinned to Home" });
     },
     onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
   });

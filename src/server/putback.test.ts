@@ -30,7 +30,11 @@ const ok = async <T>(method: string, path: string, body?: unknown) => {
   if (r.status >= 300) throw new Error(`${method} ${path} → ${r.status} ${JSON.stringify(r.json)}`);
   return r.json;
 };
-const bin = (name: string) => ok<LocationDetail>("POST", "/locations", { name, type: "bin" });
+let siteId: number;
+beforeEach(async () => {
+  siteId = (await ok<LocationDetail>("POST", "/locations", { name: "Garage", type: "site" })).id;
+});
+const bin = (name: string) => ok<LocationDetail>("POST", "/locations", { name, type: "bin", parentId: siteId });
 const item = (body: object) => ok<ItemDetail>("POST", "/items", body);
 const putBack = (body: object) => ok<StockResult>("POST", "/putback", body);
 const qtyAt = (i: ItemDetail, locationId: number) => i.places.find((p) => p.locationId === locationId)?.qty;

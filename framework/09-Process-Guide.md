@@ -133,6 +133,7 @@ Not every question applies — "skip" and "defer" are valid answers (mechanics i
 
 | Date | Note |
 |------|------|
+| 2026-11-03 | F12 sites (DEC-010): sites are the top level; existing locations migrated into "Garage"; Home shows the one site or lists several; new-location form asks what it goes inside. 51 tests; Chrome click-through passed. |
 | 2026-11-03 | Post-M3 additions while ahead of schedule: put-back bin made physical only and deleted (DEC-009); location type descriptions; F11 pins (pin parts/containers to the top of Garage). 51 tests. |
 | 2026-11-03 | M3 built: put-back mode (one-part bin → +1, mixed bin → choose, item sticker → home with not-home warning, unknown → quick capture, put-back-bin contents), PWA (manifest, icons, shell-cache service worker), in-app nightly backups with integrity check + status on Activity (DEC-008), restore drill passed. 50 tests; Chrome click-through of all put-back cases passed. Real copy on the Mac backs up to ./backups. |
 | 2026-11-02 | M2 built: items/stock/units API with undo snapshots, FTS5 search, starter categories, photo upload (resized on phone). Screens: item, edit, quick capture, search + Needs details, activity, location items with inline +/−. 40 tests pass; click-through in headless Chrome (batched +/−, undo, recount, scans on the capture form, scan-to-move, unit scan) all pass. Scanner's leftover "&END!" suffix is stripped. Running on the Mac at macbip-pro.llama-arctic.ts.net. |

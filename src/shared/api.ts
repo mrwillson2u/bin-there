@@ -3,6 +3,7 @@ import { z } from "zod";
 // Shared request/response shapes between the server and the web app.
 
 export const locationTypes = [
+  "site",
   "rack",
   "gridded_box",
   "tote",
@@ -18,6 +19,7 @@ export const binSizes = ["1x1", "2x1", "2x2", "front_strip", "other"] as const;
 export type BinSize = (typeof binSizes)[number];
 
 export const locationTypeLabels: Record<LocationType, string> = {
+  site: "Site",
   rack: "Rack",
   gridded_box: "Gridded box",
   tote: "Tote",
@@ -30,6 +32,7 @@ export const locationTypeLabels: Record<LocationType, string> = {
 
 /** Shown under the type picker so it's clear which to choose. */
 export const locationTypeHints: Record<LocationType, string> = {
+  site: "A place you keep things: the garage, basement, office, storage unit. Everything else goes inside a site.",
   rack: "A shelving unit that holds boxes and totes, like the Home Depot racks.",
   gridded_box: "An organizer case with a grid of removable bins, like the Allit cases. Add its bins inside it.",
   tote: "A lidded storage tote, like the yellow-lid totes. Things go straight in it, no grid.",

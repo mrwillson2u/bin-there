@@ -37,9 +37,9 @@ export function LocationPage() {
     onError: fail,
   });
   const move = useMutation({
-    mutationFn: (parentId: number | null) =>
+    mutationFn: (parentId: number) =>
       api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { parentId } }),
-    onSuccess: (l) => done(`Moved to ${l.path.length > 1 ? l.path[l.path.length - 2]!.name : "top level"}`),
+    onSuccess: (l) => done(`Moved to ${l.path.at(-2)?.name ?? "?"}`),
     onError: fail,
   });
 
@@ -80,7 +80,7 @@ export function LocationPage() {
           {loc.code ? (
             <> · sticker <span className="font-mono">{loc.code}</span></>
           ) : (
-            <> · <span className="text-warn">no sticker</span></>
+            loc.type !== "site" && <> · <span className="text-warn">no sticker</span></>
           )}
         </p>
       </div>
@@ -95,9 +95,6 @@ export function LocationPage() {
           </p>
           <div className="flex gap-2">
             <Button variant="primary" onClick={openCamera}>Use camera</Button>
-            {mode === "move" && (
-              <Button onClick={() => move.mutate(null)}>Move to top level</Button>
-            )}
             <Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>
           </div>
         </Card>
@@ -109,9 +106,11 @@ export function LocationPage() {
           <Button onClick={() => { setMessage(null); setMode("assign"); }}>
             <QrCode size={18} /> {loc.code ? "Replace sticker" : "Assign sticker"}
           </Button>
-          <Button onClick={() => { setMessage(null); setMode("move"); }}>
-            <MoveRight size={18} /> Move
-          </Button>
+          {loc.type !== "site" && (
+            <Button onClick={() => { setMessage(null); setMode("move"); }}>
+              <MoveRight size={18} /> Move
+            </Button>
+          )}
         </div>
       )}
 

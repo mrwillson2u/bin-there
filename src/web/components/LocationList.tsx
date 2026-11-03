@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { Box, ChevronRight, Grid3x3, Layers, Package, Square } from "lucide-react";
+import { Warehouse, Box, ChevronRight, Grid3x3, Layers, Package, Square } from "lucide-react";
 import { locationTypeLabels, type LocationSummary, type LocationType } from "../../shared/api";
 import { BinChip } from "./ui";
 
 const icons: Record<LocationType, typeof Box> = {
+  site: Warehouse,
   rack: Layers,
   gridded_box: Grid3x3,
   tote: Package,
@@ -29,7 +30,7 @@ export function LocationList({ locations, empty }: { locations: LocationSummary[
                 <span className="block text-[13px] text-muted">
                   {locationTypeLabels[l.type]}
                   {l.childCount > 0 && ` · ${l.childCount} inside`}
-                  {!l.code && " · no sticker"}
+                  {!l.code && l.type !== "site" && " · no sticker"}
                 </span>
               </span>
               <ChevronRight size={18} className="text-muted" />

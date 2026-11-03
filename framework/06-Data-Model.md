@@ -10,7 +10,7 @@
 
 The model is shaped by the user stories (J1–J8) and three key distinctions:
 
-1. **Locations are a tree.** Rack → box/tote → bin, to any depth. Anything with a sticker is a location or a unit.
+1. **Locations are a tree.** Site → rack → box/tote → bin, to any depth. **Sites** (garage, basement, office…) are the only top-level locations (DEC-010). Anything with a sticker is a location or a unit.
 2. **Bulk stock vs. individual units.** Consumables and sticker-less small parts are **stock** (a quantity or level of an item *at a location*). Stickered returnables are **units** (each physical thing is its own record with its own sticker).
 3. **One item model, not a table per part type.** Type-specific fields (thread, resistor value…) live in a JSON `attributes` field whose allowed fields are defined per **category**. This avoids repeating the Airtable sprawl.
 
@@ -41,7 +41,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 |-------|------|-------|
 | id | integer PK | |
 | parent_id | FK → Location, nullable | null = top level (e.g. a rack, "Garage") |
-| type | enum LocationType | rack, gridded_box, tote, tub, bin, shelf, project, other |
+| type | enum LocationType | site, rack, gridded_box, tote, tub, bin, shelf, project, other |
 | name | text | e.g. "Tote 4", "Screws box" |
 | code | text, unique, nullable | Sticker ID |
 | bin_size | text, nullable | 1x1, 2x1, 2x2, front_strip, other (bins only) |
@@ -137,7 +137,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 
 ## Enums / Lookup Tables
 
-- **LocationType:** rack, gridded_box, tote, tub, bin, shelf, project, other
+- **LocationType:** site, rack, gridded_box, tote, tub, bin, shelf, project, other
 - **ItemKind:** consumable, returnable
 - **TrackingMode:** exact, level
 - **StockLevel:** plenty, low, out

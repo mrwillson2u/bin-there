@@ -84,6 +84,12 @@ function assertCodeFree(db: Db, code: string, exceptLocationId?: number) {
   }
 }
 
+/** Sites are the top level; everything else lives inside a site (or inside something in one). */
+function assertPlacement(type: string, parentId: number | null | undefined) {
+  if (type === "site" && parentId != null) throw new ApiError(400, "VALIDATION", "A site can't go inside another location");
+  if (type !== "site" && parentId == null) throw new ApiError(400, "VALIDATION", "This needs to go inside a site or another location");
+}
+
 function assertParentOk(db: Db, id: number | undefined, parentId: number | null | undefined) {
   if (parentId == null) return;
   const parent = db.select({ id: locations.id }).from(locations).where(eq(locations.id, parentId)).get();
@@ -95,6 +101,7 @@ function assertParentOk(db: Db, id: number | undefined, parentId: number | null 
 
 export function createLocation(db: Db, input: CreateLocation): LocationDetail {
   if (input.code) assertCodeFree(db, input.code);
+  assertPlacement(input.type, input.parentId);
   assertParentOk(db, undefined, input.parentId);
   const id = db.transaction((tx) => {
     const row = tx
@@ -118,6 +125,9 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
 export function updateLocation(db: Db, id: number, input: UpdateLocation): LocationDetail {
   const before = getLocation(db, id);
   if (input.code) assertCodeFree(db, input.code, id);
+  if (input.type !== undefined || input.parentId !== undefined) {
+    assertPlacement(input.type ?? before.type, input.parentId !== undefined ? input.parentId : before.parentId);
+  }
   assertParentOk(db, id, input.parentId);
   db.transaction((tx) => {
     tx.update(locations)

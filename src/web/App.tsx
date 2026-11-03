@@ -79,7 +79,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
       </main>
       <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="mx-auto flex max-w-2xl items-center justify-around">
-          <NavItem to="/" icon={<Home size={22} />} label="Garage" />
+          <NavItem to="/" icon={<Home size={22} />} label="Home" />
           <NavItem to="/search" icon={<Search size={22} />} label="Search" />
           <button onClick={openCamera} className="-mt-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-fg shadow-lg" aria-label="Scan with camera">
             <ScanLine size={28} />

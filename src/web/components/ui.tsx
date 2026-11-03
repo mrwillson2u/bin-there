@@ -41,10 +41,9 @@ export function BinChip({ size }: { size: BinSize }) {
 export function Breadcrumbs({ path }: { path: Crumb[] }) {
   return (
     <nav className="flex flex-wrap items-center gap-1 text-[13px] text-muted">
-      <Link to="/" className="hover:text-text">Garage</Link>
-      {path.slice(0, -1).map((c) => (
+      {path.slice(0, -1).map((c, i) => (
         <span key={c.id} className="flex items-center gap-1">
-          <ChevronRight size={14} />
+          {i > 0 && <ChevronRight size={14} />}
           <Link to={`/locations/${c.id}`} className="hover:text-text">{c.name}</Link>
         </span>
       ))}

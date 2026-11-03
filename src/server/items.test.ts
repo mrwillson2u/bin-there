@@ -27,7 +27,11 @@ const ok = async <T>(method: string, path: string, body?: unknown) => {
   return r.json;
 };
 
-const bin = (name: string, code?: string) => ok<LocationDetail>("POST", "/locations", { name, type: "bin", code });
+let siteId: number;
+beforeEach(async () => {
+  siteId = (await ok<LocationDetail>("POST", "/locations", { name: "Garage", type: "site" })).id;
+});
+const bin = (name: string, code?: string) => ok<LocationDetail>("POST", "/locations", { name, type: "bin", code, parentId: siteId });
 const item = (body: object) => ok<ItemDetail>("POST", "/items", body);
 const adjust = (body: object) => ok<StockResult>("POST", "/stock/adjust", body);
 
@@ -219,7 +223,7 @@ describe("pins", () => {
     await ok("PUT", `/pins/location/${b.id}`);
     const pins = await ok<{ items: ItemSummary[]; locations: { id: number; path: { name: string }[] }[] }>("PUT", `/pins/item/${r.id}`);
     expect(pins.items.map((i) => i.name)).toEqual(["10k resistor", "M3 screw"]);
-    expect(pins.locations.map((l) => l.path.map((c) => c.name))).toEqual([["Bin 7"]]);
+    expect(pins.locations.map((l) => l.path.map((c) => c.name))).toEqual([["Garage", "Bin 7"]]);
     expect((await ok<ItemDetail>("GET", `/items/${s.id}`)).pinned).toBe(true);
     expect((await ok<LocationDetail>("GET", `/locations/${b.id}`)).pinned).toBe(true);
 

@@ -180,7 +180,7 @@ function PlaceCard({ item, place, onMove }: { item: ItemDetail; place: Place; on
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-2">
         <Link to={`/locations/${place.locationId}`} className="min-w-0 flex-1">
-          <span className="block text-[13px] text-muted">{pathText(place.path.slice(0, -1)) || "Garage"}</span>
+          {place.path.length > 1 && <span className="block text-[13px] text-muted">{pathText(place.path.slice(0, -1))}</span>}
           <span className="block font-semibold">{name}</span>
         </Link>
         <button
