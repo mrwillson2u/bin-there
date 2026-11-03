@@ -5,7 +5,8 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
-import { scheduleBackups, type BackupConfig } from "./backup";
+import { msUntilHour, scheduleBackups, type BackupConfig } from "./backup";
+import { scheduleHousekeeping } from "./housekeeping";
 
 const dataDir = process.env.DATA_DIR ?? "./data";
 const port = Number(process.env.PORT ?? 3000);
@@ -20,6 +21,8 @@ const backup: BackupConfig | undefined = process.env.BACKUP_DIR
   : undefined;
 if (backup) scheduleBackups(db, backup, Number(process.env.BACKUP_HOUR ?? 3));
 else console.log("backups disabled: set BACKUP_DIR to enable");
+// Items deleted over a month ago are removed for good, an hour after the backup.
+scheduleHousekeeping(db, photoDir, msUntilHour, (Number(process.env.BACKUP_HOUR ?? 3) + 1) % 24);
 
 const app = new Hono();
 app.route("/api", createApi(db, { photoDir, backup }));

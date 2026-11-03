@@ -21,6 +21,8 @@ import {
   archiveItem,
   countNeedsDetails,
   listCheckedOut,
+  listLow,
+  listStale,
   recentlyUsed,
   createCategory,
   createItem,
@@ -56,6 +58,7 @@ import {
   type BackupInfo,
   type ScanResult,
   type StockResult,
+  type Stats,
 } from "../shared/api";
 
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
@@ -73,7 +76,9 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   };
 
   api.get("/health", (c) => c.json({ ok: true }));
-  api.get("/stats", (c) => c.json({ needsDetails: countNeedsDetails(db), checkedOut: listCheckedOut(db).length }));
+  api.get("/stats", (c) =>
+    c.json({ needsDetails: countNeedsDetails(db), checkedOut: listCheckedOut(db).length, stale: listStale(db).length, low: listLow(db).length } satisfies Stats),
+  );
 
   api.get("/scan/:code", (c) => {
     const code = parseBody(codeSchema, c.req.param("code"));
@@ -113,6 +118,8 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     c.json(searchItems(db, { q: c.req.query("q"), needsDetails: c.req.query("needs") === "1" })),
   );
   api.get("/items/recently-used", (c) => c.json(recentlyUsed(db, Number(c.req.query("days") ?? 30) || 30)));
+  api.get("/items/low", (c) => c.json(listLow(db)));
+  api.get("/review", (c) => c.json(listStale(db)));
   api.get("/items/:id", (c) => c.json(getItem(db, intParam(c.req.param("id")))));
   api.post("/items", async (c) => {
     const input = parseBody(createItemSchema, await c.req.json());

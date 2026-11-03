@@ -402,6 +402,85 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Consequences:** `PUT /api/locations/:id/slot`; migration 0007 adds `grid_rotated`; the fit rules live in `src/shared/grid.ts` so the screen and the server agree. Moving a bin to another box, or changing its size, clears its slot. The grid needs no library: pointer events plus `touch-action: none` while arranging.
 
+### DEC-015: Stale counts get a review list with one-tap "Still N"
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** DEC-001 flags an exact count as stale after 90 days or 10 nudges, but the flag only showed on the item's own screen, so stale counts were found by accident.
+
+**Decision:** Home shows "N counts worth checking" when there are any. It opens a list grouped by location, in walking order, where each row has **Still N** (a recount at the same number: one tap, resets freshness, logged as a recount with delta 0) and **Different…** (type the real number). Both go through the normal recount endpoint, so they're logged and undoable. The thresholds stay as they were.
+
+**Rationale:** A review session should be mostly tapping. Reusing recount keeps the undo invariant without a new event type.
+
+**Consequences:** `GET /api/review`; `stale` in `/api/stats`. No new tables.
+
+---
+
+### DEC-016: Low-stock list from levels plus a per-item threshold
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** The data model had `low_threshold` on items from the start, unused and unsettable.
+
+**Decision:** "Running low" lists level items that are low or out anywhere, plus exact items whose total is zero or at/below their threshold. The threshold is a plain number on the item's edit screen (blank = no warning); uncounted items are never "low". Worst first (out before low). A **Copy** button puts the list on the clipboard as plain text. No "mark as bought": restocking (a + or a level change) takes things off the list on its own.
+
+**Rationale:** The smallest thing that works as a shopping list without a second place to keep state.
+
+**Consequences:** `GET /api/items/low`; `lowThreshold` on item summaries and in `PATCH /api/items/:id`; `low` in `/api/stats`.
+
+---
+
+### DEC-017: Deletions are purged for good after 30 days, history included
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** DEC-013 made delete a soft delete. The backlog note said a purge could keep a "Deleted" line in the log, but events point at items by foreign key, so an item can't go without its events.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep a tombstone row and only free photos/stock | Log line survives | The item lingers; Undo on a gutted item needs guarding |
+| **Remove the item and everything about it** | Clean; nothing half-deleted | The "Deleted" log line goes too, after 30 days |
+
+**Decision:** A nightly housekeeping job (and one on start) removes items deleted more than 30 days ago: photo files, photos, stock, homes, units, pins, events, search row, and the item. Thirty days is the undo window in practice; the activity screen only shows recent history anyway.
+
+**Consequences:** `src/server/housekeeping.ts`, scheduled an hour after the backup hour. Nothing in the API. Locations are not purged (they're tiny and keep the tree's history whole).
+
+---
+
+### DEC-018: Light mode is a per-device setting, default dark
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** The style guide was dark-first with tokens ready for a swap.
+
+**Decision:** Three choices at the bottom of Home: **Device** (follow the phone's setting), **Dark**, **Light**. Stored in the browser on that device, applied before the app renders so there's no flash, and the status-bar color follows. Default stays dark. Light tokens darken the accent and status colors for contrast on white; bin colors don't change.
+
+**Rationale:** No account, so per-device is the only place to keep it; dark stays the default because garage use is the main case.
+
+**Consequences:** `src/web/theme.ts`, light tokens in `index.css`. New UI must use the tokens (no hard-coded colors) to work in both.
+
 ---
 
 ## Decision Index
@@ -422,6 +501,10 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-012 | Kit leftovers live in `framework/kit/` | Process | Accepted | 2026-11-03 |
 | DEC-013 | Deleting is a soft delete; item delete is undoable | Product | Accepted | 2026-11-03 |
 | DEC-014 | Gridded boxes drawn as a grid; bins placed by drag-and-drop | UX | Accepted | 2026-11-03 |
+| DEC-015 | Stale counts get a review list with one-tap "Still N" | Product | Accepted | 2026-11-03 |
+| DEC-016 | Low-stock list from levels plus a per-item threshold | Product | Accepted | 2026-11-03 |
+| DEC-017 | Deletions purged for good after 30 days, history included | Product | Accepted | 2026-11-03 |
+| DEC-018 | Light mode is a per-device setting, default dark | UX | Accepted | 2026-11-03 |
 
 ---
 

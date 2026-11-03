@@ -164,6 +164,8 @@ export const updateItemSchema = z
     supplierPn: optText(100),
     url: optText(1000),
     notes: optText(4000),
+    /** Exact-count items: on the low-stock list once the total is at or below this. */
+    lowThreshold: z.number().int().min(0).max(1_000_000).nullable(),
     /** Saving the details form clears "needs details" unless this is true. */
     needsDetails: z.boolean(),
   })
@@ -238,8 +240,24 @@ export type ItemSummary = {
   totalQty: number | null;
   /** Stickered units checked out right now (F10). */
   checkedOut: number;
+  /** Exact-count items: low-stock warning level, or null for none. */
+  lowThreshold: number | null;
   places: Place[];
 };
+
+/** A count that's worth checking again: old, or nudged a lot since it was last counted. */
+export type ReviewEntry = {
+  itemId: number;
+  name: string;
+  thumbUrl: string | null;
+  locationId: number;
+  path: Crumb[];
+  qty: number;
+  lastCountedAt: string;
+  changesSinceCount: number;
+};
+
+export type Stats = { needsDetails: number; checkedOut: number; stale: number; low: number };
 
 export type Photo = { id: number; url: string; thumbUrl: string };
 export type Unit = {

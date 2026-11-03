@@ -73,7 +73,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 | attributes | JSON | Values for the category's `field_defs` |
 | price, supplier, supplier_pn, url | nullable | |
 | needs_details | boolean | true after quick capture until filled in |
-| low_threshold | int, nullable | exact mode, for later shopping list |
+| low_threshold | int, nullable | exact mode: on the low-stock list once the total is at or below this (DEC-016). Set on the edit screen |
 | notes, created_at, updated_at | | |
 
 ### Stock (bulk quantity of an item at a location)

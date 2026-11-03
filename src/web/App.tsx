@@ -15,6 +15,8 @@ import { SearchPage } from "./pages/SearchPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PutBackPage } from "./pages/PutBackPage";
 import { CheckedOutPage } from "./pages/CheckedOutPage";
+import { ReviewPage } from "./pages/ReviewPage";
+import { LowStockPage } from "./pages/LowStockPage";
 import { ToastProvider } from "./components/Toast";
 
 export function App() {
@@ -52,6 +54,8 @@ export function App() {
             <Route path="/activity" element={<ActivityPage />} />
             <Route path="/putback" element={<PutBackPage />} />
             <Route path="/out" element={<CheckedOutPage />} />
+            <Route path="/review" element={<ReviewPage />} />
+            <Route path="/low" element={<LowStockPage />} />
           </Routes>
         </Shell>
       </ToastProvider>

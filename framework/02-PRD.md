@@ -55,13 +55,13 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | **AI assistant chat**: preset "inventory assistant" prompt; finds parts and suggests what I have during a conversation; nudges ("put-back bin hasn't been emptied in 9 days") | 2026-11-02 | Needs a stable data model + activity log first. ⚠️ **Conflicts with $0 running cost**: cloud LLM APIs cost money per use; a local model on the home lab server is free but weaker. Decide before building. |
 | **Identify a part from a photo** in put-back mode (snap the mystery capacitor, get likely matches from the catalog photos) | 2026-11-03 | Search + "recently taken out" covers most cases. Researched 2026-11-03 (`reports/Self hosted photo part search.md`): feasible at $0 as a hybrid (DINOv3 image embeddings on CPU + a small Qwen VLM reading markings), judged as "right item in the top 5". Phase 0 = offline go/no-go eval on ~50 of the user's own parts. Server GPU: **GTX 1080 Ti, 11 GB** (Pascal) → fits qwen3-vl:8b-instruct or qwen3.5:9b at Q4 via Ollama/llama.cpp (not vLLM, which needs a newer GPU); expect slower than the report's RTX 4060 timings; the user's other Qwen project is on a different machine; this server's GPU shares with Frigate (mostly uses a Coral, ~0.5 GB) and the `neutts` TTS container (~5 GB, unused; Colin is fine taking it down when photo search needs the room) |
 | **AI data fill**: look up part number, supplier, price, specs (web search; possibly from the quick-capture photo) and suggest values for "needs details" items | 2026-11-02 | Same cost question as above; manual fill-in works for the MVP |
-| **Recount flow + staleness review** list | 2026-11-02 | Staleness flag is in MVP; a dedicated review flow can follow |
-| **Low-stock / shopping list** | 2026-11-02 | Not needed to keep data current |
+| ~~**Recount flow + staleness review** list~~ | 2026-11-02 | **Built 2026-11-03** (DEC-015): Home shows "N counts worth checking" → a list grouped by location with one-tap "Still N" or a new number |
+| ~~**Low-stock / shopping list**~~ | 2026-11-02 | **Built 2026-11-03** (DEC-016): Home shows "N running low" → the list, with Copy as text. Exact items get a per-item low-stock warning on the edit screen |
 | **"Do I have enough for N boards?"** (BOM check against exact-mode items) | 2026-11-02 | Depends on exact counts being trusted first |
 | **Lending tracking** (who borrowed what) | 2026-11-02 | Needs viewer accounts first |
-| **Light mode** theme | 2026-11-02 | Dark mode first per user preference; tokens make it a theme swap |
+| ~~**Light mode** theme~~ | 2026-11-02 | **Built 2026-11-03** (DEC-018): Device / Dark / Light at the bottom of Home |
 | Look at Homebox / InvenTree / PartKeepr for ideas | 2026-11-02 | Inspiration only |
-| **Purge old deletions**: a housekeeping job that permanently removes archived items (and their photo files) once they're past undo age, e.g. 30 days; the log keeps a "Deleted" line with the name. Decided against a second, real delete button (see DEC-013) | 2026-11-03 | Soft-deleted rows cost nothing noticeable at this scale; only worth it if the leftovers ever bother Colin |
+| ~~**Purge old deletions**~~ | 2026-11-03 | **Built 2026-11-03** (DEC-017): items deleted over 30 days ago are removed for good (photos, stock, units, history, row) nightly and on start. Decided against a second, real delete button (see DEC-013) |
 | ~~**Delete / archive** items and locations~~ | 2026-11-03 | **Built 2026-11-03** (DEC-013): soft delete from the item edit screen (undoable) and from an empty location's screen. Was missing from the SPV; found in the post-ship audit |
 
 ---
@@ -178,3 +178,4 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | 2026-11-02 | Colin + AI | Initial draft from discovery Phases 1–3 |
 | 2026-11-03 | AI | Post-ship: delete/archive added (DEC-013) |
 | 2026-11-03 | AI | Post-ship: grid view of gridded boxes built (DEC-014) |
+| 2026-11-03 | AI | Post-ship quick wins: staleness review (DEC-015), low-stock list (DEC-016), purge of old deletions (DEC-017), light mode (DEC-018) |

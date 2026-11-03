@@ -43,6 +43,7 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
   const [supplierPn, setSupplierPn] = useState(item.supplierPn ?? "");
   const [url, setUrl] = useState(item.url ?? "");
   const [notes, setNotes] = useState(item.notes ?? "");
+  const [lowThreshold, setLowThreshold] = useState(item.lowThreshold?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const category = categories.find((c) => c.id === categoryId);
@@ -81,6 +82,7 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
         supplierPn: supplierPn.trim() || null,
         url: url.trim() || null,
         notes: notes.trim() || null,
+        lowThreshold: tracking === "exact" && lowThreshold.trim() ? Number(lowThreshold) : null,
       };
       return api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body });
     },
@@ -170,6 +172,21 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
         }}
         hint={tracking !== item.tracking ? "Existing stock will be converted when you save" : undefined}
       />
+
+      {tracking === "exact" && (
+        <Field label="Low-stock warning (leave blank for none)">
+          <input
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={lowThreshold}
+            onChange={(e) => setLowThreshold(e.target.value.replace(/\D/g, ""))}
+            className={`${inputClass} w-40`}
+            placeholder="e.g. 20"
+            aria-label="Low-stock warning: on the shopping list when the total is at or below this"
+          />
+          <span className="text-[13px] text-muted">Goes on the shopping list when the total is at or below this.</span>
+        </Field>
+      )}
 
       {category && category.fieldDefs.length > 0 && (
         <fieldset className="flex flex-col gap-3">

@@ -48,14 +48,16 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 |--------|------|---------|
 | GET | `/api/items?q=&category=&needs_details=` | Search (FTS) with total qty + every location path |
 | GET | `/api/items/recently-used?days=30` | Items with a non-undone "use" in the last N days, most recent first (put-back suggestions) |
+| GET | `/api/items/low` | The shopping list: level items low/out anywhere, exact items at zero or at/below their `lowThreshold`; worst first (DEC-016) |
+| GET | `/api/review` | Stale exact counts (`ReviewEntry[]`: item, location path, qty, last counted, changes since), in walking order by location (DEC-015) |
 | GET | `/api/items/:id` | Item + stock by location + units + homes + recent events |
 | POST | `/api/items` | Create. Used by quick capture: everything optional (`name`, `code` → returnable unit, `locationId`, `qty`/`level`, `categoryId`). Needs details unless it has a name **and** a category (DEC-007) |
-| PATCH | `/api/items/:id` | Edit details (clears `needs_details` when complete) |
+| PATCH | `/api/items/:id` | Edit details (clears `needs_details` when complete); includes `lowThreshold` (null = no warning) |
 | PUT | `/api/items/:id/homes` | Set designated home location(s) |
 | DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
 | POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |
 | GET | `/api/photos/:file` | Serve a stored photo (immutable cache) |
-| GET | `/api/stats` | `{ needsDetails }` count for the home screen |
+| GET | `/api/stats` | `{ needsDetails, checkedOut, stale, low }` counts for the home screen banners |
 
 ### Stock actions (each writes an Event in the same transaction and returns `{ eventId, item }` so the client can offer Undo)
 | Method | Path | Body | Purpose |

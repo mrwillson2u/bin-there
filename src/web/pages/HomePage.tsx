@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Camera, ChevronRight, LogOut, Pin, Plus, Search, Warehouse } from "lucide-react";
-import type { ItemSummary, LocationDetail, LocationSummary, Pins } from "../../shared/api";
+import { Camera, ChevronRight, ClipboardCheck, LogOut, Pin, Plus, Search, ShoppingCart, SunMoon, Warehouse } from "lucide-react";
+import type { ItemSummary, LocationDetail, LocationSummary, Pins, Stats } from "../../shared/api";
+import { getTheme, setTheme, themeLabels, themes, type Theme } from "../theme";
 import { api } from "../api";
 import { LocationList } from "../components/LocationList";
 import { LocationItemList, QtyBadge } from "../components/ItemList";
@@ -21,7 +22,7 @@ export function HomePage() {
     queryFn: () => api<LocationDetail>(`/locations/${single!.id}`),
     enabled: single !== null,
   });
-  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: () => api<{ needsDetails: number; checkedOut: number }>("/stats") });
+  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: () => api<Stats>("/stats") });
   const { data: pins } = useQuery({ queryKey: ["pins"], queryFn: () => api<Pins>("/pins") });
 
   const hasPins = !!pins && (pins.items.length > 0 || pins.locations.length > 0);
@@ -67,6 +68,22 @@ export function HomePage() {
         </Link>
       )}
 
+      {stats && stats.low > 0 && (
+        <Link to="/low" className="flex min-h-12 items-center gap-2 rounded-xl border border-danger/40 bg-danger/10 px-4 text-danger">
+          <ShoppingCart size={18} />
+          <span className="flex-1">{stats.low} running low</span>
+          <ChevronRight size={18} />
+        </Link>
+      )}
+
+      {stats && stats.stale > 0 && (
+        <Link to="/review" className="flex min-h-12 items-center gap-2 rounded-xl border border-border bg-surface px-4 text-muted">
+          <ClipboardCheck size={18} />
+          <span className="flex-1">{stats.stale} count{stats.stale === 1 ? "" : "s"} worth checking</span>
+          <ChevronRight size={18} />
+        </Link>
+      )}
+
       <div className={`flex flex-col gap-4 ${hasPins ? "lg:grid lg:grid-cols-2 lg:items-start lg:gap-6" : ""}`}>
         {hasPins && <Pinned pins={pins!} />}
 
@@ -96,6 +113,33 @@ export function HomePage() {
       <Link to="/locations/new?type=site" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
         <Warehouse size={16} /> Add a site{single ? " (another place you keep things)" : ""}
       </Link>
+
+      <ThemePicker />
+    </div>
+  );
+}
+
+/** Dark, light, or whatever the device is set to. Remembered on this device. */
+function ThemePicker() {
+  const [theme, set] = useState<Theme>(getTheme);
+  const pick = (t: Theme) => {
+    setTheme(t);
+    set(t);
+  };
+  return (
+    <div className="flex items-center justify-center gap-2 text-sm text-muted" role="radiogroup" aria-label="Appearance">
+      <SunMoon size={16} />
+      {themes.map((t) => (
+        <button
+          key={t}
+          role="radio"
+          aria-checked={theme === t}
+          onClick={() => pick(t)}
+          className={`min-h-11 rounded-lg px-2 ${theme === t ? "font-semibold text-accent" : ""}`}
+        >
+          {themeLabels[t]}
+        </button>
+      ))}
     </div>
   );
 }

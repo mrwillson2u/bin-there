@@ -14,6 +14,7 @@ import type {
   ItemSummary,
   LocationItem,
   Place,
+  ReviewEntry,
   UpdateItem,
 } from "../shared/api";
 
@@ -127,6 +128,7 @@ function summaries(db: Db, rows: (typeof items.$inferSelect)[]): ItemSummary[] {
       // Units out with no location (e.g. "lent to Sam") still count.
       totalQty: placed === null && u.unplaced === 0 ? null : (placed ?? 0) + u.unplaced,
       checkedOut: u.out,
+      lowThreshold: r.lowThreshold,
       places,
     };
   });
@@ -249,6 +251,66 @@ export function listCheckedOut(db: Db): CheckedOutUnit[] {
     at: u.checkedOutAt ?? u.updatedAt,
     note: u.checkedOutNote,
   }));
+}
+
+/** Every stale exact count, in walking order (by location path). The staleness review list. */
+export function listStale(db: Db, now = new Date()): ReviewEntry[] {
+  const rows = db
+    .select({ s: stock, i: items })
+    .from(stock)
+    .innerJoin(items, eq(items.id, stock.itemId))
+    .where(and(eq(items.archived, false), eq(items.tracking, "exact")))
+    .all()
+    .filter(({ s, i }) => isStale(i.tracking, s, now));
+  const thumbMap = thumbs(db, [...new Set(rows.map((r) => r.i.id))]);
+  return rows
+    .map(({ s, i }) => ({
+      itemId: i.id,
+      name: i.name,
+      thumbUrl: thumbMap.get(i.id) ?? null,
+      locationId: s.locationId,
+      path: locationPath(db, s.locationId),
+      qty: s.qty!,
+      lastCountedAt: s.lastCountedAt,
+      changesSinceCount: s.changesSinceCount,
+    }))
+    .sort((a, b) => pathKey(a.path).localeCompare(pathKey(b.path)) || a.name.localeCompare(b.name));
+}
+
+const pathKey = (path: Crumb[]) => path.map((c) => c.name).join("/");
+
+/**
+ * The shopping list: level items that are low or out anywhere, and exact items whose total
+ * is zero or at/below their low-stock threshold. Worst first.
+ */
+export function listLow(db: Db): ItemSummary[] {
+  const rows = db
+    .select()
+    .from(items)
+    .where(
+      and(
+        eq(items.archived, false),
+        sql`(
+          exists (select 1 from stock s where s.item_id = ${items.id} and (s.level in ('low', 'out') or s.qty = 0))
+          or ${items.lowThreshold} is not null
+        )`,
+      ),
+    )
+    .all();
+  const rank = (i: ItemSummary): number => {
+    if (i.tracking === "level") {
+      const levels = i.places.map((p) => p.level);
+      return levels.includes("out") ? 0 : levels.includes("low") ? 1 : 9;
+    }
+    if (i.totalQty === null) return 9;
+    if (i.totalQty === 0) return 0;
+    return i.lowThreshold !== null && i.totalQty <= i.lowThreshold ? 1 : 9;
+  };
+  return summaries(db, rows)
+    .map((i) => ({ i, r: rank(i) }))
+    .filter(({ r }) => r < 9)
+    .sort((a, b) => a.r - b.r || a.i.name.localeCompare(b.i.name))
+    .map(({ i }) => i);
 }
 
 export function countNeedsDetails(db: Db): number {
