@@ -61,6 +61,7 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | **Lending tracking** (who borrowed what) | 2026-11-02 | Needs viewer accounts first |
 | **Light mode** theme | 2026-11-02 | Dark mode first per user preference; tokens make it a theme swap |
 | Look at Homebox / InvenTree / PartKeepr for ideas | 2026-11-02 | Inspiration only |
+| **Purge old deletions**: a housekeeping job that permanently removes archived items (and their photo files) once they're past undo age, e.g. 30 days; the log keeps a "Deleted" line with the name. Decided against a second, real delete button (see DEC-013) | 2026-11-03 | Soft-deleted rows cost nothing noticeable at this scale; only worth it if the leftovers ever bother Colin |
 | ~~**Delete / archive** items and locations~~ | 2026-11-03 | **Built 2026-11-03** (DEC-013): soft delete from the item edit screen (undoable) and from an empty location's screen. Was missing from the SPV; found in the post-ship audit |
 
 ---
