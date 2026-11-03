@@ -21,7 +21,8 @@ The app has been running on the Mac (`macbip-pro`) with its data in `./data`. To
 
 ```bash
 # On the Mac: stop the app so the database is quiet, then copy code + data to the server.
-rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/bin-there/ <server>:~/bin-there/
+# (The Mac folder is still named stack-n-track; it lands as ~/bin-there on the server.)
+rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/stack-n-track/ <server>:~/bin-there/
 # On the Mac: stop serving the old copy over Tailscale.
 /Applications/Tailscale.app/Contents/MacOS/Tailscale serve reset
 ```
