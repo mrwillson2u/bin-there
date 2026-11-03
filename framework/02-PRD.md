@@ -27,6 +27,7 @@ Stack-n-Track (working name) is a self-hosted, mobile-first web app for my garag
 | **F7. Activity log** | Every stock change recorded (what, where, qty, when) | Must-have | Needed for undo, staleness, and success metrics |
 | **F8. Backups** | Automated database + photo backup | Must-have | Nightly backup runs; restore tested once |
 | **F9. Bulk move** (J3) | Move a whole container (with everything in it) or a selected group of items | Should-have | Moving a box moves all of its bins and contents in one action |
+| **F11. Pins** (added 2026-11-03) | Pin parts or containers you're actively working with; they show at the top of the Garage screen | Should-have | Pin/unpin from any item or location screen; pinned things are one tap from Garage, newest first; pins are the same on every device |
 | **F10. Check out / check in** (J8) | Returnables checked out to a location/project and back, with history | Should-have | "Where are all my 12 V supplies?" shows each unit's current place and last use |
 
 ### Out of Scope (for MVP)

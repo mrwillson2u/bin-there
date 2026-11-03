@@ -161,3 +161,11 @@ export const events = sqliteTable("events", {
   undoData: text("undo_data", { mode: "json" }).$type<UndoData>(),
   actor: text("actor").notNull().default("owner"),
 });
+
+/** Things pinned to the top of the Garage screen for quick access (F11). Exactly one of item/location is set. */
+export const pins = sqliteTable("pins", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  itemId: integer("item_id").unique().references(() => items.id, { onDelete: "cascade" }),
+  locationId: integer("location_id").unique().references(() => locations.id, { onDelete: "cascade" }),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+});

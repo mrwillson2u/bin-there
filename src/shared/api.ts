@@ -94,7 +94,11 @@ export type LocationDetail = LocationSummary & {
   path: Crumb[];
   children: LocationSummary[];
   items: LocationItem[];
+  pinned: boolean;
 };
+
+export type PinnedLocation = LocationSummary & { path: Crumb[] };
+export type Pins = { items: ItemSummary[]; locations: PinnedLocation[] };
 
 export type ScanResult =
   | { kind: "location"; location: LocationDetail }
@@ -255,6 +259,7 @@ export type ItemDetail = ItemSummary & {
   photos: Photo[];
   unitList: Unit[];
   history: EventView[];
+  pinned: boolean;
 };
 
 /** An item as seen from inside a location. */

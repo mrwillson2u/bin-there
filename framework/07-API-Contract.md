@@ -67,6 +67,12 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | POST | `/api/units/:id/checkout` | `{ to_location_id, note }` |
 | POST | `/api/units/:id/checkin` | `{ location_id? }` defaults to home |
 
+### Pins (F11)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/pins` | `{ items: ItemSummary[], locations: (LocationSummary & { path })[] }`, newest first |
+| PUT / DELETE | `/api/pins/item/:id`, `/api/pins/location/:id` | Pin / unpin; returns the new list |
+
 ### Categories, events, system
 | Method | Path | Purpose |
 |--------|------|---------|

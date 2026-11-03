@@ -1,9 +1,10 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { locations, units, events } from "./db/schema";
 import { ApiError } from "./errors";
 import { locationItems } from "./items";
-import type { CreateLocation, Crumb, LocationDetail, LocationSummary, UpdateLocation } from "../shared/api";
+import { isPinned } from "./pins";
+import type { CreateLocation, Crumb, LocationDetail, LocationSummary, PinnedLocation, UpdateLocation } from "../shared/api";
 
 // Written out in full: an interpolated column renders unqualified and would bind to the inner `c`.
 const childCount = sql<number>`(select count(*) from locations c where c.parent_id = "locations"."id" and c.archived = 0)`;
@@ -29,6 +30,17 @@ export function listLocations(db: Db, parentId: number | null): LocationSummary[
     )
     .orderBy(locations.name)
     .all();
+}
+
+/** Summaries with breadcrumb paths, in the order given (skipping archived or missing ones). */
+export function listLocationsByIds(db: Db, ids: number[]): PinnedLocation[] {
+  if (ids.length === 0) return [];
+  const rows = db.select(summaryColumns).from(locations).where(and(inArray(locations.id, ids), eq(locations.archived, false))).all();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.flatMap((id) => {
+    const r = byId.get(id);
+    return r ? [{ ...r, path: locationPath(db, id) }] : [];
+  });
 }
 
 /** Ancestors from the top level down to (and including) the location. */
@@ -60,6 +72,7 @@ export function getLocation(db: Db, id: number): LocationDetail {
     path: locationPath(db, loc.id),
     children: listLocations(db, loc.id),
     items: locationItems(db, loc.id),
+    pinned: isPinned(db, "location", loc.id),
   };
 }
 

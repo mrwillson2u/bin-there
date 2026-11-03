@@ -1,0 +1,32 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pin, PinOff } from "lucide-react";
+import type { Pins } from "../../shared/api";
+import { api } from "../api";
+import { useToast } from "./Toast";
+
+/** Pin an item or location to the top of the Garage screen (F11). */
+export function PinButton({ kind, id, pinned }: { kind: "item" | "location"; id: number; pinned: boolean }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const toggle = useMutation({
+    mutationFn: () => api<Pins>(`/pins/${kind}/${id}`, { method: pinned ? "DELETE" : "PUT" }),
+    onSuccess: (pins) => {
+      qc.setQueryData(["pins"], pins);
+      qc.invalidateQueries({ queryKey: [kind, id] });
+      toast.show({ message: pinned ? "Unpinned" : "Pinned to the Garage screen" });
+    },
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
+  });
+  return (
+    <button
+      onClick={() => toggle.mutate()}
+      disabled={toggle.isPending}
+      aria-pressed={pinned}
+      aria-label={pinned ? "Unpin" : "Pin"}
+      className={`flex min-h-11 items-center gap-1.5 rounded-xl px-3 ${pinned ? "text-warn" : "text-muted"}`}
+    >
+      {pinned ? <PinOff size={18} /> : <Pin size={18} />}
+      {pinned ? "Unpin" : "Pin"}
+    </button>
+  );
+}

@@ -4,6 +4,7 @@ import { categories, events, itemHomes, items, locations, photos, stock, units, 
 import { ApiError } from "./errors";
 import { listEvents } from "./events";
 import { locationPath } from "./locations";
+import { isPinned } from "./pins";
 import type {
   Category,
   CreateItem,
@@ -150,6 +151,7 @@ export function getItem(db: Db, id: number): ItemDetail {
       path: u.locationId ? locationPath(db, u.locationId) : [],
     })),
     history: listEvents(db, { itemId: id, limit: 20 }),
+    pinned: isPinned(db, "item", id),
   };
 }
 
@@ -190,6 +192,14 @@ export function searchItems(db: Db, opts: { q?: string; needsDetails?: boolean; 
   }
   const rows = db.select().from(items).where(and(...conds)).orderBy(desc(items.updatedAt), desc(items.id)).limit(limit).all();
   return summaries(db, rows);
+}
+
+/** Summaries in the order given (skipping archived or missing items). */
+export function searchItemsByIds(db: Db, ids: number[]): ItemSummary[] {
+  if (ids.length === 0) return [];
+  const rows = db.select().from(items).where(and(inArray(items.id, ids), eq(items.archived, false))).all();
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return summaries(db, ids.map((id) => byId.get(id)).filter((r): r is (typeof rows)[number] => !!r));
 }
 
 export function countNeedsDetails(db: Db): number {

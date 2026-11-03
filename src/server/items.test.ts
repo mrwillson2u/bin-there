@@ -209,3 +209,23 @@ describe("needs details", () => {
     expect([full.needsDetails, nameOnly.needsDetails]).toEqual([false, true]);
   });
 });
+
+describe("pins", () => {
+  it("pins parts and containers, newest first, and unpins", async () => {
+    const b = await bin("Bin 7");
+    const s = await item({ name: "M3 screw", locationId: b.id, qty: 10 });
+    const r = await item({ name: "10k resistor", locationId: b.id, qty: 5 });
+    await ok("PUT", `/pins/item/${s.id}`);
+    await ok("PUT", `/pins/location/${b.id}`);
+    const pins = await ok<{ items: ItemSummary[]; locations: { id: number; path: { name: string }[] }[] }>("PUT", `/pins/item/${r.id}`);
+    expect(pins.items.map((i) => i.name)).toEqual(["10k resistor", "M3 screw"]);
+    expect(pins.locations.map((l) => l.path.map((c) => c.name))).toEqual([["Bin 7"]]);
+    expect((await ok<ItemDetail>("GET", `/items/${s.id}`)).pinned).toBe(true);
+    expect((await ok<LocationDetail>("GET", `/locations/${b.id}`)).pinned).toBe(true);
+
+    await ok("PUT", `/pins/item/${s.id}`); // pinning twice is harmless
+    const after = await ok<{ items: ItemSummary[] }>("DELETE", `/pins/item/${s.id}`);
+    expect(after.items.map((i) => i.name)).toEqual(["10k resistor"]);
+    expect((await call("PUT", "/pins/item/999")).status).toBe(404);
+  });
+});

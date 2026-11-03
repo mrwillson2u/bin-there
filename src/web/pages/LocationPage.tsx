@@ -8,6 +8,7 @@ import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
 import { LocationItemList } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
+import { PinButton } from "../components/PinButton";
 import { BinChip, Breadcrumbs, Button, Card, itemName, Thumb } from "../components/ui";
 
 type Mode = "idle" | "assign" | "move";
@@ -71,7 +72,8 @@ export function LocationPage() {
         <Breadcrumbs path={loc.path} />
         <div className="flex items-center gap-2">
           {loc.type === "bin" && loc.binSize && <BinChip size={loc.binSize} />}
-          <h1 className="text-xl font-semibold">{loc.name}</h1>
+          <h1 className="flex-1 text-xl font-semibold">{loc.name}</h1>
+          <PinButton kind="location" id={loc.id} pinned={loc.pinned} />
         </div>
         <p className="text-[13px] text-muted">
           {locationTypeLabels[loc.type]}

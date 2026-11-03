@@ -28,6 +28,7 @@ import {
 import { adjustStock, createUnit, moveStock, moveUnit, recountStock } from "./stock";
 import { listEvents, undoEvent } from "./events";
 import { putBack } from "./putback";
+import { listPins, setPinned } from "./pins";
 import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
 import {
   adjustSchema,
@@ -193,6 +194,19 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const { itemId } = undoEvent(db, intParam(c.req.param("id")));
     return c.json(getItem(db, itemId));
   });
+
+  // ── Pins (F11) ──
+  api.get("/pins", (c) => c.json(listPins(db)));
+  for (const kind of ["item", "location"] as const) {
+    api.put(`/pins/${kind}/:id`, (c) => {
+      setPinned(db, kind, intParam(c.req.param("id")), true);
+      return c.json(listPins(db));
+    });
+    api.delete(`/pins/${kind}/:id`, (c) => {
+      setPinned(db, kind, intParam(c.req.param("id")), false);
+      return c.json(listPins(db));
+    });
+  }
 
   // ── Backups ──
   api.get("/backup", async (c) =>

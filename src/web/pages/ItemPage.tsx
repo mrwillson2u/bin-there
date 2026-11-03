@@ -16,6 +16,7 @@ import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
 import { EventList } from "../components/EventList";
 import { useToast } from "../components/Toast";
+import { PinButton } from "../components/PinButton";
 import { Badge, Button, Card, inputClass, itemName, pathText } from "../components/ui";
 
 type Mode =
@@ -138,6 +139,7 @@ function Header({ item }: { item: ItemDetail }) {
             {[item.categoryName, itemKindLabels[item.kind], trackingLabels[item.tracking]].filter(Boolean).join(" · ")}
           </p>
         </div>
+        <PinButton kind="item" id={item.id} pinned={item.pinned} />
         <Link to={`/items/${item.id}/edit`} className="flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-accent">
           <Pencil size={18} /> Edit
         </Link>
