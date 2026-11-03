@@ -13,6 +13,7 @@ import {
   createLocation,
   getLocation,
   listLocations,
+  placeBin,
   updateLocation,
 } from "./locations";
 import {
@@ -37,6 +38,7 @@ import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
 import {
   adjustSchema,
   assignCodeSchema,
+  placeBinSchema,
   codeSchema,
   createCategorySchema,
   createItemSchema,
@@ -100,6 +102,10 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.post("/locations/:id/code", async (c) => {
     const { code } = parseBody(assignCodeSchema, await c.req.json());
     return c.json(assignLocationCode(db, intParam(c.req.param("id")), code));
+  });
+  api.put("/locations/:id/slot", async (c) => {
+    const slot = parseBody(placeBinSchema, await c.req.json());
+    return c.json(placeBin(db, intParam(c.req.param("id")), slot && { x: slot.x, y: slot.y, rotated: slot.rotated ?? false }));
   });
 
   // ── Items ──

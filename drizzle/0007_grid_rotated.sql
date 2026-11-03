@@ -1,0 +1,1 @@
+ALTER TABLE `locations` ADD `grid_rotated` integer DEFAULT false NOT NULL;

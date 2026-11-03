@@ -91,6 +91,8 @@ as `units`: individually stickered things with their own location, home, and che
 
 All zod request schemas and all response types live here and are imported by both server and web.
 Change an API shape here first; the server handlers and React pages both typecheck against it.
+`src/shared/grid.ts` holds the gridded-box layout rules (bin footprints, fit/overlap checks, snap);
+the server uses them to validate `PUT /locations/:id/slot` and `BoxGrid.tsx` uses them while dragging.
 
 ### Web (`src/web/`)
 

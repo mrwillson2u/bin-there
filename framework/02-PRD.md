@@ -35,7 +35,7 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 ### Out of Scope (for MVP)
 
 - Project kits as temporary locations (J4)
-- Visual grid view of gridded organizer boxes (J5). The MVP shows a plain list of contents.
+- ~~Visual grid view of gridded organizer boxes (J5)~~ built post-ship, 2026-11-03 (DEC-014).
 - Accounts / viewer access for spouse and friends
 - Raspberry Pi kiosk setup (the Pi works as a normal browser from day one; DEC-002)
 - AI assistant and AI data fill
@@ -49,7 +49,7 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | Feature / Idea | Added | Why It Can Wait |
 |----------------|-------|-----------------|
 | **Project kits** (J4): temporary project locations; items remember their home | 2026-11-02 | Core loop works without it; can use a normal bin as a kit initially |
-| **Visual grid view** (J5) for gridded organizer boxes: color-coded bins (1×1, 2×1, 2×2 + front strip) shown in their slots on the 6 × 4 grid | 2026-11-02 | List view covers "what's in this box"; grid is a nice upgrade |
+| ~~**Visual grid view** (J5) for gridded organizer boxes~~ | 2026-11-02 | **Built 2026-11-03** (DEC-014): the box screen draws the 6 × 4 grid + front strip with bins in their colors; Arrange mode places them by drag-and-drop with snapping. Not yet: a way to set a different grid size per box (data supports it) |
 | **Viewer access** for spouse / friends (read-only search + location), via accounts or a lighter mechanism | 2026-11-02 | Owner-only use proves the app first |
 | **Pi garage station**: kiosk browser, USB scanner, Put-back mode as default. Option: put the HW0006 Pro in **USB-COM (virtual serial) mode** and read it via Web Serial in Chromium, so scans never pass through keyboard input at all | 2026-11-02 | Setup only, no app rework (DEC-002) |
 | **AI assistant chat**: preset "inventory assistant" prompt; finds parts and suggests what I have during a conversation; nudges ("put-back bin hasn't been emptied in 9 days") | 2026-11-02 | Needs a stable data model + activity log first. ⚠️ **Conflicts with $0 running cost**: cloud LLM APIs cost money per use; a local model on the home lab server is free but weaker. Decide before building. |
@@ -177,3 +177,4 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 |------|--------|---------|
 | 2026-11-02 | Colin + AI | Initial draft from discovery Phases 1–3 |
 | 2026-11-03 | AI | Post-ship: delete/archive added (DEC-013) |
+| 2026-11-03 | AI | Post-ship: grid view of gridded boxes built (DEC-014) |

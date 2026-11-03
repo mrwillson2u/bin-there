@@ -40,6 +40,8 @@ export const locations = sqliteTable("locations", {
   gridRows: integer("grid_rows"),
   gridX: integer("grid_x"),
   gridY: integer("grid_y"),
+  // A 2×1 bin can sit either way in the grid; rotated = tall (1 wide, 2 high).
+  gridRotated: integer("grid_rotated", { mode: "boolean" }).notNull().default(false),
   notes: text("notes"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   ...timestamps,

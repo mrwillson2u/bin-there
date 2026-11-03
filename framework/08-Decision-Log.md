@@ -377,6 +377,31 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Consequences:** `DELETE /api/items/:id` and `DELETE /api/locations/:id`; a new `archive` event type. No way to list or restore archived things from the UI beyond Undo; if that's ever needed it's a small addition.
 
+### DEC-014: Gridded boxes are drawn as a grid; bins are placed by drag-and-drop
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** J5 asked for a visual grid of each organizer box so a bin can be found by place, not just by name. The data model had grid columns on `locations` from the start, unused. The first post-ship feature Colin picked.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Tap a bin, then tap its cell | Simplest; no gesture conflicts | Two taps per bin; doesn't feel like moving a bin |
+| **Drag a bin and snap it into the nearest free slot** | Feels like the real box; one motion per bin | Touch dragging has to be kept out of page scrolling |
+| A separate "layout editor" screen | Keeps the box screen simple | Another screen to find; layout and contents drift apart |
+
+**Decision:** The box screen shows the grid (6 × 4 cells plus the front strip along the bottom) with bins in their real colors in their slots, and a tray of bins not placed yet. An **Arrange** toggle turns on dragging: the bin follows the finger with a green preview of where it will land, snaps on release to the nearest free slot within one cell (red if nothing fits, and it springs back), and a drop in the tray takes it off the grid. A tap on a placed 2×1 turns it. Outside Arrange, tapping a bin opens it and the page scrolls normally. Every gridded box is assumed to be the Allit case unless its `grid_cols`/`grid_rows` say otherwise (no UI for that yet). Placement isn't logged in the activity log: it's layout, not stock.
+
+**Rationale:** Drag-and-drop was what Colin asked for once offered the choice; snapping removes the precision problem on a phone, and the Arrange toggle removes the scroll conflict without a long-press.
+
+**Consequences:** `PUT /api/locations/:id/slot`; migration 0007 adds `grid_rotated`; the fit rules live in `src/shared/grid.ts` so the screen and the server agree. Moving a bin to another box, or changing its size, clears its slot. The grid needs no library: pointer events plus `touch-action: none` while arranging.
+
 ---
 
 ## Decision Index
@@ -396,6 +421,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-011 | The app is called "Bin There" | Product | Accepted | 2026-11-03 |
 | DEC-012 | Kit leftovers live in `framework/kit/` | Process | Accepted | 2026-11-03 |
 | DEC-013 | Deleting is a soft delete; item delete is undoable | Product | Accepted | 2026-11-03 |
+| DEC-014 | Gridded boxes drawn as a grid; bins placed by drag-and-drop | UX | Accepted | 2026-11-03 |
 
 ---
 

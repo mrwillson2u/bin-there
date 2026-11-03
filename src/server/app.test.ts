@@ -18,8 +18,8 @@ beforeEach(async () => {
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; json: T }> {
   const res = await api.request(path, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, json: (await res.json()) as T };
 }
@@ -173,5 +173,60 @@ describe("migrations", () => {
     expect(garage.children.map((c) => c.name)).toEqual(["Test 1"]);
     const raw = new Database(file, { readonly: true });
     expect(raw.prepare("select count(*) as n from locations where type = 'put_back'").get()).toEqual({ n: 0 });
+  });
+});
+
+describe("gridded box layout", () => {
+  const box = () => create({ name: "Screws", type: "gridded_box" });
+  const bin = (parentId: number, name: string, binSize: string) => create({ name, type: "bin", parentId, binSize });
+  const place = (id: number, slot: { x: number; y: number; rotated?: boolean } | null) =>
+    call<LocationDetail | { error: { code: string; message: string } }>("PUT", `/locations/${id}/slot`, slot);
+
+  it("gives a gridded box the Allit grid and its bins a slot once placed", async () => {
+    const b = await box();
+    expect(b.grid).toEqual({ cols: 6, rows: 4 });
+    const tote = await create({ name: "Tote", type: "tote" });
+    expect(tote.grid).toBeNull();
+    const red = await bin(b.id, "Red", "1x1");
+    expect(red.slot).toBeNull();
+    const placed = (await place(red.id, { x: 2, y: 3 })).json as LocationDetail;
+    expect(placed.slot).toEqual({ x: 2, y: 3, rotated: false });
+    const parent = (await call<LocationDetail>("GET", `/locations/${b.id}`)).json;
+    expect(parent.children.find((c) => c.id === red.id)?.slot).toEqual({ x: 2, y: 3, rotated: false });
+    const off = (await place(red.id, null)).json as LocationDetail;
+    expect(off.slot).toBeNull();
+  });
+
+  it("refuses overlaps, overhangs, and the wrong row for the front strip", async () => {
+    const b = await box();
+    const blue = await bin(b.id, "Blue", "2x2");
+    const yellow = await bin(b.id, "Yellow", "2x1");
+    const strip = await bin(b.id, "Strip", "front_strip");
+    expect((await place(blue.id, { x: 0, y: 0 })).status).toBe(200);
+    const overlap = await place(yellow.id, { x: 1, y: 1 });
+    expect(overlap.status).toBe(409);
+    expect((overlap.json as { error: { message: string } }).error.message).toMatch(/already there/);
+    expect((await place(yellow.id, { x: 5, y: 0 })).status).toBe(409); // hangs off the right edge
+    expect((await place(yellow.id, { x: 5, y: 0, rotated: true })).status).toBe(200); // tall fits
+    expect((await place(yellow.id, { x: 5, y: 3, rotated: true })).status).toBe(409); // tall hangs off the bottom
+    expect((await place(strip.id, { x: 0, y: 0 })).status).toBe(409);
+    expect((await place(strip.id, { x: 0, y: 4 })).status).toBe(200);
+    expect((await place(blue.id, { x: 0, y: 4 })).status).toBe(409); // only the strip goes along the front
+    expect((await place(b.id, { x: 0, y: 0 })).status).toBe(400); // a box isn't a bin
+  });
+
+  it("clears a bin's slot when it leaves the box or changes size", async () => {
+    const a = await box();
+    const b = await box();
+    const red = await bin(a.id, "Red", "1x1");
+    await place(red.id, { x: 1, y: 1 });
+    const moved = (await call<LocationDetail>("PATCH", `/locations/${red.id}`, { parentId: b.id })).json;
+    expect(moved.slot).toBeNull();
+    await place(red.id, { x: 0, y: 0 });
+    const resized = (await call<LocationDetail>("PATCH", `/locations/${red.id}`, { binSize: "2x1" })).json;
+    expect(resized.slot).toBeNull();
+    const notInBox = await bin(a.id, "Loose", "1x1");
+    await call("PATCH", `/locations/${notInBox.id}`, { parentId: site.id });
+    expect((await place(notInBox.id, { x: 0, y: 0 })).status).toBe(400);
   });
 });

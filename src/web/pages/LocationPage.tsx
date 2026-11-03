@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, MoveRight, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
-import { locationTypeLabels, type LocationDetail, type ScanResult } from "../../shared/api";
+import { Camera, LayoutGrid, MoveRight, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
+import { locationTypeLabels, type LocationDetail, type LocationSummary, type ScanResult } from "../../shared/api";
+import type { Slot } from "../../shared/grid";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
+import { BoxGrid } from "../components/BoxGrid";
 import { LocationItemList } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
 import { PinButton } from "../components/PinButton";
@@ -23,6 +25,7 @@ export function LocationPage() {
   });
   const [mode, setMode] = useState<Mode>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [arranging, setArranging] = useState(false);
 
   const done = (msg: string) => {
     setMode("idle");
@@ -42,6 +45,30 @@ export function LocationPage() {
       api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { parentId } }),
     onSuccess: (l) => done(`Moved to ${l.path.at(-2)?.name ?? "?"}`),
     onError: fail,
+  });
+
+  // Placing a bin on the box's grid. The grid updates at once and is put back if the server says no.
+  const place = useMutation({
+    mutationFn: ({ bin, slot }: { bin: LocationSummary; slot: Slot | null }) =>
+      api<LocationDetail>(`/locations/${bin.id}/slot`, { method: "PUT", body: slot }),
+    onMutate: async ({ bin, slot }) => {
+      await qc.cancelQueries({ queryKey: ["location", id] });
+      const before = qc.getQueryData<LocationDetail>(["location", id]);
+      if (before) {
+        qc.setQueryData<LocationDetail>(["location", id], {
+          ...before,
+          children: before.children.map((c) => (c.id === bin.id ? { ...c, slot } : c)),
+        });
+      }
+      return { before };
+    },
+    onError: (e: Error, _vars, ctx) => {
+      if (ctx?.before) qc.setQueryData(["location", id], ctx.before);
+      setMessage(e.message);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["location", id] });
+    },
   });
 
   // Only an empty location can be deleted (soft delete: hidden, history kept).
@@ -155,11 +182,37 @@ export function LocationPage() {
           )}
         </section>
 
-        {(loc.children.length > 0 || loc.items.length === 0) && (
+        {loc.type === "gridded_box" ? (
           <section className="flex flex-col gap-2">
-            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Inside</h2>
-            <LocationList locations={loc.children} empty="No boxes or bins inside." />
+            <div className="flex items-center justify-between">
+              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Bins</h2>
+              {loc.children.some((c) => c.type === "bin") && (
+                <button
+                  type="button"
+                  onClick={() => { setMessage(null); setArranging((a) => !a); }}
+                  className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
+                >
+                  <LayoutGrid size={18} /> {arranging ? "Done" : "Arrange"}
+                </button>
+              )}
+            </div>
+            <BoxGrid
+              box={loc}
+              arranging={arranging}
+              onPlace={(bin, slot) => { setMessage(null); place.mutate({ bin, slot }); }}
+              onProblem={setMessage}
+            />
+            {loc.children.some((c) => c.type !== "bin") && (
+              <LocationList locations={loc.children.filter((c) => c.type !== "bin")} empty="" />
+            )}
           </section>
+        ) : (
+          (loc.children.length > 0 || loc.items.length === 0) && (
+            <section className="flex flex-col gap-2">
+              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Inside</h2>
+              <LocationList locations={loc.children} empty="No boxes or bins inside." />
+            </section>
+          )
         )}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Grid, Slot } from "./grid";
 
 // Shared request/response shapes between the server and the web app.
 
@@ -80,12 +81,20 @@ export type UpdateLocation = z.infer<typeof updateLocationSchema>;
 
 export const assignCodeSchema = z.object({ code: codeSchema });
 
+/** Where a bin sits in its gridded box (x, y = top-left cell; y = rows means the front strip). Null takes it off the grid. */
+export const placeBinSchema = z
+  .object({ x: z.number().int().min(0).max(99), y: z.number().int().min(0).max(99), rotated: z.boolean().optional() })
+  .nullable();
+export type PlaceBin = z.infer<typeof placeBinSchema>;
+
 export type LocationSummary = {
   id: number;
   name: string;
   type: LocationType;
   code: string | null;
   binSize: BinSize | null;
+  /** For a bin in a gridded box: its slot on the grid, or null if not placed yet. */
+  slot: Slot | null;
   childCount: number;
 };
 
@@ -94,6 +103,8 @@ export type Crumb = { id: number; name: string };
 export type LocationDetail = LocationSummary & {
   parentId: number | null;
   notes: string | null;
+  /** For a gridded box: its grid size (cells); null for every other type. */
+  grid: Grid | null;
   path: Crumb[];
   children: LocationSummary[];
   items: LocationItem[];

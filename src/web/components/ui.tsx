@@ -21,7 +21,7 @@ export function Button({ variant = "secondary", className = "", ...props }: Butt
   );
 }
 
-const binColors: Record<BinSize, string> = {
+export const binColors: Record<BinSize, string> = {
   "1x1": "bg-bin-1x1 text-white",
   "2x1": "bg-bin-2x1 text-black",
   "2x2": "bg-bin-2x2 text-white",

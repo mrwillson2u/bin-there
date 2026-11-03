@@ -45,8 +45,9 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 | name | text | e.g. "Tote 4", "Screws box" |
 | code | text, unique, nullable | Sticker ID |
 | bin_size | text, nullable | 1x1, 2x1, 2x2, front_strip, other (bins only) |
-| grid_cols / grid_rows | int, nullable | For gridded boxes: Allit case = 6 × 4 (+ front strip). Used by post-ship grid view |
-| grid_x / grid_y | int, nullable | Bin position within parent box (post-ship grid view; nullable now) |
+| grid_cols / grid_rows | int, nullable | For gridded boxes. Null means the Allit case, 6 × 4 (+ front strip), which is the only one so far (DEC-014) |
+| grid_x / grid_y | int, nullable | A bin's top-left cell in its parent box; null = not placed on the grid yet. `grid_y = grid_rows` is the front-strip row. Cleared when the bin moves to another box or changes size |
+| grid_rotated | boolean | A 2×1 bin standing tall (1 wide, 2 high). Migration 0007 |
 | notes, created_at, updated_at | | |
 
 The put-back bin is **physical only** (DEC-009): the app doesn't track what's in it, and the old built-in location was deleted (migration 0004). `project` type is reserved for post-ship project kits.
