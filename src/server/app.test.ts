@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
@@ -6,7 +9,7 @@ import type { LocationDetail, LocationSummary, ScanResult } from "../shared/api"
 let api: ReturnType<typeof createApi>;
 
 beforeEach(() => {
-  api = createApi(openDb(":memory:"));
+  api = createApi(openDb(":memory:"), { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")) });
 });
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<{ status: number; json: T }> {

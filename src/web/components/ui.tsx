@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ImageOff } from "lucide-react";
 import { binSizeLabels, type BinSize, type Crumb } from "../../shared/api";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -67,3 +67,29 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 export const inputClass =
   "min-h-11 rounded-xl border border-border bg-surface-2 px-3 text-base text-text placeholder:text-muted focus:outline-2 focus:outline-accent";
+
+/** Square photo thumbnail, or a neutral placeholder. */
+export function Thumb({ url, size = 48 }: { url: string | null; size?: number }) {
+  return url ? (
+    <img src={url} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-lg bg-surface-2 object-cover" style={{ width: size, height: size }} />
+  ) : (
+    <span className="flex shrink-0 items-center justify-center rounded-lg bg-surface-2 text-muted" style={{ width: size, height: size }}>
+      <ImageOff size={size / 2.4} />
+    </span>
+  );
+}
+
+const badgeTones = {
+  warn: "bg-warn/15 text-warn",
+  ok: "bg-ok/15 text-ok",
+  danger: "bg-danger/15 text-danger",
+  info: "bg-info/15 text-info",
+  muted: "bg-surface-2 text-muted",
+};
+
+export function Badge({ tone = "muted", children }: { tone?: keyof typeof badgeTones; children: ReactNode }) {
+  return <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${badgeTones[tone]}`}>{children}</span>;
+}
+
+export const itemName = (name: string) => name || "Unnamed item";
+export const pathText = (path: Crumb[]) => path.map((c) => c.name).join(" › ");

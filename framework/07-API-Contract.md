@@ -44,17 +44,18 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 |--------|------|---------|
 | GET | `/api/items?q=&category=&needs_details=` | Search (FTS) with total qty + every location path |
 | GET | `/api/items/:id` | Item + stock by location + units + homes + recent events |
-| POST | `/api/items` | Create (full form) |
-| POST | `/api/items/quick` | **Quick capture**: photo + optional code/location → `needs_details: true` |
+| POST | `/api/items` | Create. Used by quick capture: everything optional (`name`, `code` → returnable unit, `locationId`, `qty`/`level`, `categoryId`). Needs details unless it has a name **and** a category (DEC-007) |
 | PATCH | `/api/items/:id` | Edit details (clears `needs_details` when complete) |
 | PUT | `/api/items/:id/homes` | Set designated home location(s) |
-| POST | `/api/items/:id/photos` | Upload photo (resized server-side) |
+| POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |
+| GET | `/api/photos/:file` | Serve a stored photo (immutable cache) |
+| GET | `/api/stats` | `{ needsDetails }` count for the home screen |
 
-### Stock actions (each writes an Event in the same transaction)
+### Stock actions (each writes an Event in the same transaction and returns `{ eventId, item }` so the client can offer Undo)
 | Method | Path | Body | Purpose |
 |--------|------|------|---------|
 | POST | `/api/stock/adjust` | `{ item_id, location_id, delta }` or `{ …, level }` | +/− use or add |
-| POST | `/api/stock/recount` | `{ item_id, location_id, qty }` | Set the count, reset staleness |
+| POST | `/api/stock/recount` | `{ item_id, location_id, qty }` | Set the count, reset staleness. On a new location it adds the item there (`qty: null` = not counted yet) |
 | POST | `/api/stock/move` | `{ item_id, from_location_id, to_location_id, qty? }` | Move some or all |
 | POST | `/api/putback` | `{ code? , item_id?, location_id?, qty }` | Put-back action; server resolves ambiguity or returns `needs_choice` with candidates |
 
@@ -62,6 +63,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/api/units` | Create a unit (with sticker code) for an item |
+| POST | `/api/units/:id/move` | `{ toLocationId }` (undoable) |
 | POST | `/api/units/:id/checkout` | `{ to_location_id, note }` |
 | POST | `/api/units/:id/checkin` | `{ location_id? }` defaults to home |
 

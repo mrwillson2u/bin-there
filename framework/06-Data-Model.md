@@ -119,6 +119,7 @@ A special **Put-back bin** location (type `put_back`) exists by default. `projec
 | item_id, unit_id, from_location_id, to_location_id | nullable | |
 | delta / level_after | nullable | |
 | undone_by | FK → Event, nullable | |
+| undo_data | JSON, nullable | Stock rows / unit locations / homes as they were before the event. Undo restores them exactly. Only an item's latest change can be undone, so undo never overwrites a later change |
 | actor | text, default "owner" | Ready for viewer roles later |
 
 ---
@@ -154,7 +155,9 @@ A special **Put-back bin** location (type `put_back`) exists by default. `projec
 
 ## Database Choice
 
-SQLite (WAL mode) via Drizzle ORM, with an FTS5 index over item name, category, attributes, supplier part # and notes. See DEC-004.
+SQLite (WAL mode) via Drizzle ORM, with an FTS5 index (`items_fts`, rowid = item id) over item name, category, attributes, supplier, supplier part #, notes and unit sticker codes, rewritten by the app on every item change. Every search word must match the start of a word ("m3 10" finds "M3 x 10mm"). See DEC-004.
+
+**Rules settled in M2:** an exact count is *stale* after 90 days or 10 changes since the last count. A sticker given at capture makes the item returnable with one unit. Moving *all* of an item out of a home moves the home along (reorganizing); a partial move doesn't. Switching an item between exact and level converts its stock (qty > 0 → plenty, 0 → out; level → "not counted").
 
 ---
 

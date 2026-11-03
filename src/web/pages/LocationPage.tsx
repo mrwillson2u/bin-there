@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoveRight, Plus, QrCode, ScanLine } from "lucide-react";
+import { Camera, MoveRight, Plus, QrCode, ScanLine } from "lucide-react";
 import { locationTypeLabels, type LocationDetail, type ScanResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
-import { BinChip, Breadcrumbs, Button, Card } from "../components/ui";
+import { LocationItemList } from "../components/ItemList";
+import { StockControl } from "../components/StockControl";
+import { BinChip, Breadcrumbs, Button, Card, itemName, Thumb } from "../components/ui";
 
 type Mode = "idle" | "assign" | "move";
 
@@ -116,9 +118,41 @@ export function LocationPage() {
       )}
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Inside</h2>
-        <LocationList locations={loc.children} empty="Nothing inside yet." />
+        <div className="flex items-center justify-between">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Items</h2>
+          <Link to={`/capture?location=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
+            <Camera size={18} /> Add item here
+          </Link>
+        </div>
+        {loc.items.length === 0 ? (
+          <p className="px-1 py-3 text-center text-muted">No items here yet.</p>
+        ) : loc.items.length === 1 && loc.items[0]!.hasStock ? (
+          <SingleItem loc={loc} />
+        ) : (
+          <LocationItemList items={loc.items} />
+        )}
       </section>
+
+      {(loc.children.length > 0 || loc.items.length === 0) && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Inside</h2>
+          <LocationList locations={loc.children} empty="No boxes or bins inside." />
+        </section>
+      )}
     </div>
+  );
+}
+
+/** A bin with one kind of part: its +/− is right here (F4). */
+function SingleItem({ loc }: { loc: LocationDetail }) {
+  const i = loc.items[0]!;
+  return (
+    <Card className="flex flex-col gap-3 p-4">
+      <Link to={`/items/${i.itemId}`} className="flex items-center gap-3">
+        <Thumb url={i.thumbUrl} size={56} />
+        <span className={`flex-1 font-semibold ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
+      </Link>
+      <StockControl itemId={i.itemId} locationId={loc.id} placeName={loc.name} tracking={i.tracking} qty={i.qty} level={i.level} stale={i.stale} />
+    </Card>
   );
 }

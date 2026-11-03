@@ -1,0 +1,1 @@
+ALTER TABLE `events` ADD `undo_data` text;

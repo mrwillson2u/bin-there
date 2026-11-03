@@ -201,6 +201,51 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 ---
 
+### DEC-006: Resize photos on the phone, not the server
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-02 |
+| **Status** | Accepted |
+| **Deciders** | AI (during M2 build) |
+| **Category** | Architecture |
+
+**Context:** Phone photos are 3–12 MB, the garage is on cell, and the API contract planned server-side resizing.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Resize in the browser (canvas) and upload a 1600 px photo + 360 px thumbnail** | Uploads ~200–400 KB instead of MBs over cell; no native image library in the container | Original full-resolution photo isn't kept |
+| Server-side with `sharp` | Keeps originals | Full-size uploads over cell; native dependency in Docker |
+
+**Decision:** Resize in the browser.
+
+**Rationale:** Upload speed over cell matters more than archival originals for inventory photos.
+
+**Consequences:** Photos are capped at 1600 px. If originals are ever wanted, add a setting to upload them as-is.
+
+---
+
+### DEC-007: When an item leaves "Needs details"
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-02 |
+| **Status** | Proposed |
+| **Deciders** | AI (during M2 build); Colin to confirm |
+| **Category** | Product |
+
+**Context:** PRD open question: which fields are required before an item leaves the Needs details queue?
+
+**Decision:** Quick-captured items are in the queue. An item leaves it the first time its details form is saved (a name is required there; nothing else). Items created with both a name and a category skip the queue.
+
+**Rationale:** Required fields add friction, and friction is what killed the last attempt. Saving the form is a deliberate "I've looked at this" signal.
+
+**Consequences:** Items can leave the queue with only a name. Easy to tighten later (e.g. require a category) without a data change.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -210,6 +255,8 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-003 | Tailscale Serve for SPV; Cloudflare Tunnel + Access later for viewers | Architecture | Proposed | 2026-11-02 |
 | DEC-004 | TypeScript: React (Vite PWA) + Hono + SQLite/Drizzle, one container | Tech Stack | Proposed | 2026-11-02 |
 | DEC-005 | SPV = F1–F8, ship 2026-11-23 | Scope | Accepted | 2026-11-02 |
+| DEC-006 | Resize photos on the phone, not the server | Architecture | Accepted | 2026-11-02 |
+| DEC-007 | When an item leaves "Needs details" | Product | Proposed | 2026-11-02 |
 
 ---
 

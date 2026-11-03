@@ -13,7 +13,7 @@ mkdirSync(dataDir, { recursive: true });
 const db = openDb(join(dataDir, "app.db"), process.env.MIGRATIONS_DIR ?? "drizzle");
 
 const app = new Hono();
-app.route("/api", createApi(db));
+app.route("/api", createApi(db, { photoDir: join(dataDir, "photos") }));
 app.use("/*", serveStatic({ root: "./dist/web" }));
 // SPA fallback: client-side routes get index.html.
 app.get("*", serveStatic({ path: "./dist/web/index.html" }));

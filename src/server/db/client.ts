@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { eq } from "drizzle-orm";
 import * as schema from "./schema";
+import { createCategory, STARTER_CATEGORIES } from "../items";
 
 export type Db = ReturnType<typeof openDb>;
 
@@ -13,6 +14,9 @@ export function openDb(file: string, migrationsFolder = "drizzle") {
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder });
   seed(db);
+  if (!db.select({ id: schema.categories.id }).from(schema.categories).get()) {
+    for (const c of STARTER_CATEGORIES) createCategory(db, c);
+  }
   return db;
 }
 

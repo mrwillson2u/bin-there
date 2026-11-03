@@ -161,7 +161,7 @@ Stack-n-Track (working name) is a self-hosted, mobile-first web app for my garag
 ## Open Questions
 
 - AI features vs. $0 running cost: local model or paid API? (Post-ship, decide before building.)
-- Which item fields are required before an item leaves "Needs details"?
+- ~~Which item fields are required before an item leaves "Needs details"?~~ Resolved: DEC-007.
 
 ---
 

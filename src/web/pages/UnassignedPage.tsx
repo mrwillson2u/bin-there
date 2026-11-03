@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { QrCode } from "lucide-react";
+import { Camera, MapPin, QrCode } from "lucide-react";
 import { Card } from "../components/ui";
 
 export function UnassignedPage() {
@@ -10,17 +10,22 @@ export function UnassignedPage() {
         <QrCode size={36} className="text-warn" />
         <h1 className="text-lg font-semibold">New sticker</h1>
         <p className="font-mono text-muted">{code}</p>
-        <p className="text-sm text-muted">This sticker isn't assigned to anything yet.</p>
+        <p className="text-sm text-muted">This sticker isn't on anything yet. What is it on?</p>
       </Card>
       <Link
-        to={`/locations/new?code=${encodeURIComponent(code)}`}
-        className="flex min-h-12 items-center justify-center rounded-xl bg-accent font-semibold text-accent-fg"
+        to={`/capture?code=${encodeURIComponent(code)}`}
+        className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-accent text-lg font-semibold text-accent-fg"
       >
-        Make it a new location
+        <Camera size={22} /> An item (quick capture)
+      </Link>
+      <Link
+        to={`/locations/new?code=${encodeURIComponent(code)}`}
+        className="flex min-h-14 items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 font-semibold"
+      >
+        <MapPin size={20} /> A bin, box or tote
       </Link>
       <p className="text-center text-[13px] text-muted">
-        To put it on an existing location, open that location and tap “Assign sticker”.
-        Items come in the next milestone.
+        To put it on something that already exists, open it and use “Assign sticker” or “Add another stickered one”.
       </p>
     </div>
   );

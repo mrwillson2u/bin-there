@@ -138,6 +138,14 @@ export const EVENT_TYPES = [
   "undo",
 ] as const;
 
+export type StockRow = typeof stock.$inferSelect;
+export type UndoData = {
+  stock?: { itemId: number; locationId: number; row: StockRow | null }[];
+  units?: { id: number; locationId: number | null }[];
+  /** The item's home locations before the event. */
+  homes?: number[];
+};
+
 export const events = sqliteTable("events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   at: text("at").notNull().default(sql`(datetime('now'))`),
@@ -150,5 +158,7 @@ export const events = sqliteTable("events", {
   delta: integer("delta"),
   levelAfter: text("level_after", { enum: STOCK_LEVELS }),
   undoneBy: integer("undone_by").references((): AnySQLiteColumn => events.id),
+  /** Rows as they were before this event, so it can be undone exactly. */
+  undoData: text("undo_data", { mode: "json" }).$type<UndoData>(),
   actor: text("actor").notNull().default("owner"),
 });

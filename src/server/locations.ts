@@ -2,6 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { locations, units, events } from "./db/schema";
 import { ApiError } from "./errors";
+import { locationItems } from "./items";
 import type { CreateLocation, Crumb, LocationDetail, LocationSummary, UpdateLocation } from "../shared/api";
 
 // Written out in full: an interpolated column renders unqualified and would bind to the inner `c`.
@@ -58,6 +59,7 @@ export function getLocation(db: Db, id: number): LocationDetail {
     childCount: listLocations(db, loc.id).length,
     path: locationPath(db, loc.id),
     children: listLocations(db, loc.id),
+    items: locationItems(db, loc.id),
   };
 }
 
