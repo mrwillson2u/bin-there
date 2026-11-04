@@ -133,6 +133,8 @@ export const photos = sqliteTable("photos", {
   cropX: real("crop_x"),
   cropY: real("crop_y"),
   cropSize: real("crop_size"),
+  // The photo shown for the item everywhere (DEC-031). None marked = the oldest.
+  isMain: integer("is_main", { mode: "boolean" }).notNull().default(false),
   createdAt: timestamps.createdAt,
 });
 

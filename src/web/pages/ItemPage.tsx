@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Crop, ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, ScanLine } from "lucide-react";
+import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, ScanLine } from "lucide-react";
 import {
   itemKindLabels,
   trackingLabels,
@@ -16,10 +16,8 @@ import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
 import { EventList, timeAgo } from "../components/EventList";
 import { PinButton } from "../components/PinButton";
-import { useAddPhoto } from "../components/PhotoSpot";
 import { Badge, Button, Card, inputClass, itemName, pathText, PlacePath } from "../components/ui";
-import { CroppedPhoto } from "../components/CroppedPhoto";
-import { CropEditor } from "../components/CropEditor";
+import { PartPhotos } from "../components/PartPhotos";
 
 type Mode =
   | { kind: "move"; place: Place }
@@ -147,20 +145,10 @@ export function ItemPage() {
   );
 }
 
+/** Name first, then the photos (DEC-031). */
 function Header({ item }: { item: ItemDetail }) {
-  const { add: addPhoto, busy } = useAddPhoto(item.id);
-  const photo = item.photos[0];
-  const [cropping, setCropping] = useState(false);
-
   return (
     <div className="flex flex-col gap-3">
-      {/* Square, like everywhere else (DEC-030); tap for the whole photo. */}
-      {photo ? (
-        <a href={photo.url} target="_blank" rel="noreferrer" aria-label="Open the whole photo" className="mx-auto block aspect-square w-full max-w-72 overflow-hidden rounded-2xl bg-surface-2">
-          <CroppedPhoto photo={photo} />
-        </a>
-      ) : null}
-      {cropping && photo && <CropEditor itemId={item.id} photo={photo} onClose={() => setCropping(false)} />}
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <h1 className={`text-xl font-semibold ${item.name ? "" : "italic text-muted"}`}>{itemName(item.name)}</h1>
@@ -173,26 +161,7 @@ function Header({ item }: { item: ItemDetail }) {
           <Pencil size={18} /> Edit
         </Link>
       </div>
-      <div className="flex gap-2">
-        <label className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 ${busy ? "opacity-50" : ""}`}>
-          <Camera size={18} /> {busy ? "Uploading…" : photo ? "Add photo" : "Take photo"}
-          <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={busy} onChange={(e) => addPhoto(e.target.files?.[0])} />
-        </label>
-        {photo && (
-          <Button onClick={() => setCropping(true)}>
-            <Crop size={18} /> Adjust crop
-          </Button>
-        )}
-        {item.photos.length > 1 && (
-          <div className="flex gap-1.5 overflow-x-auto">
-            {item.photos.slice(1).map((p) => (
-              <a key={p.id} href={p.url} target="_blank" rel="noreferrer">
-                <img src={p.thumbUrl} alt="" className="h-11 w-11 rounded-lg object-cover" />
-              </a>
-            ))}
-          </div>
-        )}
-      </div>
+      <PartPhotos item={item} />
     </div>
   );
 }

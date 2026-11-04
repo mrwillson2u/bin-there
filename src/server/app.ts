@@ -36,6 +36,8 @@ import {
   setHomes,
   setPhotoCrop,
   requireItemPhoto,
+  setMainPhoto,
+  deletePhoto,
   updateItem,
 } from "./items";
 import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock } from "./stock";
@@ -199,6 +201,12 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     await writeFile(join(opts.photoDir, name), Buffer.from(await thumb.arrayBuffer()));
     const { item, oldThumb } = setPhotoCrop(db, photoId, crop, name);
     if (oldThumb && oldThumb !== name) await unlink(join(opts.photoDir, oldThumb)).catch(() => {});
+    return c.json(item);
+  });
+  api.put("/photos/:id/main", (c) => c.json(setMainPhoto(db, intParam(c.req.param("id")))));
+  api.delete("/photos/:id", async (c) => {
+    const { item, files } = deletePhoto(db, intParam(c.req.param("id")));
+    for (const f of files) await unlink(join(opts.photoDir, f)).catch(() => {});
     return c.json(item);
   });
   api.get("/photos/:file", async (c) => {

@@ -343,7 +343,8 @@ export type PhotoCrop = { x: number; y: number; size: number };
 export const photoCropSchema = z
   .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), size: z.number().min(0.1).max(1) })
   .strict();
-export type Photo = { id: number; url: string; thumbUrl: string; crop: PhotoCrop | null };
+/** `main`: the photo shown for the item in lists, tiles and the bin pane (DEC-031). Photos come main first. */
+export type Photo = { id: number; url: string; thumbUrl: string; crop: PhotoCrop | null; main: boolean };
 export type Unit = {
   id: number;
   code: string | null;

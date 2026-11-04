@@ -49,7 +49,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {toast && (
         <div
-          className={`pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:left-56 ${
+          className={`pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4 lg:left-56 ${
             toast.top ? "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]" : "bottom-24 pb-[env(safe-area-inset-bottom)] lg:bottom-6"
           }`}
         >

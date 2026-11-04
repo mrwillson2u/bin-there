@@ -126,6 +126,7 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
 - Photos are resized on the device (`lib/photo.ts`) into a photo and a square thumbnail before upload;
   the server only stores JPEGs under `DATA_DIR/photos`. Each photo has a square crop (DEC-030):
   `CroppedPhoto` draws it from the original, `CropEditor` changes it and uploads a new square thumbnail.
+  `PartPhotos` is the part page's photo block: main photo (DEC-031), strip, viewer, Crop, Delete.
 - `public/sw.js` caches only the app shell and hashed assets, never `/api`, so stock data is
   always fresh.
 

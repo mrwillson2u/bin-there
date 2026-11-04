@@ -842,7 +842,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-04 |
-| **Status** | Accepted |
+| **Status** | Accepted (the "Adjust crop" button became "Crop" on the photo itself, DEC-031) |
 | **Deciders** | AI recommendation on Colin's question (he asked whether to crop to square, and how) |
 | **Category** | UX / Data |
 
@@ -872,6 +872,37 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - **Data.** Migration 0011.
 - **Code.** `lib/photo.ts` (`cropRect`, `squareJpeg`), new `CroppedPhoto.tsx` and `CropEditor.tsx`, `savePhotoCrop` in `api.ts`, and `Photo.crop` in the shared types.
 - **Checks.** New `photo-check.mjs`.
+
+### DEC-031: The part's page leads with its name; photos have a main one, a strip and a viewer
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin (feedback on the part's page) |
+| **Category** | UX / Data |
+
+**Context:** Colin found the part's page confusing. "Adjust crop" sat in a row of buttons away from the photo, and the name came after the photo. Added photos had no clear place or purpose:
+- The oldest photo was always the one shown everywhere.
+- Later photos appeared only as small thumbnails beside the Add photo button, and only once there were two.
+- A better photo couldn't replace the first, and no photo could be deleted.
+
+**Decision:**
+- **Name first.** The name, category line, Pin and Edit, then the photo.
+- **The photo.** It's a square, at most 288 px, with a **Crop** button on its corner. Tapping it opens the whole photo full screen.
+- **The strip.** Under the photo: every photo, with a star on the main one, the one shown big outlined, and a "+" to add another.
+  - With one photo, the strip has an "Add another photo" button and the line "Add more for another angle, the label or a pinout."
+  - A newly added photo is shown big, so it's clear where it went.
+- **Main photo.** It's the one shown in lists, tiles and the bin pane (`photos.is_main`, migration 0012; none marked means the oldest, as before).
+  - **Use as main photo** shows under the strip when the photo shown isn't the main one.
+- **The whole-photo viewer.** Solid black, previous and next, **Crop**, **Use as main photo**, and **Delete photo** (with a confirm). Deleting the main photo makes the next one main. The files go, but backups keep every photo ever taken.
+
+**Rationale:** A page should say what it's about before anything else. Every photo action belongs next to the photo it acts on. And extra photos are only worth taking if you can see them, choose the best one, and get rid of a bad one.
+
+**Consequences:**
+- **Endpoints.** New `PUT /api/photos/:id/main` and `DELETE /api/photos/:id`.
+- **Types.** `Photo.main`. Photos come main first, and thumbnails follow the main photo.
+- **Web.** New `PartPhotos.tsx`, replacing the header photo code in `ItemPage.tsx`. Messages now sit above every overlay.
 
 ---
 
@@ -909,6 +940,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-028 | A bin can be taken out of its box and keeps its spot | UX / Data | Accepted | 2026-11-04 |
 | DEC-029 | A screen that crashes shows a message, not a black page | Architecture | Accepted | 2026-11-04 |
 | DEC-030 | Photos show as squares; the original is kept and the crop can be adjusted | UX / Data | Accepted | 2026-11-04 |
+| DEC-031 | The part's page leads with its name; photos have a main one, a strip and a viewer | UX / Data | Accepted | 2026-11-04 |
 
 ---
 

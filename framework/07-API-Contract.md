@@ -71,6 +71,8 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
 | POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |
 | PUT | `/api/photos/:id/crop` | Multipart `crop` (JSON `{ x, y, size }`, fractions of the original) + `thumb` (the square cut on the phone). Stores the crop, saves the thumbnail under a new name (names are cached forever) and deletes the old one; the original is untouched. Returns the item (DEC-030) |
+| PUT | `/api/photos/:id/main` | Make this the item's main photo, the one shown in lists, tiles and the bin pane. Returns the item; its `photos` come main first (DEC-031) |
+| DELETE | `/api/photos/:id` | Delete a photo and its files (backups keep their copies). Deleting the main one makes the next one main. Returns the item |
 | GET | `/api/photos/:file` | Serve a stored photo (immutable cache) |
 | GET | `/api/stats` | `{ needsDetails, checkedOut, stale, low }` counts for the Inventory filter chips |
 

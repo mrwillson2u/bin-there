@@ -85,6 +85,13 @@
       "when": 1793827885942,
       "tag": "0011_photo_crop",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793829260145,
+      "tag": "0012_photo_main",
+      "breakpoints": true
     }
   ]
 }

@@ -270,6 +270,38 @@ describe("photo crops (DEC-030)", () => {
   });
 });
 
+describe("main photo and deleting photos (DEC-031)", () => {
+  it("shows the oldest until another is made main, and deleting falls back", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "snt-photos-"));
+    api = createApi(openDb(":memory:"), { photoDir: dir });
+    const s = await item({ name: "JST lead" });
+    const add = async () => {
+      const f = new FormData();
+      f.append("photo", new File([new Uint8Array([0xff, 0xd8, 1])], "p.jpg", { type: "image/jpeg" }));
+      f.append("thumb", new File([new Uint8Array([0xff, 0xd8, 2])], "t.jpg", { type: "image/jpeg" }));
+      return (await (await api.request(`/items/${s.id}/photos`, { method: "POST", body: f })).json()) as ItemDetail;
+    };
+    await add();
+    const two = await add();
+    const [first, second] = two.photos;
+    expect([first!.main, second!.main]).toEqual([true, false]);
+    expect(two.thumbUrl).toBe(first!.thumbUrl);
+
+    const made = await ok<ItemDetail>("PUT", `/photos/${second!.id}/main`);
+    expect(made.photos.map((p) => [p.id, p.main])).toEqual([[second!.id, true], [first!.id, false]]);
+    expect(made.thumbUrl).toBe(second!.thumbUrl);
+    const listed = (await ok<{ items: ItemSummary[] }>("GET", "/inventory")).items[0]!;
+    expect(listed.thumbUrl).toBe(second!.thumbUrl);
+
+    const after = await ok<ItemDetail>("DELETE", `/photos/${second!.id}`);
+    expect(after.photos.map((p) => [p.id, p.main])).toEqual([[first!.id, true]]);
+    expect((await api.request(second!.url.replace("/api", ""))).status).toBe(404);
+    expect((await call("DELETE", `/photos/${second!.id}`)).status).toBe(404);
+    const none = await ok<ItemDetail>("DELETE", `/photos/${first!.id}`);
+    expect([none.photos.length, none.thumbUrl]).toEqual([0, null]);
+  });
+});
+
 describe("needs details", () => {
   it("skips the queue when created with a name and a category", async () => {
     const cats = await ok<Category[]>("GET", "/categories");

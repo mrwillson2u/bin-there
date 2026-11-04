@@ -59,7 +59,7 @@ function thumbs(db: Db, itemIds: number[]) {
     .select({ itemId: photos.itemId, thumbPath: photos.thumbPath, path: photos.path })
     .from(photos)
     .where(inArray(photos.itemId, itemIds))
-    .orderBy(asc(photos.id))
+    .orderBy(desc(photos.isMain), asc(photos.id))
     .all();
   for (const r of rows) if (r.itemId && !map.has(r.itemId)) map.set(r.itemId, photoUrl(r.thumbPath ?? r.path));
   return map;
@@ -156,7 +156,8 @@ export function getItem(db: Db, id: number): ItemDetail {
   const item = requireItem(db, id);
   const [summary] = summaries(db, [item]);
   const cat = item.categoryId ? db.select().from(categories).where(eq(categories.id, item.categoryId)).get() : undefined;
-  const photoRows = db.select().from(photos).where(eq(photos.itemId, id)).orderBy(asc(photos.id)).all();
+  // The main photo first (DEC-031): the marked one, or else the oldest.
+  const photoRows = db.select().from(photos).where(eq(photos.itemId, id)).orderBy(desc(photos.isMain), asc(photos.id)).all();
   const unitRows = db
     .select()
     .from(units)
@@ -173,8 +174,9 @@ export function getItem(db: Db, id: number): ItemDetail {
     supplierPn: item.supplierPn,
     url: item.url,
     notes: item.notes,
-    photos: photoRows.map((p) => ({
+    photos: photoRows.map((p, i) => ({
       id: p.id,
+      main: i === 0,
       url: photoUrl(p.path),
       thumbUrl: photoUrl(p.thumbPath ?? p.path),
       crop: p.cropX !== null && p.cropY !== null && p.cropSize !== null ? { x: p.cropX, y: p.cropY, size: p.cropSize } : null,
@@ -580,6 +582,25 @@ export function setPhotoCrop(db: Db, photoId: number, crop: PhotoCrop, thumbPath
   db.update(photos).set({ cropX: crop.x, cropY: crop.y, cropSize: crop.size, thumbPath }).where(eq(photos.id, photoId)).run();
   db.update(items).set({ updatedAt: sql`(datetime('now'))` }).where(eq(items.id, photo.itemId)).run();
   return { item: getItem(db, photo.itemId), oldThumb: photo.thumbPath };
+}
+
+/** Make this the photo shown for its item everywhere (DEC-031). */
+export function setMainPhoto(db: Db, photoId: number): ItemDetail {
+  const photo = requireItemPhoto(db, photoId);
+  db.transaction((tx) => {
+    tx.update(photos).set({ isMain: false }).where(eq(photos.itemId, photo.itemId)).run();
+    tx.update(photos).set({ isMain: true }).where(eq(photos.id, photoId)).run();
+    tx.update(items).set({ updatedAt: sql`(datetime('now'))` }).where(eq(items.id, photo.itemId)).run();
+  });
+  return getItem(db, photo.itemId);
+}
+
+/** Remove a photo (DEC-031). Returns its files for the caller to delete; backups keep their copies. */
+export function deletePhoto(db: Db, photoId: number): { item: ItemDetail; files: string[] } {
+  const photo = requireItemPhoto(db, photoId);
+  db.delete(photos).where(eq(photos.id, photoId)).run();
+  db.update(items).set({ updatedAt: sql`(datetime('now'))` }).where(eq(items.id, photo.itemId)).run();
+  return { item: getItem(db, photo.itemId), files: [photo.path, ...(photo.thumbPath ? [photo.thumbPath] : [])] };
 }
 
 // ── Categories ───────────────────────────────────────────────────────────────
