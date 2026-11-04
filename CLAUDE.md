@@ -106,8 +106,11 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
   whole app. `detector.ts` (pure, unit-tested) tells scanner input from typing: a `Ctrl+B` prefix
   from the hardware scanner puts it in scan mode and swallows keys until Enter; a timing-burst
   fallback catches prefix-less scans and reports how many characters leaked into the focused
-  field so they can be removed. The camera scanner (`@zxing/browser`) is lazy-loaded and feeds the
-  same `submit(code)`. Pages that want to consume a scan call `useScanHandler` and return `true`;
+  field so they can be removed. The camera scanner is lazy-loaded and feeds the same `submit(code)`: `decode.ts` uses
+  the browser's `BarcodeDetector` when it supports QR, else `zxing-wasm` (its `.wasm` is bundled via
+  `?url`, no CDN); `camera.ts` (pure, unit-tested) picks the plain back lens and the guide crop.
+  `openCamera(options)` takes `continuous` (stay open between reads), `title`, `hint`, `extra`;
+  `LabelBins.tsx` uses that to sticker a box of bins in one run (DEC-021). Pages that want to consume a scan call `useScanHandler` and return `true`;
   the most recently mounted handler wins, and unhandled scans fall back to opening whatever was
   scanned via `/api/scan/:code`.
 - Photos are resized on the device (`lib/photo.ts`) into a photo and a thumbnail before upload;

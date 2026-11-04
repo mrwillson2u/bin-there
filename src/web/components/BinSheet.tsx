@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Trash2, X } from "lucide-react";
+import { Camera, ChevronRight, Pencil, Trash2, X } from "lucide-react";
 import type { CreateItem, ItemDetail, LocationDetail, LocationSummary, ScanResult } from "../../shared/api";
 import { api } from "../api";
-import { useScanHandler } from "../scan/ScanProvider";
+import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl } from "./StockControl";
 import { QtyBadge } from "./ItemList";
 import { useToast } from "./Toast";
@@ -33,7 +33,9 @@ export function BinSheet({
   const [name, setName] = useState("");
   const [qty, setQty] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [newName, setNewName] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const { openCamera } = useScan();
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["location"] });
@@ -64,6 +66,16 @@ export function BinSheet({
     mutationFn: (code: string) => api<LocationDetail>(`/locations/${bin.id}/code`, { method: "POST", body: { code } }),
     onSuccess: (l) => {
       toast.show({ message: `Sticker ${l.code} is now on ${bin.name}` });
+      refresh();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const rename = useMutation({
+    mutationFn: (name: string) => api<LocationDetail>(`/locations/${bin.id}`, { method: "PATCH", body: { name } }),
+    onSuccess: (l) => {
+      toast.show({ message: `Renamed to ${l.name}` });
+      setNewName(null);
       refresh();
     },
     onError: (e: Error) => setError(e.message),
@@ -119,21 +131,49 @@ export function BinSheet({
       >
         <div className="flex items-center gap-2">
           {bin.binSize && <BinChip size={bin.binSize} />}
-          <Link to={`/locations/${bin.id}`} className="flex min-w-0 flex-1 items-center gap-1 font-semibold">
-            <span className="truncate">{bin.name}</span>
-            <ChevronRight size={16} className="shrink-0 text-muted" />
-          </Link>
+          {newName !== null ? (
+            <form
+              className="flex min-w-0 flex-1 gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newName.trim()) rename.mutate(newName.trim());
+              }}
+            >
+              <input value={newName} onChange={(e) => setNewName(e.target.value)} className={`${inputClass} min-w-0 flex-1`} aria-label="Bin name" autoFocus />
+              <Button variant="primary" type="submit" disabled={!newName.trim() || rename.isPending}>Save</Button>
+              <Button type="button" variant="ghost" onClick={() => setNewName(null)}>Cancel</Button>
+            </form>
+          ) : (
+            <>
+              <Link to={`/locations/${bin.id}`} className="flex min-w-0 flex-1 items-center gap-1 font-semibold">
+                <span className="truncate">{bin.name}</span>
+                <ChevronRight size={16} className="shrink-0 text-muted" />
+              </Link>
+              <button type="button" onClick={() => setNewName(bin.name)} aria-label="Rename bin" className="flex h-11 w-11 items-center justify-center rounded-xl text-muted">
+                <Pencil size={18} />
+              </button>
+            </>
+          )}
           <button type="button" onClick={onClose} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-xl text-muted">
             <X size={20} />
           </button>
         </div>
-        <p className="-mt-2 text-[13px] text-muted">
-          {bin.code ? (
-            <>sticker <span className="font-mono">{bin.code}</span></>
-          ) : (
-            <>No sticker yet. Scan one to put it on this bin.</>
-          )}
-        </p>
+        <div className="-mt-2 flex items-center gap-2 text-[13px] text-muted">
+          <span className="min-w-0 flex-1">
+            {bin.code ? (
+              <>sticker <span className="font-mono">{bin.code}</span></>
+            ) : (
+              <>No sticker yet. Scan one to put it on this bin.</>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => openCamera({ title: `Sticker for ${bin.name}` })}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-accent"
+          >
+            <Camera size={16} /> {bin.code ? "Replace" : "Scan with camera"}
+          </button>
+        </div>
 
         {live === null ? (
           <p className="text-muted">Loading…</p>

@@ -9,6 +9,7 @@ import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
 import { BoxGrid } from "../components/BoxGrid";
 import { BinSheet } from "../components/BinSheet";
+import { LabelBins } from "../components/LabelBins";
 import { useToast } from "../components/Toast";
 import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
@@ -30,6 +31,9 @@ export function LocationPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [arranging, setArranging] = useState(false);
   const [openBin, setOpenBin] = useState<LocationSummary | null>(null);
+  // Labelling: which bin the next sticker goes on (null = not labelling).
+  const [labelling, setLabelling] = useState(false);
+  const [labelId, setLabelId] = useState<number | null>(null);
   const toast = useToast();
 
   const done = (msg: string) => {
@@ -207,23 +211,38 @@ export function LocationPage() {
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Bins</h2>
-              <button
-                type="button"
-                onClick={() => { setMessage(null); setOpenBin(null); setArranging((a) => !a); }}
-                className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
-              >
-                <LayoutGrid size={18} /> {arranging ? "Done" : loc.children.some((c) => c.type === "bin") ? "Add or arrange bins" : "Add bins"}
-              </button>
+              <div className="flex gap-3">
+                {!arranging && loc.children.some((c) => c.type === "bin") && (
+                  <button
+                    type="button"
+                    onClick={() => { setMessage(null); setOpenBin(null); setLabelId(null); setLabelling((l) => !l); }}
+                    className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${labelling ? "font-semibold text-accent" : "text-accent"}`}
+                  >
+                    <QrCode size={18} /> {labelling ? "Done" : "Stickers"}
+                  </button>
+                )}
+                {!labelling && (
+                  <button
+                    type="button"
+                    onClick={() => { setMessage(null); setOpenBin(null); setArranging((a) => !a); }}
+                    className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
+                  >
+                    <LayoutGrid size={18} /> {arranging ? "Done" : loc.children.some((c) => c.type === "bin") ? "Add or arrange bins" : "Add bins"}
+                  </button>
+                )}
+              </div>
             </div>
+            {labelling && <LabelBins box={loc} currentId={labelId} onCurrent={setLabelId} onExit={() => { setLabelling(false); setLabelId(null); }} />}
             <BoxGrid
               box={loc}
               arranging={arranging}
               onPlace={(bin, slot) => { setMessage(null); place.mutate({ bin, slot }); }}
               onCreate={(binSize, slot) => { setMessage(null); addBin.mutate({ binSize, slot }); }}
-              onOpen={setOpenBin}
+              onOpen={(bin) => (labelling ? setLabelId(bin.id) : setOpenBin(bin))}
               onProblem={setMessage}
+              highlightId={labelling ? (labelId ?? -1) : null}
             />
-            {!arranging && loc.children.some((c) => c.type === "bin") && (
+            {!arranging && !labelling && loc.children.some((c) => c.type === "bin") && (
               <p className="text-[13px] text-muted">Tap a bin to see what's in it or add a part.</p>
             )}
             {openBin && <BinSheet bin={loc.children.find((c) => c.id === openBin.id) ?? openBin} box={loc} onClose={() => setOpenBin(null)} onSwitch={setOpenBin} />}

@@ -530,6 +530,35 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Consequences:** `createLocationSchema.name` optional (bins only; everything else still 400s without one), `slot` accepted on create; `LocationSummary` gains `itemCount` and `preview`; `BinSheet.tsx`; `BoxGrid` gets `onCreate`/`onOpen`. The bin's full screen is still one tap away from the sheet.
 
+### DEC-021: Camera scanning: our own decoder, one steady lens, and a labelling run
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Putting stickers on a box of new bins took, per bin: tap the bin, tap its name, tap Assign sticker, approve the camera again, then wave the phone back and forth while the iPhone hopped between lenses and the decoder only read the code once it filled most of the frame. The guide square on screen was several times the size of a sticker.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep `@zxing/browser` (the JavaScript port) | Already in | Reads from a low-resolution frame, weak on small codes, project in maintenance mode |
+| A paid/hosted scanning SDK | Best decode rates | Cost, and the app must work with no internet |
+| **`zxing-wasm` (the C++ ZXing decoder compiled to WebAssembly, served by this app) plus the browser's own `BarcodeDetector` where it works; read the guide square at full resolution** | Free, offline, far better on small or soft codes; native decoder on Android for free | ~400 kB download the first time the camera opens (cached by the service worker) |
+
+**Decision:**
+- **Decoder.** `BarcodeDetector` when the browser reports QR support (Chrome on Android), otherwise `zxing-wasm` with its `.wasm` file bundled and served by the app. Frames are requested at up to 1080p; the part under the guide square is decoded at full resolution every frame and the whole frame, shrunk, every fourth, so a sticker reads either in the square or anywhere in view. The guide is 60 % of the short edge.
+- **Lens.** On iPhones the default rear camera is a virtual one that swaps lenses as you move closer, which is what made focus hunt. The scanner now picks the plain "Back Camera" (the 1× lens, which focuses close enough for a sticker) and offers a lens button to choose another; the choice is remembered. There is no web API to select a macro lens by name; this is the nearest thing.
+- **Permission.** The browser owns the camera prompt. The app can only ask less often: in a labelling run the camera stays open between scans, so one approval covers the whole box. In Safari the per-site setting (aA menu → Website Settings → Camera → Allow) stops the prompt for good.
+- **Labelling run.** On a gridded box, **Stickers** walks the bins in grid order (across each row, then the front strip, then loose ones), skipping those that have one: "Put a sticker on Bin 3 (row 1, column 3) and scan it." Each scan (camera or hardware scanner) goes on that bin and the run moves on; Skip, Done, or tap a bin on the grid to do that one. The camera's title names the bin up next and shows a tick with the code after each read. A used sticker is refused with where it is. The bin sheet also has a camera button and in-place rename.
+
+**Rationale:** Decoding at the sensor's resolution, from one lens that doesn't switch, fixes the two things that made scanning feel bad; the labelling run removes the per-bin navigation. Keeping the decoder in the app keeps the garage-only, no-internet setup intact.
+
+**Consequences:** `@zxing/browser` removed, `zxing-wasm` added; `src/web/scan/camera.ts` (lens choice, guide crop; unit-tested), `decode.ts`, `CameraScanner.tsx` rewritten with `continuous`, `title`, `hint`, `extra`; `ScanProvider.openCamera(options)` and `closeCamera()`; `LabelBins.tsx`. Headless check feeds Chromium a video of a small QR code through a fake camera, so the real decoder is exercised.
+
 ---
 
 ## Decision Index
@@ -556,6 +585,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-018 | Light mode is a per-device setting, default dark | UX | Accepted | 2026-11-03 |
 | DEC-019 | Project kits are locations that are never a home | Product | Accepted | 2026-11-03 |
 | DEC-020 | Bins are numbered, show their contents, and are dragged in from a palette | UX | Accepted | 2026-11-03 |
+| DEC-021 | Camera scanning: our own decoder, one steady lens, and a labelling run | UX | Accepted | 2026-11-03 |
 
 ---
 

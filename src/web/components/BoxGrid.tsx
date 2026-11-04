@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { RotateCw } from "lucide-react";
+import { QrCode, RotateCw } from "lucide-react";
 import { binSizeLabels, type BinSize, type LocationDetail, type LocationSummary } from "../../shared/api";
 import { DEFAULT_GRID, STRIP_HEIGHT, footprint, snapSlot, type Grid, type PlacedBin, type Slot } from "../../shared/grid";
 import { binColors, itemName } from "./ui";
@@ -58,6 +58,7 @@ export function BoxGrid({
   onCreate,
   onOpen,
   onProblem,
+  highlightId = null,
 }: {
   box: LocationDetail;
   arranging: boolean;
@@ -67,6 +68,8 @@ export function BoxGrid({
   /** A bin was tapped outside arrange mode. */
   onOpen: (bin: Bin) => void;
   onProblem: (message: string) => void;
+  /** The bin being labelled: outlined, and every bin shows whether it has a sticker. */
+  highlightId?: number | null;
 }) {
   const grid: Grid = box.grid ?? DEFAULT_GRID;
   const bins = box.children.filter((c) => c.type === "bin");
@@ -262,8 +265,10 @@ export function BoxGrid({
           const style = { ...rect(b.slot, b.binSize), padding: 2 };
           const lifted = drag?.bin.id === b.id;
           const label = binLabel(b);
+          const labelling = highlightId !== null;
           return (
-            <div key={b.id} className="absolute" style={style}>
+            <div key={b.id} className={`absolute ${b.id === highlightId ? "z-10 rounded-lg outline outline-3 outline-accent" : ""}`} style={style}>
+              {labelling && b.code && <QrCode size={12} className="pointer-events-none absolute right-1 top-1 z-10 opacity-80" aria-label="has a sticker" />}
               {arranging ? (
                 <div
                   {...handlers(b)}
@@ -275,7 +280,7 @@ export function BoxGrid({
                   {b.binSize === "2x1" && <RotateCw size={12} className="absolute right-0.5 top-0.5 opacity-60" aria-hidden />}
                 </div>
               ) : (
-                <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize)} active:opacity-80`} aria-label={`${label}, ${b.name}`}>
+                <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize)} active:opacity-80`} aria-label={`${label}, ${b.name}${labelling ? (b.code ? `, sticker ${b.code}` : ", no sticker") : ""}`}>
                   <span className="line-clamp-2">{label}</span>
                 </button>
               )}

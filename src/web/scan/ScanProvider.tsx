@@ -7,10 +7,23 @@ const CameraScanner = lazy(() => import("./CameraScanner").then((m) => ({ defaul
 /** Return true if the scan was handled; otherwise it falls through to the next handler. */
 export type ScanHandler = (code: string) => boolean | void;
 
+/** How the camera should behave for whoever opened it. */
+export type CameraOptions = {
+  /** Stay open and keep reading after each code (labelling bins one after another). */
+  continuous?: boolean;
+  title?: string;
+  hint?: string;
+  /** Extra controls in the camera's top bar. */
+  extra?: ReactNode;
+};
+
 type ScanContextValue = {
   /** Feed a code in from any source (scanner, camera, manual entry). */
   submit: (code: string) => void;
-  openCamera: () => void;
+  /** Open the camera; calling it again while open just updates the options. Usable straight as an onClick. */
+  openCamera: (options?: CameraOptions | { nativeEvent: unknown }) => void;
+  closeCamera: () => void;
+  cameraOpen: boolean;
   register: (handler: ScanHandler) => () => void;
   lastScan: { code: string; at: number } | null;
 };
@@ -47,7 +60,7 @@ function removeLeakedChars(count: number) {
 
 export function ScanProvider({ fallback, children }: { fallback: (code: string) => void; children: ReactNode }) {
   const handlers = useRef<ScanHandler[]>([]);
-  const [cameraOpen, setCameraOpen] = useState(false);
+  const [camera, setCamera] = useState<CameraOptions | null>(null);
   const [lastScan, setLastScan] = useState<{ code: string; at: number } | null>(null);
   const fallbackRef = useRef(fallback);
   fallbackRef.current = fallback;
@@ -108,19 +121,25 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
     };
   }, [submit]);
 
-  const value = { submit, openCamera: () => setCameraOpen(true), register, lastScan };
+  const openCamera = useCallback((options: CameraOptions | { nativeEvent: unknown } = {}) => setCamera("nativeEvent" in options ? {} : options), []);
+  const closeCamera = useCallback(() => setCamera(null), []);
+  const value = { submit, openCamera, closeCamera, cameraOpen: camera !== null, register, lastScan };
 
   return (
     <ScanContext.Provider value={value}>
       {children}
-      {cameraOpen && (
+      {camera && (
         <Suspense fallback={<div className="fixed inset-0 z-50 bg-black" />}>
           <CameraScanner
+            continuous={camera.continuous}
+            title={camera.title}
+            hint={camera.hint}
+            extra={camera.extra}
             onResult={(code) => {
-              setCameraOpen(false);
+              if (!camera.continuous) setCamera(null);
               submit(code);
             }}
-            onClose={() => setCameraOpen(false)}
+            onClose={closeCamera}
           />
         </Suspense>
       )}
