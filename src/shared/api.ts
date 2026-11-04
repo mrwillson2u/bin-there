@@ -72,6 +72,9 @@ export const placeBinSchema = z
   .nullable();
 export type PlaceBin = z.infer<typeof placeBinSchema>;
 
+export const tileViews = ["photos", "names"] as const;
+export type TileView = (typeof tileViews)[number];
+
 /** Racks and shelves can have numbered positions (DEC-034). */
 export const holdsPositions = (type: LocationType) => type === "rack" || type === "shelf";
 /** A position's label: its own, or its number (1-based). */
@@ -96,6 +99,8 @@ export const createLocationSchema = z.object({
   rackSize: z.number().int().min(1).max(200).nullable().optional(),
   /** Put it straight into this position of its parent (0-based). */
   rackSlot: rackSlot.nullable().optional(),
+  /** For a gridded box: tiles show photos or names (DEC-036). */
+  tileView: z.enum(tileViews).optional(),
 });
 export type CreateLocation = z.infer<typeof createLocationSchema>;
 
@@ -126,6 +131,9 @@ export type LocationSummary = {
   /** Which position of its parent it's in (0-based; DEC-034), and that position's label. */
   rackSlot: number | null;
   position: string | null;
+  /** For a bin: the photo of the first part in it (A to Z) that has one, and that part's name, for its tile (DEC-036). */
+  thumbUrl: string | null;
+  thumbName: string | null;
 };
 
 /** One step of a path. `position` is the label of its position in the step before (DEC-034). */
@@ -155,6 +163,8 @@ export type LocationDetail = LocationSummary & {
   parentType: LocationType | null;
   /** A rack or shelf with positions (DEC-034): how many, and labels (null = its number). */
   rack: { size: number; labels: (string | null)[] } | null;
+  /** For a gridded box: whether its tiles show bins' photos or names (DEC-036). */
+  tileView: TileView;
   notes: string | null;
   /** For a gridded box: its grid size (cells); null for every other type. */
   grid: Grid | null;

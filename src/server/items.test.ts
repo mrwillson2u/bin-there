@@ -302,6 +302,28 @@ describe("main photo and deleting photos (DEC-031)", () => {
   });
 });
 
+describe("bin tiles show a photo (DEC-036)", () => {
+  it("gives a bin the photo of its first part that has one, and a box a photos/names setting", async () => {
+    const box = await ok<LocationDetail>("POST", "/locations", { name: "Modules", type: "gridded_box", parentId: siteId });
+    const b = await ok<LocationDetail>("POST", "/locations", { type: "bin", parentId: box.id, binSize: "1x1", slot: { x: 0, y: 0 } });
+    await item({ name: "Arduino Nano", locationId: b.id, qty: 2 });
+    const esp = await item({ name: "ESP32", locationId: b.id, qty: 1 });
+    const tile = async () => (await ok<LocationDetail>("GET", `/locations/${box.id}`)).children[0]!;
+    expect((await tile()).thumbUrl).toBeNull();
+    const f = new FormData();
+    f.append("photo", new File([new Uint8Array([0xff, 0xd8, 1])], "p.jpg", { type: "image/jpeg" }));
+    f.append("thumb", new File([new Uint8Array([0xff, 0xd8, 2])], "t.jpg", { type: "image/jpeg" }));
+    const withPhoto = (await (await api.request(`/items/${esp.id}/photos`, { method: "POST", body: f })).json()) as ItemDetail;
+    // Arduino Nano comes first but has no photo, so the tile uses ESP32's.
+    expect([(await tile()).thumbUrl, (await tile()).thumbName]).toEqual([withPhoto.thumbUrl, "ESP32"]);
+    expect((await ok<LocationDetail>("GET", `/locations/${b.id}`)).thumbUrl).toBe(withPhoto.thumbUrl);
+
+    expect(box.tileView).toBe("photos");
+    expect((await ok<LocationDetail>("PATCH", `/locations/${box.id}`, { tileView: "names" })).tileView).toBe("names");
+    expect((await call("PATCH", `/locations/${box.id}`, { tileView: "pictures" })).status).toBe(400);
+  });
+});
+
 describe("needs details", () => {
   it("skips the queue when created with a name and a category", async () => {
     const cats = await ok<Category[]>("GET", "/categories");

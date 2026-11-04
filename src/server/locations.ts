@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { events, itemHomes, items, locations, pins, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
-import { locationItems } from "./items";
+import { locationItems, photoUrl } from "./items";
 import { isPinned } from "./pins";
 import { comparePlaces, holdsPositions, rackLabel, type BinOut, type BinSize, type CreateLocation, type Crumb, type LocationDetail, type LocationSummary, type PinnedLocation, type UpdateLocation } from "../shared/api";
 import { DEFAULT_GRID, slotProblem, type Grid, type PlacedBin, type Slot } from "../shared/grid";
@@ -42,6 +42,17 @@ function slotOf(row: SummaryRow): Slot | null {
   return row.gridX !== null && row.gridY !== null ? { x: row.gridX, y: row.gridY, rotated: row.gridRotated } : null;
 }
 
+/** For a bin's tile (DEC-036): the main photo of the first part in it, A to Z, that has a photo. */
+function firstThumb(db: Db, locationId: number): { thumbUrl: string | null; thumbName: string | null } {
+  const row = db.get<{ path: string; thumb_path: string | null; name: string }>(sql`
+    select p.path, p.thumb_path, i.name from photos p join items i on i.id = p.item_id
+    where i.archived = 0 and (i.id in (select item_id from stock where location_id = ${locationId})
+      or i.id in (select item_id from units where location_id = ${locationId} and status <> 'retired'))
+    order by i.name collate nocase, p.is_main desc, p.id
+    limit 1`);
+  return row ? { thumbUrl: photoUrl(row.thumb_path ?? row.path), thumbName: row.name } : { thumbUrl: null, thumbName: null };
+}
+
 /** Names of the items kept right here (stock or stickered units), A–Z. */
 function contents(db: Db, locationId: number): string[] {
   return db
@@ -69,7 +80,7 @@ function labelsOf(db: Db, cache: Map<number, (string | null)[] | null>, parentId
 function toSummary(
   db: Db,
   { gridX, gridY, gridRotated, outAt, outToId, outNote, parentId, ...row }: SummaryRow &
-    OutRow & { parentId: number | null } & Omit<LocationSummary, "slot" | "itemCount" | "preview" | "out" | "position">,
+    OutRow & { parentId: number | null } & Omit<LocationSummary, "slot" | "itemCount" | "preview" | "out" | "position" | "thumbUrl" | "thumbName">,
   labels: Map<number, (string | null)[] | null> = new Map(),
 ): LocationSummary {
   const names = contents(db, row.id);
@@ -80,6 +91,7 @@ function toSummary(
     preview: names.slice(0, 2),
     out: outOf(db, { outAt, outToId, outNote }),
     position: row.rackSlot === null ? null : rackLabel(labelsOf(db, labels, parentId), row.rackSlot),
+    ...(row.type === "bin" && names.length > 0 ? firstThumb(db, row.id) : { thumbUrl: null, thumbName: null }),
   };
 }
 
@@ -185,6 +197,8 @@ export function getLocation(db: Db, id: number): LocationDetail {
     slot: slotOf(loc),
     rackSlot: loc.rackSlot,
     position: loc.rackSlot === null ? null : rackLabel(labelsOf(db, new Map(), loc.parentId), loc.rackSlot),
+    ...(loc.type === "bin" && here.length > 0 ? firstThumb(db, loc.id) : { thumbUrl: null, thumbName: null }),
+    tileView: loc.tileView ?? "photos",
     rack: holdsPositions(loc.type) && loc.rackSize ? { size: loc.rackSize, labels: Array.from({ length: loc.rackSize }, (_, i) => loc.rackLabels?.[i] ?? null) } : null,
     parentId: loc.parentId,
     parentType: loc.parentId === null ? null : (db.select({ type: locations.type }).from(locations).where(eq(locations.id, loc.parentId)).get()?.type ?? null),

@@ -12,6 +12,8 @@
 
 **Photos are square** (DEC-030): lists, tiles, panes and the part's page all show a part's photo as a square, picked by its crop (centred unless adjusted). The whole photo is a tap away.
 
+**Bin tiles** (DEC-036): a bin with a photo shows it inside a 3 px frame of the bin's colour, so the colour still matches the real bin. Big tiles add the name on a dark strip along the bottom; wide tiles put a square thumbnail beside the name; tall ones put the photo above it.
+
 **Tone words:** calm, precise, fast, utilitarian. No decoration that costs taps or bytes.
 
 ---

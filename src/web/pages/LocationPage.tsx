@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
-import { holdsPositions, locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType } from "../../shared/api";
+import { holdsPositions, locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType, tileViews, type TileView } from "../../shared/api";
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
 import { useWide } from "../lib/useWide";
@@ -109,6 +109,20 @@ export function LocationPage() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["location", id] });
+    },
+  });
+
+  // Photos or names on this box's tiles (DEC-036); the grid changes at once.
+  const tileView = useMutation({
+    mutationFn: (v: TileView) => api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { tileView: v } }),
+    onMutate: (v) => {
+      const before = qc.getQueryData<LocationDetail>(["location", id]);
+      if (before) qc.setQueryData<LocationDetail>(["location", id], { ...before, tileView: v });
+      return { before };
+    },
+    onError: (e: Error, _v, ctx) => {
+      if (ctx?.before) qc.setQueryData(["location", id], ctx.before);
+      toast.show({ message: e.message, tone: "error" });
     },
   });
 
@@ -245,6 +259,25 @@ export function LocationPage() {
       />
       {gridMessage && <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm" role="status">{gridMessage}</p>}
       {!arranging && !labelling && hasBins && !wide && <p className="text-[13px] text-muted">Tap a bin to see what's in it or add a part.</p>}
+      {/* Photos suit a box of modules; names suit look-alikes like screws (DEC-036). */}
+      {!labelling && bins.some((b) => b.thumbUrl) && (
+        <div className="flex items-center gap-2 text-[13px] text-muted">
+          Tiles show
+          <div className="flex overflow-hidden rounded-lg border border-border" role="group" aria-label="Tiles show">
+            {tileViews.map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={loc.tileView === v}
+                onClick={() => tileView.mutate(v)}
+                className={`min-h-9 px-3 text-sm ${loc.tileView === v ? "bg-accent/15 font-semibold text-accent" : "text-muted"}`}
+              >
+                {v === "photos" ? "Photos" : "Names"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 

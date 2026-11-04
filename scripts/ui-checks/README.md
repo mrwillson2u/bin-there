@@ -17,6 +17,7 @@ script refuses the app's own `data` folder and any folder that isn't empty.
 | `inventory-check.mjs` | The Inventory home and Locations screen: list and tiles, filters, pinned on top, paging, Back to the same spot, focused search, phone and desktop nav, and every tab with Promise-returning scroll methods (newer browsers, DEC-029) |
 | `takeout-check.mjs` | Taking a bin out of its box: to a kit or with a note, the grey striped tile, the part's "bin out" line, the kit's list, taking the whole bin by scanning it on a kit, put back by tap and by put-back scan, freeing its spot, desktop pane |
 | `photo-check.mjs` | Square photos: a tall upload gets a square thumbnail, the part's page shows a square, Crop on the photo moves and zooms it (original kept), Centre; a second photo in the strip, Use as main, the viewer, Delete; desktop |
+| `tiles-check.mjs` | Bin tiles with photos: photo-only small squares framed in the bin colour, wide and tall layouts, "+1", the name of the photo's part, the per-box Photos / Names switch, the desktop name strip |
 
 Setup, once per dev copy (needs `ffmpeg`, and a Chromium; Playwright's headless shell works):
 

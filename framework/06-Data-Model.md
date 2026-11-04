@@ -48,6 +48,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 | grid_cols / grid_rows | int, nullable | For gridded boxes. Null means the Allit case, 6 × 4 (+ front strip), which is the only one so far (DEC-014) |
 | grid_x / grid_y | int, nullable | A bin's top-left cell in its parent box; null = not placed on the grid yet. `grid_y = grid_rows` is the front-strip row. Cleared when the bin moves to another box or changes size |
 | grid_rotated | boolean | A 2×1 bin standing tall (1 wide, 2 high). Migration 0007 |
+| tile_view | text, nullable | A gridded box's tiles show bins' photos (null, the default) or `names` (DEC-036, migration 0016) |
 | rack_size / rack_labels / rack_slot | int / JSON `(string\|null)[]` / int, all nullable | DEC-034 (migrations 0014–0015). A rack or shelf with `rack_size` numbered positions; `rack_labels[i]` renames position i (null = its number, i+1). A place inside sits in its parent's position `rack_slot` (0-based) or none. Cleared when it moves elsewhere. Lists sort by it, then by name. (Replaced DEC-033's typed `position`.) |
 | out_at / out_to_id / out_note | text / FK → Location (a project kit) / text, all nullable | A bin taken out of its box (DEC-028, migration 0010): `out_at` set means out. The bin stays the box's child and keeps `grid_x`/`grid_y`, so its spot stays saved. Cleared by put-back, or by moving it to another place |
 | notes, created_at, updated_at | | |

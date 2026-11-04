@@ -1039,6 +1039,40 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - New unit tests in `src/shared/rack.test.ts`.
 - `pages-check.mjs` checks the slide, the order after each kind of drop, and the keyboard.
 
+### DEC-036: Bin tiles show the part's photo, with a per-box switch back to names
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin (Q50) |
+| **Category** | UX / Data |
+
+**Context:** Colin asked whether gridded-box tiles should show a bin's photo instead of its name, or a small thumbnail with the start of the name. On a phone a 1×1 tile is about 54 px, a 2×1 about 114 × 54, and a 1×1 on desktop about 76 px.
+- **The photo alone.** Distinctive parts (modules, connectors, LEDs) are recognisable at 54 px, often faster than 8 clipped letters. Look-alikes (M3 × 10 and M3 × 12 screws) aren't.
+- **Thumbnail plus name.** It doesn't fit on a phone's 1×1, but does on bigger tiles.
+- **Bin colours.** The tile colours match the real bins and must not be lost under a photo.
+
+**Decision:**
+- **Which photo.** A bin's tile uses the main photo of the first part in it, A to Z, that has a photo (`LocationSummary.thumbUrl` and `thumbName`), framed by the bin's colour (3 px).
+- **Layout by tile shape:**
+  - **Square tiles** (1×1, 2×2): the photo fills the tile.
+    - On big tiles (2×2, or any tile on desktop), the part's name runs along the bottom.
+    - On a phone's 1×1 it's the photo alone, with "+N" when the bin holds more parts.
+  - **Wide tiles** (a 2×1 lying down, the front strip): a square thumbnail beside two lines of name.
+  - **Tall tiles** (a 2×1 standing up): the photo above the name.
+  - The name shown is the part whose photo it is.
+- **Unchanged.** Bins without a photo, bins that are out, and the Stickers screen show what they did before.
+- **The switch.** "Tiles show: Photos / Names" under the grid, per box (`locations.tile_view`, migration 0016; default photos). It only appears when some bin in the box has a photo. A box of screws can show names while a box of modules shows photos.
+
+**Rationale:** Photos identify parts by eye where text gets clipped. Keeping the bin's colour as a frame keeps the tile matched to the physical bin. A per-box switch handles look-alike parts without a global trade-off.
+
+**Consequences:**
+- **Data.** Migration 0016.
+- **API.** `tileView` on `PATCH /api/locations/:id`.
+- **Web.** `TileText` in `BoxGrid.tsx` lays out by tile shape.
+- **Checks.** New `tiles-check.mjs`.
+
 ---
 
 ## Decision Index
@@ -1080,6 +1114,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-033 | Places have positions (rack slots); "add" means a plus, not a camera | UX / Data | Accepted (positions superseded by DEC-034) | 2026-11-04 |
 | DEC-034 | Racks have a size and numbered positions; drag to arrange | UX / Data | Accepted (drop behaviour changed by DEC-035) | 2026-11-04 |
 | DEC-035 | Dropping a box in a rack moves the others along, and you see them slide | UX | Accepted | 2026-11-04 |
+| DEC-036 | Bin tiles show the part's photo, with a per-box switch back to names | UX / Data | Accepted | 2026-11-04 |
 
 ---
 

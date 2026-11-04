@@ -53,6 +53,8 @@ export const locations = sqliteTable("locations", {
   rackLabels: text("rack_labels", { mode: "json" }).$type<(string | null)[]>(),
   // Which of its parent's positions it's in (0-based), or null for "not in a position".
   rackSlot: integer("rack_slot"),
+  // A gridded box's tiles show each bin's photo or its name (DEC-036). Null = photos.
+  tileView: text("tile_view", { enum: ["photos", "names"] }),
   notes: text("notes"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   ...timestamps,

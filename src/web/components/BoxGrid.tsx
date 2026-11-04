@@ -51,8 +51,46 @@ const EMPTY = "Empty";
 const OUT_CLASS = "grayscale opacity-70 [background-image:repeating-linear-gradient(135deg,rgba(0,0,0,0.38)_0_5px,transparent_5px_10px)]";
 const outWhere = (b: Bin) => (b.out ? (b.out.to?.name ?? b.out.note ?? "") : "");
 
-/** What's written on a tile: its contents, or for a bin that's out, "Out" and where it went. */
-function TileText({ bin, label }: { bin: Bin; label: string }) {
+type TileShape = { shape: "square" | "wide" | "tall"; big: boolean };
+
+/**
+ * What a tile shows: for a bin that's out, "Out" and where it went; else, when the box shows
+ * photos and the bin has one (DEC-036), the photo framed by the bin's colour (square tiles; big
+ * ones add the name along the bottom), a thumbnail beside the name (wide tiles) or above it
+ * (tall ones); otherwise its contents in words.
+ */
+function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photos?: boolean; tile?: TileShape }) {
+  if (!bin.out && photos && bin.thumbUrl && tile && label !== EMPTY) {
+    const more = bin.itemCount > 1 ? bin.itemCount - 1 : 0;
+    // Name the part whose photo it is (the first with a photo may not be the first A to Z).
+    label = `${itemName(bin.thumbName ?? "")}${more > 0 ? ` +${more}` : ""}`;
+    if (tile.shape === "wide") {
+      return (
+        <span className="pointer-events-none absolute inset-[3px] flex items-center gap-1.5 overflow-hidden text-left">
+          <img src={bin.thumbUrl} alt="" draggable={false} className="aspect-square h-full shrink-0 rounded-[4px] object-cover" />
+          <span className="line-clamp-2 min-w-0 pr-0.5">{label}</span>
+        </span>
+      );
+    }
+    if (tile.shape === "tall") {
+      return (
+        <span className="pointer-events-none absolute inset-[3px] flex flex-col items-stretch gap-1 overflow-hidden">
+          <img src={bin.thumbUrl} alt="" draggable={false} className="aspect-square w-full shrink-0 rounded-[4px] object-cover" />
+          <span className="line-clamp-3 min-h-0">{label}</span>
+        </span>
+      );
+    }
+    return (
+      <span className="pointer-events-none absolute inset-[3px] overflow-hidden rounded-[4px]">
+        <img src={bin.thumbUrl} alt="" draggable={false} className="h-full w-full object-cover" />
+        {tile.big ? (
+          <span className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-1 py-0.5 text-[10px] font-semibold text-white">{label}</span>
+        ) : (
+          more > 0 && <span className="absolute right-0.5 top-0.5 rounded bg-black/65 px-1 text-[9px] font-semibold leading-tight text-white">+{more}</span>
+        )}
+      </span>
+    );
+  }
   if (bin.out) {
     return (
       <span className="flex min-w-0 flex-col items-center">
@@ -224,7 +262,15 @@ export function BoxGrid({
   };
 
   const binClass = (size: BinSize | null, out = false) =>
-    `flex items-center justify-center overflow-hidden rounded-md px-1 text-center text-[11px] font-semibold leading-tight shadow-sm [overflow-wrap:anywhere] ${binColors[size ?? "other"]} ${out ? OUT_CLASS : ""}`;
+    `relative flex items-center justify-center overflow-hidden rounded-md px-1 text-center text-[11px] font-semibold leading-tight shadow-sm [overflow-wrap:anywhere] ${binColors[size ?? "other"]} ${out ? OUT_CLASS : ""}`;
+
+  // A tile's shape decides how a photo is laid out on it (DEC-036). Big = room for a name strip.
+  const photos = box.tileView !== "names";
+  const shapeOf = (size: BinSize | null, rotated: boolean): TileShape => {
+    const fp = footprint(size ?? "1x1", rotated, grid);
+    const wide = size === "front_strip" || fp.w > fp.h;
+    return { shape: wide ? "wide" : fp.h > fp.w ? "tall" : "square", big: fp.w >= 2 || cellPx >= 70 };
+  };
 
   // No native drag-and-drop on the bins: it would steal the pointer from us.
   const handlers = (bin: Bin | NewBin, rotated?: boolean) =>
@@ -312,12 +358,12 @@ export function BoxGrid({
                   role="button"
                   aria-label={`${ariaName(b, label)}, ${binSizeLabels[b.binSize ?? "other"]} at column ${b.slot.x + 1} row ${b.slot.y + 1}${b.binSize === "2x1" ? ", tap to turn" : ""}`}
                 >
-                  <TileText bin={b} label={label} />
-                  {b.binSize === "2x1" && <RotateCw size={12} className="absolute right-0.5 top-0.5 opacity-60" aria-hidden />}
+                  <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, b.slot.rotated)} />
+                  {b.binSize === "2x1" && <RotateCw size={12} className="absolute right-0.5 top-0.5 z-10 opacity-60" aria-hidden />}
                 </div>
               ) : (
                 <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize, !!b.out)} active:opacity-80`} aria-label={ariaName(b, label)}>
-                  {stickers ? <StickerLabel bin={b} /> : <TileText bin={b} label={label} />}
+                  {stickers ? <StickerLabel bin={b} /> : <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, b.slot.rotated)} />}
                 </button>
               )}
             </div>
@@ -339,12 +385,12 @@ export function BoxGrid({
               const label = binLabel(b);
               return arranging ? (
                 <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize, !!b.out)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${ariaName(b, label)}, not placed`}>
-                  <TileText bin={b} label={label} />
+                  <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, false)} />
                 </div>
               ) : (
                 <div key={b.id} className={`relative rounded-md ${ring(b.id)}`} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined}>
                   <button type="button" onClick={() => onOpen(b)} style={style} className={binClass(b.binSize, !!b.out)} aria-label={ariaName(b, label)}>
-                    {stickers ? <StickerLabel bin={b} /> : <TileText bin={b} label={label} />}
+                    {stickers ? <StickerLabel bin={b} /> : <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, false)} />}
                   </button>
                 </div>
               );
