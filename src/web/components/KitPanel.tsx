@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, House, PackagePlus, ScanLine, Search, Undo2, X } from "lucide-react";
+import { CheckCircle2, House, Package, PackagePlus, ScanLine, Search, Undo2, X } from "lucide-react";
 import { levelLabels, type ItemDetail, type ItemSummary, type LocationDetail, type LocationItem, type PinnedLocation, type ReturnResult, type ScanResult, type StockResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
@@ -9,12 +9,13 @@ import { StockControl, useStockMutation } from "./StockControl";
 import { useToast } from "./Toast";
 import { Badge, BinChip, Button, Card, inputClass, itemName, pathText, PlacePath, Thumb } from "./ui";
 import { contents } from "./LocationList";
-import { usePutBackBin } from "./TakeOut";
+import { usePutBackBin, useTakeOutBin } from "./TakeOut";
 
 // A project kit (J4, DEC-019): parts pulled together for one project. Each part keeps
 // its home, so "Return everything" sends it all back, and "Finish" does that and
 // deletes the kit. Scanning here pulls things in: a part's own sticker checks it out
-// to the kit; a bin's sticker lists what's in it to pull from.
+// to the kit; a bin's sticker offers the whole bin (it keeps its spot in its box,
+// DEC-028) or lists what's in it to pull from.
 
 type Pick = { itemId: number; name: string; thumbUrl: string | null };
 
@@ -105,7 +106,7 @@ export function KitPanel({ kit, scanActive }: { kit: LocationDetail; scanActive:
           </Button>
         </div>
         <p className="text-[13px] text-muted">
-          Scan a part's sticker to check it out here, or a bin's sticker to pull from it. Use − on what the project used up; the rest goes home when you finish.
+          Scan a part's sticker to check it out here, or a bin's sticker to take the whole bin or pull a part from it. Use − on what the project used up; the rest goes home when you finish.
         </p>
 
         {left && (
@@ -230,7 +231,7 @@ function PullPanel({ kit, fromBin, onClose }: { kit: LocationDetail; fromBin: Lo
       <div className="flex items-center gap-2">
         <p className="flex flex-1 items-center gap-2 font-semibold">
           <ScanLine size={20} className="text-accent" />
-          {fromBin ? `Pull from ${fromBin.name}` : "Pull in a part: scan it, or search"}
+          {fromBin ? (fromBin.type === "bin" ? fromBin.name : `Pull from ${fromBin.name}`) : "Pull in a part: scan it, or search"}
         </p>
         <button onClick={onClose} aria-label="Close" className="flex h-11 w-11 items-center justify-center text-muted"><X size={18} /></button>
       </div>
@@ -238,6 +239,8 @@ function PullPanel({ kit, fromBin, onClose }: { kit: LocationDetail; fromBin: Lo
         <PullFrom kit={kit} pick={picked} onBack={() => setPicked(null)} onDone={onClose} />
       ) : (
         <>
+          {fromBin?.type === "bin" && <WholeBin kit={kit} bin={fromBin} onDone={onClose} />}
+          {fromBin?.type === "bin" && choices.length > 0 && !(fromBin.out?.to?.id === kit.id) && <p className="text-[13px] text-muted">Or pull one part from it:</p>}
           {!fromBin && (
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -273,6 +276,26 @@ function PullPanel({ kit, fromBin, onClose }: { kit: LocationDetail; fromBin: Lo
         </>
       )}
     </Card>
+  );
+}
+
+/**
+ * A bin scanned on the kit's screen (DEC-028): take the whole bin to the kit. It stays its
+ * box's and keeps its spot there. Says so plainly if it's already here or out somewhere else.
+ */
+function WholeBin({ kit, bin, onDone }: { kit: LocationDetail; bin: LocationDetail; onDone: () => void }) {
+  const takeOut = useTakeOutBin(bin.id, onDone);
+  const box = bin.path.at(-2)?.name ?? "its box";
+  if (bin.out?.to?.id === kit.id) return <p className="text-sm text-muted">{bin.name} is already in this kit.</p>;
+  if (bin.out) return <p className="text-sm text-muted">{bin.name} is out already{bin.out.to ? `, in ${bin.out.to.name}` : `: ${bin.out.note ?? ""}`}.</p>;
+  return (
+    <div className="flex flex-col gap-1">
+      <Button variant="primary" className="self-start" onClick={() => takeOut.mutate({ toLocationId: kit.id })} disabled={takeOut.isPending}>
+        <Package size={18} /> Take the whole bin
+      </Button>
+      <p className="text-[13px] text-muted">Its spot in {box} stays saved until it's back.</p>
+      {takeOut.error && <p className="text-sm text-danger" role="alert">{(takeOut.error as Error).message}</p>}
+    </div>
   );
 }
 

@@ -15,7 +15,7 @@ script refuses the app's own `data` folder and any folder that isn't empty.
 | `stickers-check.mjs` | The Stickers screen with a fake camera playing a QR code (real decoder, beep and buzz) |
 | `pages-check.mjs` | Rack and tote pages: which sections show, what list rows say; All places with type chips; moving a place by picking from a list |
 | `inventory-check.mjs` | The Inventory home and Locations screen: list and tiles, filters, pinned on top, paging, Back to the same spot, focused search, phone and desktop nav |
-| `takeout-check.mjs` | Taking a bin out of its box: to a kit or with a note, the grey striped tile, the part's "bin out" line, the kit's list, put back by tap and by put-back scan, freeing its spot, desktop pane |
+| `takeout-check.mjs` | Taking a bin out of its box: to a kit or with a note, the grey striped tile, the part's "bin out" line, the kit's list, taking the whole bin by scanning it on a kit, put back by tap and by put-back scan, freeing its spot, desktop pane |
 
 Setup, once per dev copy (needs `ffmpeg`, and a Chromium; Playwright's headless shell works):
 

@@ -94,6 +94,21 @@ await toast("Bin 0001 is back in Grid box 1");
 await page.getByRole("heading", { name: "Bins taken out to this kit" }).waitFor({ state: "detached" });
 check((await api("GET", `/locations/${b1.id}`)).out === null, "put back from the kit");
 
+// 5b. On the kit's screen, scanning a bin offers the whole bin.
+await scan("BIN0001");
+await page.getByRole("button", { name: "Take the whole bin" }).waitFor();
+check((await page.getByText("Or pull one part from it:").count()) === 1, "a bin scan on the kit offers the whole bin, then its parts");
+await page.screenshot({ path: `${shots}/t4b-kit-scan.png` });
+await page.getByRole("button", { name: "Take the whole bin" }).click();
+await toast("Bin 0001 taken out to Weather station");
+await page.getByRole("heading", { name: "Bins taken out to this kit" }).waitFor();
+await scan("BIN0001");
+await page.getByText("Bin 0001 is already in this kit.").waitFor();
+check(true, "scanning it again says it's already in the kit");
+await page.getByRole("button", { name: "Close" }).click();
+await page.getByRole("button", { name: "Put Bin 0001 back" }).click();
+await toast("Bin 0001 is back in Grid box 1");
+
 // 6. A note instead of a kit, from the bin's own page.
 await page.goto(`${base}/locations/${b2.id}`);
 await page.getByRole("region", { name: "Manage Bin 0002" }).getByRole("button", { name: "Take out" }).click();

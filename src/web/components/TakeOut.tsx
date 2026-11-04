@@ -18,20 +18,25 @@ function useRefresh() {
   };
 }
 
-/** Pick the project kit the bin is going to (one tap), or write where it is. */
-export function TakeOutForm({ bin, onDone, onCancel }: { bin: { id: number; name: string }; onDone: () => void; onCancel: () => void }) {
+/** Take a bin out of its box, to a kit or with a note. Used by the form below and by a kit's bin scan. */
+export function useTakeOutBin(binId: number, onDone: () => void) {
   const toast = useToast();
   const refresh = useRefresh();
-  const { data: kits } = useQuery({ queryKey: ["projects"], queryFn: () => api<ProjectSummary[]>("/projects") });
-  const [note, setNote] = useState("");
-  const takeOut = useMutation({
-    mutationFn: (body: { toLocationId?: number; note?: string }) => api<LocationDetail>(`/locations/${bin.id}/take-out`, { method: "POST", body }),
+  return useMutation({
+    mutationFn: (body: { toLocationId?: number; note?: string }) => api<LocationDetail>(`/locations/${binId}/take-out`, { method: "POST", body }),
     onSuccess: (b) => {
       toast.show({ message: `${b.name} taken out${b.out?.to ? ` to ${b.out.to.name}` : ""}. Its spot is saved` });
       refresh();
       onDone();
     },
   });
+}
+
+/** Pick the project kit the bin is going to (one tap), or write where it is. */
+export function TakeOutForm({ bin, onDone, onCancel }: { bin: { id: number; name: string }; onDone: () => void; onCancel: () => void }) {
+  const { data: kits } = useQuery({ queryKey: ["projects"], queryFn: () => api<ProjectSummary[]>("/projects") });
+  const [note, setNote] = useState("");
+  const takeOut = useTakeOutBin(bin.id, onDone);
   const hasKits = !!kits && kits.length > 0;
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-2/50 p-3" role="group" aria-label={`Take ${bin.name} out`}>

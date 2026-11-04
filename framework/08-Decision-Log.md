@@ -802,6 +802,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - **The kit.** It lists "Bins taken out to this kit", each with Put back. Return everything and Finish project put them back too. A kit can't be deleted while a bin is out to it.
 - **Parts in an out bin.** Their place line says "bin out: Weather station" in search and Inventory, and the part's page says "The bin is out: …".
 - **Put-back mode.** Scanning a bin that's out puts it back in its spot, and the put-back screen says so.
+- **Scanning a bin on a kit's screen** (Q49, 2026-11-04). It offers **Take the whole bin** first, then "Or pull one part from it". If the bin is already in the kit, or out somewhere else, it says so. The kit's help line explains both.
 - **Moving.** Moving an out bin to another place for good clears "out".
 - **Activity.** It logs "Bin 0001 taken out to …" and "Bin 0001 put back". There's no Undo, because each of the two actions is the other's undo, one tap away.
 
