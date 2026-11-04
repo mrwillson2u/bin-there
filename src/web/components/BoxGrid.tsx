@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { Link } from "react-router-dom";
+import { RotateCw } from "lucide-react";
 import { binSizeLabels, type BinSize, type LocationDetail, type LocationSummary } from "../../shared/api";
 import { DEFAULT_GRID, STRIP_HEIGHT, footprint, snapSlot, type Grid, type PlacedBin, type Slot } from "../../shared/grid";
-import { binColors } from "./ui";
+import { binColors, itemName } from "./ui";
 
 // The gridded box drawn as it sits on the bench: a grid of cells with the front
-// strip along the bottom. Bins show in their real colors in their slots. In
-// arrange mode a bin follows the finger (or mouse) and snaps into the nearest
-// free slot when let go; dropping it in the tray below takes it off the grid.
+// strip along the bottom. Bins show in their real colors in their slots, labelled
+// with what's in them. In arrange mode a bin follows the finger (or mouse) and
+// snaps into the nearest free slot when let go; dropping it in the tray below takes
+// it off the grid. New bins are dragged in from the palette above the grid (DEC-020).
 
 type Bin = LocationSummary;
 
+/** A bin from the palette that doesn't exist yet. */
+type NewBin = { id: -1; binSize: BinSize; name: string; slot: null; preview: string[]; itemCount: 0 };
+
 type Drag = {
-  bin: Bin;
+  bin: Bin | NewBin;
   rotated: boolean;
   /** Pointer offset from the bin's top-left corner, in px. */
   grabX: number;
@@ -29,16 +33,39 @@ type Drag = {
 };
 
 const TAP_SLOP = 6;
+const isNew = (b: Bin | NewBin): b is NewBin => b.id === -1;
+
+/** What the palette offers, in the order the physical case comes with them. The 2×1 is offered both ways round. */
+const palette: { size: BinSize; rotated: boolean; label: string; short: string }[] = [
+  { size: "1x1", rotated: false, label: "1×1", short: "1×1" },
+  { size: "2x1", rotated: false, label: "2×1 wide", short: "wide" },
+  { size: "2x1", rotated: true, label: "2×1 tall", short: "tall" },
+  { size: "2x2", rotated: false, label: "2×2", short: "2×2" },
+  { size: "front_strip", rotated: false, label: "Front strip", short: "Front strip" },
+];
+
+/** What a bin tile says: its first item (and how many more), or its number when empty. */
+export function binLabel(b: Pick<Bin, "name" | "preview" | "itemCount">): string {
+  if (b.itemCount === 0 || !b.preview[0]) return b.name;
+  const more = b.itemCount - 1;
+  return more > 0 ? `${itemName(b.preview[0])} +${more}` : itemName(b.preview[0]);
+}
 
 export function BoxGrid({
   box,
   arranging,
   onPlace,
+  onCreate,
+  onOpen,
   onProblem,
 }: {
   box: LocationDetail;
   arranging: boolean;
   onPlace: (bin: Bin, slot: Slot | null) => void;
+  /** A bin from the palette was dropped on the grid. */
+  onCreate: (binSize: BinSize, slot: Slot) => void;
+  /** A bin was tapped outside arrange mode. */
+  onOpen: (bin: Bin) => void;
   onProblem: (message: string) => void;
 }) {
   const grid: Grid = box.grid ?? DEFAULT_GRID;
@@ -78,14 +105,14 @@ export function BoxGrid({
   const others = (except: number): PlacedBin[] =>
     placed.filter((b) => b.id !== except).map((b) => ({ id: b.id, binSize: b.binSize, slot: b.slot }));
 
-  const start = (bin: Bin) => (e: ReactPointerEvent<HTMLElement>) => {
+  const start = (bin: Bin | NewBin, rotated?: boolean) => (e: ReactPointerEvent<HTMLElement>) => {
     if (!arranging || e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     const r = e.currentTarget.getBoundingClientRect();
     setDrag({
       bin,
-      rotated: bin.slot?.rotated ?? false,
+      rotated: rotated ?? bin.slot?.rotated ?? false,
       grabX: e.clientX - r.left,
       grabY: e.clientY - r.top,
       startX: e.clientX,
@@ -137,16 +164,24 @@ export function BoxGrid({
     if (!drag) return;
     setDrag(null);
     const moved = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > TAP_SLOP;
+    const bin = drag.bin;
+    if (isNew(bin)) {
+      // A new bin from the palette only exists once it lands on the grid.
+      if (!moved) return;
+      if (drag.target && drag.target !== "tray") onCreate(bin.binSize, drag.target);
+      else onProblem(drag.target === "tray" ? "Drop a new bin on the grid to add it" : "No room there");
+      return;
+    }
     if (!moved) {
       // A tap on a placed 2×1 turns it; anything else is left alone.
-      if (drag.bin.binSize === "2x1" && drag.bin.slot) onPlace(drag.bin, { ...drag.bin.slot, rotated: !drag.bin.slot.rotated });
+      if (bin.binSize === "2x1" && bin.slot) onPlace(bin, { ...bin.slot, rotated: !bin.slot.rotated });
       return;
     }
     if (drag.target === "tray") {
-      if (drag.bin.slot) onPlace(drag.bin, null);
+      if (bin.slot) onPlace(bin, null);
     } else if (drag.target) {
-      const s = drag.bin.slot;
-      if (!s || s.x !== drag.target.x || s.y !== drag.target.y || s.rotated !== drag.target.rotated) onPlace(drag.bin, drag.target);
+      const s = bin.slot;
+      if (!s || s.x !== drag.target.x || s.y !== drag.target.y || s.rotated !== drag.target.rotated) onPlace(bin, drag.target);
     } else {
       onProblem("No room there");
     }
@@ -161,13 +196,36 @@ export function BoxGrid({
     `flex items-center justify-center overflow-hidden rounded-md px-1 text-center text-[11px] font-semibold leading-tight shadow-sm [overflow-wrap:anywhere] ${binColors[size ?? "other"]}`;
 
   // No native drag-and-drop on the bins: it would steal the pointer from us.
-  const handlers = (bin: Bin) =>
-    arranging ? { onPointerDown: start(bin), onDragStart: (e: DragEvent) => e.preventDefault(), draggable: false } : {};
+  const handlers = (bin: Bin | NewBin, rotated?: boolean) =>
+    arranging ? { onPointerDown: start(bin, rotated), onDragStart: (e: DragEvent) => e.preventDefault(), draggable: false } : {};
 
   const dragFp = drag ? footprint(drag.bin.binSize, drag.rotated, grid) : null;
+  const pxSize = (size: BinSize, rotated: boolean, px = cellPx) => {
+    const fp = footprint(size, rotated, grid);
+    const strip = size === "front_strip";
+    return { width: strip ? "100%" : fp.w * px - 4, height: (strip ? STRIP_HEIGHT : fp.h) * px - 4 };
+  };
+  // The palette shows the shapes a bit smaller than life so it doesn't push the grid down the screen.
+  const palettePx = cellPx * 0.6;
 
   return (
     <div className={`flex flex-col gap-3 ${arranging ? "touch-none select-none [-webkit-user-drag:none]" : ""}`} style={arranging ? { WebkitTouchCallout: "none" } : undefined}>
+      {arranging && (
+        <div className="flex flex-col gap-2">
+          <p className="text-[13px] text-muted">Drag a new bin onto the grid:</p>
+          <div className="flex flex-wrap items-end gap-2" role="group" aria-label="New bins">
+            {palette.map((p) => {
+              const fresh: NewBin = { id: -1, binSize: p.size, name: p.label, slot: null, preview: [], itemCount: 0 };
+              return (
+                <div key={p.label} {...handlers(fresh, p.rotated)} style={pxSize(p.size, p.rotated, palettePx)} className={`cursor-grab ${binClass(p.size)} !text-[10px]`} role="button" aria-label={`New ${p.label} bin`}>
+                  <span className="whitespace-nowrap">{p.short}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div
         ref={gridRef}
         className="relative w-full rounded-2xl border border-border bg-surface"
@@ -203,21 +261,23 @@ export function BoxGrid({
         {placed.map((b) => {
           const style = { ...rect(b.slot, b.binSize), padding: 2 };
           const lifted = drag?.bin.id === b.id;
+          const label = binLabel(b);
           return (
             <div key={b.id} className="absolute" style={style}>
               {arranging ? (
                 <div
                   {...handlers(b)}
-                  className={`h-full w-full cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`}
+                  className={`relative h-full w-full cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`}
                   role="button"
-                  aria-label={`${b.name}, ${binSizeLabels[b.binSize ?? "other"]} at column ${b.slot.x + 1} row ${b.slot.y + 1}`}
+                  aria-label={`${label}, ${binSizeLabels[b.binSize ?? "other"]} at column ${b.slot.x + 1} row ${b.slot.y + 1}${b.binSize === "2x1" ? ", tap to turn" : ""}`}
                 >
-                  <span className="line-clamp-2">{b.name}</span>
+                  <span className="line-clamp-2">{label}</span>
+                  {b.binSize === "2x1" && <RotateCw size={12} className="absolute right-0.5 top-0.5 opacity-60" aria-hidden />}
                 </div>
               ) : (
-                <Link to={`/locations/${b.id}`} className={`h-full w-full ${binClass(b.binSize)} active:opacity-80`}>
-                  <span className="line-clamp-2">{b.name}</span>
-                </Link>
+                <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize)} active:opacity-80`} aria-label={`${label}, ${b.name}`}>
+                  <span className="line-clamp-2">{label}</span>
+                </button>
               )}
             </div>
           );
@@ -233,18 +293,17 @@ export function BoxGrid({
             className={`flex min-h-12 flex-wrap gap-2 rounded-2xl ${arranging ? "border border-dashed border-border p-2" : ""} ${drag?.target === "tray" ? "border-ok bg-ok/10" : ""}`}
           >
             {tray.map((b) => {
-              const fp = footprint(b.binSize, false, grid);
-              const strip = b.binSize === "front_strip";
-              const style = { width: strip ? "100%" : fp.w * cellPx - 4, height: (strip ? STRIP_HEIGHT : fp.h) * cellPx - 4 };
+              const style = pxSize(b.binSize ?? "1x1", false);
               const lifted = drag?.bin.id === b.id;
+              const label = binLabel(b);
               return arranging ? (
-                <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${b.name}, not placed`}>
-                  <span className="line-clamp-2">{b.name}</span>
+                <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${label}, not placed`}>
+                  <span className="line-clamp-2">{label}</span>
                 </div>
               ) : (
-                <Link key={b.id} to={`/locations/${b.id}`} style={style} className={binClass(b.binSize)}>
-                  <span className="line-clamp-2">{b.name}</span>
-                </Link>
+                <button key={b.id} type="button" onClick={() => onOpen(b)} style={style} className={binClass(b.binSize)} aria-label={`${label}, ${b.name}`}>
+                  <span className="line-clamp-2">{label}</span>
+                </button>
               );
             })}
             {arranging && tray.length === 0 && <span className="self-center px-2 text-[13px] text-muted">Every bin is on the grid.</span>}
@@ -263,7 +322,7 @@ export function BoxGrid({
             height: (drag.bin.binSize === "front_strip" ? STRIP_HEIGHT : dragFp.h) * cellPx - 4,
           }}
         >
-          <span className="line-clamp-2">{drag.bin.name}</span>
+          <span className="line-clamp-2">{binLabel(drag.bin)}</span>
         </div>
       )}
     </div>

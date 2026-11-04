@@ -505,6 +505,31 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Consequences:** `GET /api/projects`, `POST /api/projects/:id/return`; `isProject` guard in items/stock/put-back; `homePath` on location items; Projects section on Home (kits don't also appear in the Locations list). A shelved project is simply a kit left alone.
 
+### DEC-020: Bins are numbered, show their contents, and are dragged in from a palette
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Filling a gridded box with its 20-odd bins is a job Colin will do often. Each bin cost a form (type, size, a made-up name, Save), a trip to the new bin's screen, back, Arrange, drag. Naming bins was busywork: there is nothing to call a bin except what's in it. And once in the form there was no visible way out.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep names, add a global bin ID (0001, 0002…) | Unique across the garage | A second number next to the sticker code, which already is the printed, scannable ID |
+| Name a bin after its contents | No naming | The name would change every time something moved; paths and old log lines would drift |
+| **Number bins within their box; show contents on the tile; drag new bins in from a palette; add parts from a sheet on the grid** | No typing to add a bin; the grid reads as what's where; the identity ("Bin 3 in Screws box") stays put | A sheet on top of the grid is one more surface to keep simple |
+
+**Decision:** A bin's name is optional; left blank, it becomes "Bin N" with the next number in that box (archived bins keep their number, so numbers aren't reused). A global ID is the sticker code, not a second field. On the grid a bin's tile shows its first item and "+N" for the rest, or its number when empty. In Arrange mode a palette above the grid offers 1×1, 2×1 wide, 2×1 tall, 2×2 and front strip: drag one onto the grid and the bin is created in that slot (`POST /api/locations` with `slot`), nothing is created on a miss. Outside Arrange mode tapping a bin opens a sheet over the grid: its contents with +/−, a quick-add row (name, how many) that stays for the next part, a scan puts a fresh sticker on the bin or switches to a sibling, and an empty bin can be removed. Placed 2×1 bins carry a turn icon while arranging. The new-location and quick-capture screens have a Cancel/Done button.
+
+**Rationale:** The palette reuses the drag the grid already has, so there is nothing new to learn; colour and shape say what you're adding. Keeping the bin's identity stable (number plus box) keeps paths, search results and the activity log readable while the tile shows what actually matters.
+
+**Consequences:** `createLocationSchema.name` optional (bins only; everything else still 400s without one), `slot` accepted on create; `LocationSummary` gains `itemCount` and `preview`; `BinSheet.tsx`; `BoxGrid` gets `onCreate`/`onOpen`. The bin's full screen is still one tap away from the sheet.
+
 ---
 
 ## Decision Index
@@ -530,6 +555,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-017 | Deletions purged for good after 30 days, history included | Product | Accepted | 2026-11-03 |
 | DEC-018 | Light mode is a per-device setting, default dark | UX | Accepted | 2026-11-03 |
 | DEC-019 | Project kits are locations that are never a home | Product | Accepted | 2026-11-03 |
+| DEC-020 | Bins are numbered, show their contents, and are dragged in from a palette | UX | Accepted | 2026-11-03 |
 
 ---
 

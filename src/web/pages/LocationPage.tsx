@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, LayoutGrid, MoveRight, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
-import { locationTypeLabels, type LocationDetail, type LocationSummary, type ScanResult } from "../../shared/api";
+import { locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type ScanResult } from "../../shared/api";
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
 import { BoxGrid } from "../components/BoxGrid";
+import { BinSheet } from "../components/BinSheet";
+import { useToast } from "../components/Toast";
 import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
@@ -27,6 +29,8 @@ export function LocationPage() {
   const [mode, setMode] = useState<Mode>("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [arranging, setArranging] = useState(false);
+  const [openBin, setOpenBin] = useState<LocationSummary | null>(null);
+  const toast = useToast();
 
   const done = (msg: string) => {
     setMode("idle");
@@ -70,6 +74,18 @@ export function LocationPage() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["location", id] });
     },
+  });
+
+  // A new bin dragged from the palette onto the grid (DEC-020): numbered, placed, done.
+  const addBin = useMutation({
+    mutationFn: ({ binSize, slot }: { binSize: BinSize; slot: Slot }) =>
+      api<LocationDetail>("/locations", { method: "POST", body: { type: "bin", parentId: id, binSize, slot } }),
+    onSuccess: (bin) => {
+      toast.show({ message: `${bin.name} added` });
+      qc.invalidateQueries({ queryKey: ["location", id] });
+      qc.invalidateQueries({ queryKey: ["locations"] });
+    },
+    onError: fail,
   });
 
   // Only an empty location can be deleted (soft delete: hidden, history kept).
@@ -191,22 +207,26 @@ export function LocationPage() {
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Bins</h2>
-              {loc.children.some((c) => c.type === "bin") && (
-                <button
-                  type="button"
-                  onClick={() => { setMessage(null); setArranging((a) => !a); }}
-                  className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
-                >
-                  <LayoutGrid size={18} /> {arranging ? "Done" : "Arrange"}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => { setMessage(null); setOpenBin(null); setArranging((a) => !a); }}
+                className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
+              >
+                <LayoutGrid size={18} /> {arranging ? "Done" : loc.children.some((c) => c.type === "bin") ? "Add or arrange bins" : "Add bins"}
+              </button>
             </div>
             <BoxGrid
               box={loc}
               arranging={arranging}
               onPlace={(bin, slot) => { setMessage(null); place.mutate({ bin, slot }); }}
+              onCreate={(binSize, slot) => { setMessage(null); addBin.mutate({ binSize, slot }); }}
+              onOpen={setOpenBin}
               onProblem={setMessage}
             />
+            {!arranging && loc.children.some((c) => c.type === "bin") && (
+              <p className="text-[13px] text-muted">Tap a bin to see what's in it or add a part.</p>
+            )}
+            {openBin && <BinSheet bin={loc.children.find((c) => c.id === openBin.id) ?? openBin} box={loc} onClose={() => setOpenBin(null)} onSwitch={setOpenBin} />}
             {loc.children.some((c) => c.type !== "bin") && (
               <LocationList locations={loc.children.filter((c) => c.type !== "bin")} empty="" />
             )}

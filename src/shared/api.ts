@@ -66,26 +66,29 @@ export function normalizeCode(raw: string): string {
 
 export const codeSchema = z.string().transform(normalizeCode).pipe(z.string().min(1).max(64));
 
-export const createLocationSchema = z.object({
-  name: z.string().trim().min(1).max(100),
-  type: z.enum(locationTypes),
-  parentId: z.number().int().positive().nullable().optional(),
-  code: codeSchema.nullable().optional(),
-  binSize: z.enum(binSizes).nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
-});
-export type CreateLocation = z.infer<typeof createLocationSchema>;
-
-export const updateLocationSchema = createLocationSchema.partial();
-export type UpdateLocation = z.infer<typeof updateLocationSchema>;
-
-export const assignCodeSchema = z.object({ code: codeSchema });
-
 /** Where a bin sits in its gridded box (x, y = top-left cell; y = rows means the front strip). Null takes it off the grid. */
 export const placeBinSchema = z
   .object({ x: z.number().int().min(0).max(99), y: z.number().int().min(0).max(99), rotated: z.boolean().optional() })
   .nullable();
 export type PlaceBin = z.infer<typeof placeBinSchema>;
+
+export const createLocationSchema = z.object({
+  /** Optional for a bin: left out, it's numbered within its box ("Bin 1", "Bin 2", …). Everything else needs one. */
+  name: z.string().trim().min(1).max(100).optional(),
+  type: z.enum(locationTypes),
+  parentId: z.number().int().positive().nullable().optional(),
+  code: codeSchema.nullable().optional(),
+  binSize: z.enum(binSizes).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  /** For a bin in a gridded box: put it straight into this slot (DEC-020). */
+  slot: placeBinSchema.optional(),
+});
+export type CreateLocation = z.infer<typeof createLocationSchema>;
+
+export const updateLocationSchema = createLocationSchema.omit({ slot: true }).partial();
+export type UpdateLocation = z.infer<typeof updateLocationSchema>;
+
+export const assignCodeSchema = z.object({ code: codeSchema });
 
 export type LocationSummary = {
   id: number;
@@ -96,6 +99,10 @@ export type LocationSummary = {
   /** For a bin in a gridded box: its slot on the grid, or null if not placed yet. */
   slot: Slot | null;
   childCount: number;
+  /** How many different items are in here (not counting what's in child locations). */
+  itemCount: number;
+  /** The first couple of item names, so a bin can show what's in it instead of its number (DEC-020). */
+  preview: string[];
 };
 
 export type Crumb = { id: number; name: string };

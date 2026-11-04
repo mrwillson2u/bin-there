@@ -1,10 +1,10 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { events, itemHomes, locations, pins, units } from "./db/schema";
+import { events, itemHomes, items, locations, pins, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
 import { locationItems } from "./items";
 import { isPinned } from "./pins";
-import type { CreateLocation, Crumb, LocationDetail, LocationSummary, PinnedLocation, UpdateLocation } from "../shared/api";
+import type { BinSize, CreateLocation, Crumb, LocationDetail, LocationSummary, PinnedLocation, UpdateLocation } from "../shared/api";
 import { DEFAULT_GRID, slotProblem, type Grid, type PlacedBin, type Slot } from "../shared/grid";
 
 // Written out in full: an interpolated column renders unqualified and would bind to the inner `c`.
@@ -28,8 +28,26 @@ function slotOf(row: SummaryRow): Slot | null {
   return row.gridX !== null && row.gridY !== null ? { x: row.gridX, y: row.gridY, rotated: row.gridRotated } : null;
 }
 
-function toSummary({ gridX, gridY, gridRotated, ...row }: SummaryRow & Omit<LocationSummary, "slot">): LocationSummary {
-  return { ...row, slot: slotOf({ gridX, gridY, gridRotated }) };
+/** Names of the items kept right here (stock or stickered units), A–Z. */
+function contents(db: Db, locationId: number): string[] {
+  return db
+    .select({ name: items.name })
+    .from(items)
+    .where(
+      and(
+        eq(items.archived, false),
+        sql`(${items.id} in (select item_id from stock where location_id = ${locationId})
+          or ${items.id} in (select item_id from units where location_id = ${locationId} and status <> 'retired'))`,
+      ),
+    )
+    .orderBy(items.name)
+    .all()
+    .map((r) => r.name);
+}
+
+function toSummary(db: Db, { gridX, gridY, gridRotated, ...row }: SummaryRow & Omit<LocationSummary, "slot" | "itemCount" | "preview">): LocationSummary {
+  const names = contents(db, row.id);
+  return { ...row, slot: slotOf({ gridX, gridY, gridRotated }), itemCount: names.length, preview: names.slice(0, 2) };
 }
 
 export function listLocations(db: Db, parentId: number | null): LocationSummary[] {
@@ -44,14 +62,14 @@ export function listLocations(db: Db, parentId: number | null): LocationSummary[
     )
     .orderBy(locations.name)
     .all()
-    .map(toSummary);
+    .map((r) => toSummary(db, r));
 }
 
 /** Summaries with breadcrumb paths, in the order given (skipping archived or missing ones). */
 export function listLocationsByIds(db: Db, ids: number[]): PinnedLocation[] {
   if (ids.length === 0) return [];
   const rows = db.select(summaryColumns).from(locations).where(and(inArray(locations.id, ids), eq(locations.archived, false))).all();
-  const byId = new Map(rows.map((r) => [r.id, toSummary(r)]));
+  const byId = new Map(rows.map((r) => [r.id, toSummary(db, r)]));
   return ids.flatMap((id) => {
     const r = byId.get(id);
     return r ? [{ ...r, path: locationPath(db, id) }] : [];
@@ -81,6 +99,8 @@ export function locationPath(db: Db, id: number): Crumb[] {
 export function getLocation(db: Db, id: number): LocationDetail {
   const loc = db.select().from(locations).where(eq(locations.id, id)).get();
   if (!loc || loc.archived) throw new ApiError(404, "NOT_FOUND", `No location ${id}`);
+  const children = listLocations(db, loc.id);
+  const here = locationItems(db, loc.id);
   return {
     id: loc.id,
     name: loc.name,
@@ -91,10 +111,12 @@ export function getLocation(db: Db, id: number): LocationDetail {
     parentId: loc.parentId,
     notes: loc.notes,
     grid: gridOf(loc),
-    childCount: listLocations(db, loc.id).length,
+    childCount: children.length,
+    itemCount: here.length,
+    preview: here.slice(0, 2).map((i) => i.name),
     path: locationPath(db, loc.id),
-    children: listLocations(db, loc.id),
-    items: locationItems(db, loc.id),
+    children,
+    items: here,
     pinned: isPinned(db, "location", loc.id),
   };
 }
@@ -122,20 +144,50 @@ function assertParentOk(db: Db, id: number | undefined, parentId: number | null 
   }
 }
 
+/**
+ * "Bin N" with the next number in this box (DEC-020). Archived bins keep their number
+ * so an old log line never points at a different bin.
+ */
+function nextBinName(db: Db, parentId: number): string {
+  const names = db.select({ name: locations.name }).from(locations).where(eq(locations.parentId, parentId)).all();
+  const used = names.map((r) => /^Bin (\d+)$/.exec(r.name)?.[1]).filter((n): n is string => n !== undefined).map(Number);
+  return `Bin ${Math.max(0, ...used) + 1}`;
+}
+
+/** Where a bin may go: on its gridded box's grid, not on top of another bin. The slot's values, or a 400/409. */
+function checkSlot(db: Db, parentId: number | null, binId: number | null, binSize: BinSize | null, slot: Slot) {
+  const parent = parentId === null ? null : getLocation(db, parentId);
+  if (!parent?.grid) throw new ApiError(400, "VALIDATION", "This bin isn't in a gridded box");
+  const others: PlacedBin[] = parent.children
+    .filter((c): c is LocationSummary & { slot: Slot } => c.id !== binId && c.type === "bin" && c.slot !== null)
+    .map((c) => ({ id: c.id, binSize: c.binSize, slot: c.slot }));
+  const problem = slotProblem(binSize, slot, parent.grid, others);
+  if (problem) throw new ApiError(409, "CONFLICT", problem);
+}
+
 export function createLocation(db: Db, input: CreateLocation): LocationDetail {
   if (input.code) assertCodeFree(db, input.code);
   assertPlacement(input.type, input.parentId);
   assertParentOk(db, undefined, input.parentId);
+  const isBin = input.type === "bin";
+  if (!input.name && !isBin) throw new ApiError(400, "VALIDATION", "This needs a name");
+  const slot = isBin && input.slot ? { x: input.slot.x, y: input.slot.y, rotated: input.slot.rotated ?? false } : null;
+  const binSize = isBin ? (input.binSize ?? null) : null;
+  if (slot) checkSlot(db, input.parentId ?? null, null, binSize, slot);
+  const name = input.name ?? nextBinName(db, input.parentId!);
   const id = db.transaction((tx) => {
     const row = tx
       .insert(locations)
       .values({
-        name: input.name,
+        name,
         type: input.type,
         parentId: input.parentId ?? null,
         code: input.code ?? null,
-        binSize: input.type === "bin" ? (input.binSize ?? null) : null,
+        binSize,
         notes: input.notes ?? null,
+        gridX: slot?.x ?? null,
+        gridY: slot?.y ?? null,
+        gridRotated: slot?.rotated ?? false,
       })
       .returning({ id: locations.id })
       .get();
@@ -191,15 +243,7 @@ export function archiveLocation(db: Db, id: number): { parentId: number | null }
 export function placeBin(db: Db, id: number, slot: Slot | null): LocationDetail {
   const bin = getLocation(db, id);
   if (bin.type !== "bin") throw new ApiError(400, "VALIDATION", "Only bins go on the grid");
-  if (slot !== null) {
-    const parent = bin.parentId === null ? null : getLocation(db, bin.parentId);
-    if (!parent?.grid) throw new ApiError(400, "VALIDATION", "This bin isn't in a gridded box");
-    const others: PlacedBin[] = parent.children
-      .filter((c): c is LocationSummary & { slot: Slot } => c.id !== id && c.type === "bin" && c.slot !== null)
-      .map((c) => ({ id: c.id, binSize: c.binSize, slot: c.slot }));
-    const problem = slotProblem(bin.binSize, slot, parent.grid, others);
-    if (problem) throw new ApiError(409, "CONFLICT", problem);
-  }
+  if (slot !== null) checkSlot(db, bin.parentId, id, bin.binSize, slot);
   db.update(locations)
     .set({
       gridX: slot?.x ?? null,

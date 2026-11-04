@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, MapPin, QrCode, X } from "lucide-react";
 import type { CreateItem, ItemDetail, LocationDetail, ScanResult } from "../../shared/api";
@@ -16,6 +16,7 @@ import { Button, Card, Field, inputClass } from "../components/ui";
  */
 export function CapturePage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { openCamera } = useScan();
 
@@ -166,6 +167,9 @@ export function CapturePage() {
           {saving ? "Saving…" : "Save"}
         </Button>
         <Button onClick={openCamera} className="min-h-14">Scan</Button>
+        <Button variant="ghost" onClick={() => navigate(locationId !== null ? `/locations/${locationId}` : "/")} className="min-h-14">
+          {saved.length > 0 ? "Done" : "Cancel"}
+        </Button>
       </div>
       <p className="text-center text-[13px] text-muted">Saved items land in “Needs details” so you can fill them in later.</p>
     </div>

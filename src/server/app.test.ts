@@ -229,4 +229,38 @@ describe("gridded box layout", () => {
     await call("PATCH", `/locations/${notInBox.id}`, { parentId: site.id });
     expect((await place(notInBox.id, { x: 0, y: 0 })).status).toBe(400);
   });
+
+  it("numbers unnamed bins within their box and can drop one straight into a slot (DEC-020)", async () => {
+    const b = await box();
+    const first = await create({ type: "bin", parentId: b.id, binSize: "1x1", slot: { x: 0, y: 0 } });
+    expect(first.name).toBe("Bin 1");
+    expect(first.slot).toEqual({ x: 0, y: 0, rotated: false });
+    const tall = await create({ type: "bin", parentId: b.id, binSize: "2x1", slot: { x: 1, y: 0, rotated: true } });
+    expect(tall.name).toBe("Bin 2");
+    expect(tall.slot).toEqual({ x: 1, y: 0, rotated: true });
+    // A slot that's taken: nothing is created.
+    const clash = await call<{ error: { message: string } }>("POST", "/locations", { type: "bin", parentId: b.id, binSize: "1x1", slot: { x: 0, y: 0 } });
+    expect(clash.status).toBe(409);
+    expect((await call<LocationDetail>("GET", `/locations/${b.id}`)).json.children).toHaveLength(2);
+    // Numbers aren't reused after a delete, and a named bin doesn't take a number.
+    await call("DELETE", `/locations/${tall.id}`);
+    await create({ type: "bin", parentId: b.id, binSize: "1x1", name: "Odd screws" });
+    expect((await create({ type: "bin", parentId: b.id, binSize: "1x1" })).name).toBe("Bin 3");
+    // Another box starts from 1 again.
+    expect((await create({ type: "bin", parentId: (await box()).id, binSize: "1x1" })).name).toBe("Bin 1");
+    // Everything else still needs a name.
+    expect((await call("POST", "/locations", { type: "tote", parentId: site.id })).status).toBe(400);
+  });
+
+  it("tells each bin's contents so the grid can show them", async () => {
+    const b = await box();
+    const red = await create({ type: "bin", parentId: b.id, binSize: "1x1" });
+    const empty = await create({ type: "bin", parentId: b.id, binSize: "1x1" });
+    await call("POST", "/items", { name: "M3 nuts", locationId: red.id, qty: 40 });
+    await call("POST", "/items", { name: "M3 washers", locationId: red.id, qty: 10 });
+    await call("POST", "/items", { name: "M3 x 10", locationId: red.id, code: "U0001" });
+    const kids = (await call<LocationDetail>("GET", `/locations/${b.id}`)).json.children;
+    expect(kids.find((c) => c.id === red.id)).toMatchObject({ itemCount: 3, preview: ["M3 nuts", "M3 washers"] });
+    expect(kids.find((c) => c.id === empty.id)).toMatchObject({ itemCount: 0, preview: [] });
+  });
 });

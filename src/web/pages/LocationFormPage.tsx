@@ -68,7 +68,7 @@ export function LocationFormPage() {
     mutationFn: () =>
       api<LocationDetail>("/locations", {
         method: "POST",
-        body: { name, type, parentId: isSite ? null : parentId, code: code.trim() || null, binSize: type === "bin" ? binSize : null },
+        body: { name: name.trim() || undefined, type, parentId: isSite ? null : parentId, code: code.trim() || null, binSize: type === "bin" ? binSize : null },
       }),
     onSuccess: (loc) => {
       qc.invalidateQueries({ queryKey: ["locations"] });
@@ -148,13 +148,13 @@ export function LocationFormPage() {
         </Field>
       )}
 
-      <Field label="Name">
+      <Field label={type === "bin" ? "Name (optional: bins are numbered, and show what's in them)" : "Name"}>
         <input
           className={inputClass}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={isSite ? "e.g. Garage, Basement, Office" : type === "project" ? "e.g. Weather station, Robot arm" : "e.g. Rack A, Screws box, Tote 4"}
-          required
+          placeholder={isSite ? "e.g. Garage, Basement, Office" : type === "project" ? "e.g. Weather station, Robot arm" : type === "bin" ? "Leave blank for Bin 1, Bin 2, …" : "e.g. Rack A, Screws box, Tote 4"}
+          required={type !== "bin"}
           autoFocus
         />
       </Field>
@@ -170,9 +170,14 @@ export function LocationFormPage() {
 
       {create.error && <p className="text-danger">{(create.error as Error).message}</p>}
 
-      <Button variant="primary" type="submit" disabled={!name.trim() || (!isSite && parentId === null) || create.isPending} className="mt-2">
-        {isSite ? "Save site" : type === "project" ? "Create kit" : "Save location"}
-      </Button>
+      <div className="mt-2 flex gap-2">
+        <Button variant="primary" type="submit" disabled={(!name.trim() && type !== "bin") || (!isSite && parentId === null) || create.isPending} className="flex-1">
+          {isSite ? "Save site" : type === "project" ? "Create kit" : type === "bin" ? "Add bin" : "Save location"}
+        </Button>
+        <Button type="button" onClick={() => navigate(parentId !== null ? `/locations/${parentId}` : "/")}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }
