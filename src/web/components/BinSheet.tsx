@@ -1,82 +1,63 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, ChevronRight, Pencil, Trash2, X } from "lucide-react";
-import type { CreateItem, ItemDetail, LocationDetail, LocationSummary, ScanResult } from "../../shared/api";
-import { api } from "../api";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { Camera, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSummary, ScanResult } from "../../shared/api";
+import { api, uploadPhoto } from "../api";
+import { preparePhoto } from "../lib/photo";
+import { useScanHandler } from "../scan/ScanProvider";
 import { StockControl } from "./StockControl";
 import { QtyBadge } from "./ItemList";
+import { PhotoSpot } from "./PhotoSpot";
 import { useToast } from "./Toast";
 import { Badge, BinChip, Button, inputClass, itemName } from "./ui";
 
-// A bin opened from its box's grid (DEC-020): what's in it, a quick-add row that
-// stays put for the next part, and a scan to put a sticker on it. The full bin
-// screen is one tap away for everything else.
+// A bin opened from its box's grid (DEC-020, reworked in DEC-024). It leads with what's
+// in the bin. Most bins hold one part, so that part gets its photo (or a button to take
+// one), its name and its count. An empty bin opens on the form for putting something in
+// it; a bin with something in it keeps that form behind "Add another part". The sticker
+// isn't shown: it's there for the scanner, not for reading, and is managed on the bin's
+// own page and the Stickers screen.
+
+const refreshAll = (qc: ReturnType<typeof useQueryClient>) => {
+  qc.invalidateQueries({ queryKey: ["location"] });
+  qc.invalidateQueries({ queryKey: ["locations"] });
+  qc.invalidateQueries({ queryKey: ["items"] });
+  qc.invalidateQueries({ queryKey: ["stats"] });
+};
 
 export function BinSheet({
   bin,
   box,
   onClose,
   onSwitch,
+  docked = false,
 }: {
   bin: LocationSummary;
   box: LocationDetail;
   onClose: () => void;
   /** A sticker for another bin in this box was scanned: show that one instead. */
   onSwitch: (bin: LocationSummary) => void;
+  /** Desktop: sit in the column beside the grid instead of sliding up over it. */
+  docked?: boolean;
 }) {
   const qc = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
   const { data: detail } = useQuery({ queryKey: ["location", bin.id], queryFn: () => api<LocationDetail>(`/locations/${bin.id}`) });
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [newName, setNewName] = useState<string | null>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-  const { openCamera } = useScan();
 
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ["location"] });
-    qc.invalidateQueries({ queryKey: ["locations"] });
-    qc.invalidateQueries({ queryKey: ["items"] });
-    qc.invalidateQueries({ queryKey: ["stats"] });
-  };
-
-  const add = useMutation({
-    mutationFn: (body: CreateItem) => api<ItemDetail>("/items", { method: "POST", body }),
-    onSuccess: (item) => {
-      toast.show({ message: `${itemName(item.name)} added to ${bin.name}` });
-      setName("");
-      setQty("");
-      setError(null);
-      refresh();
-      nameRef.current?.focus();
-    },
-    onError: (e: Error) => setError(e.message),
-  });
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    add.mutate({ name: name.trim(), locationId: bin.id, qty: qty ? Number(qty) : undefined });
-  };
+  useEffect(() => {
+    setAdding(false);
+    setError(null);
+  }, [bin.id]);
 
   const sticker = useMutation({
     mutationFn: (code: string) => api<LocationDetail>(`/locations/${bin.id}/code`, { method: "POST", body: { code } }),
-    onSuccess: (l) => {
-      toast.show({ message: `Sticker ${l.code} is now on ${bin.name}` });
-      refresh();
-    },
-    onError: (e: Error) => setError(e.message),
-  });
-
-  const rename = useMutation({
-    mutationFn: (name: string) => api<LocationDetail>(`/locations/${bin.id}`, { method: "PATCH", body: { name } }),
-    onSuccess: (l) => {
-      toast.show({ message: `Renamed to ${l.name}` });
-      setNewName(null);
-      refresh();
+    onSuccess: () => {
+      toast.show({ message: `Sticker added to ${bin.name}` });
+      refreshAll(qc);
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -86,14 +67,14 @@ export function BinSheet({
     onSuccess: () => {
       toast.show({ message: `${bin.name} removed` });
       qc.removeQueries({ queryKey: ["location", bin.id] });
-      refresh();
+      refreshAll(qc);
       onClose();
     },
     onError: (e: Error) => setError(e.message),
   });
 
-  // A scan while the sheet is open: a fresh sticker goes on this bin; another bin's
-  // sticker opens that bin; anything else opens as usual.
+  // The hardware scanner while the sheet is open: a fresh sticker goes on this bin;
+  // another bin's sticker opens that bin; anything else opens as usual.
   useScanHandler((code) => {
     setError(null);
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
@@ -117,107 +98,258 @@ export function BinSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const live = detail ?? null;
-  const items = live?.items ?? [];
-  const empty = live !== null && items.length === 0 && live.children.length === 0;
+  const items = detail?.items ?? [];
+  const empty = detail !== undefined && items.length === 0 && detail.children.length === 0;
 
+  const content = (
+    <>
+      <div className="flex items-center gap-2">
+        {bin.binSize && <BinChip size={bin.binSize} />}
+        <Link to={`/locations/${bin.id}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-1 font-semibold" aria-label={`Open ${bin.name}`}>
+          <span className="truncate">{bin.name}</span>
+          <ChevronRight size={16} className="shrink-0 text-muted" />
+        </Link>
+        <button type="button" onClick={onClose} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-xl text-muted">
+          <X size={20} />
+        </button>
+      </div>
+
+      {detail === undefined ? (
+        <p className="text-muted">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="-mt-1 text-sm text-muted">Nothing in it yet.</p>
+      ) : items.length === 1 ? (
+        <OnePart item={items[0]!} bin={bin} />
+      ) : (
+        <PartList items={items} bin={bin} />
+      )}
+
+      {detail !== undefined &&
+        (items.length === 0 || adding ? (
+          <AddPart bin={bin} first={items.length === 0} onDone={() => setAdding(false)} onCancel={items.length > 0 ? () => setAdding(false) : undefined} />
+        ) : (
+          <Button variant="ghost" className="self-start px-1" onClick={() => setAdding(true)}>
+            <Plus size={18} /> Add another part
+          </Button>
+        ))}
+      {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+
+      {empty && (
+        <Button variant="ghost" className="self-start px-1 text-muted" disabled={remove.isPending} onClick={() => remove.mutate()}>
+          <Trash2 size={16} /> Remove this bin
+        </Button>
+      )}
+    </>
+  );
+
+  if (docked) {
+    return (
+      <section role="dialog" aria-label={`${bin.name} in ${box.name}`} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+        {content}
+      </section>
+    );
+  }
   return (
     <>
       <div className="fixed inset-0 z-20 bg-black/40" onClick={onClose} aria-hidden />
       <section
         role="dialog"
         aria-label={`${bin.name} in ${box.name}`}
-        className="fixed inset-x-0 bottom-0 z-20 flex max-h-[80dvh] flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-2xl lg:left-56 lg:mx-auto lg:max-w-2xl lg:rounded-2xl lg:border lg:bottom-6"
+        data-sheet
+        className="fixed inset-x-0 bottom-0 z-20 flex max-h-[85dvh] flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl"
       >
-        <div className="flex items-center gap-2">
-          {bin.binSize && <BinChip size={bin.binSize} />}
-          {newName !== null ? (
-            <form
-              className="flex min-w-0 flex-1 gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (newName.trim()) rename.mutate(newName.trim());
-              }}
-            >
-              <input value={newName} onChange={(e) => setNewName(e.target.value)} className={`${inputClass} min-w-0 flex-1`} aria-label="Bin name" autoFocus />
-              <Button variant="primary" type="submit" disabled={!newName.trim() || rename.isPending}>Save</Button>
-              <Button type="button" variant="ghost" onClick={() => setNewName(null)}>Cancel</Button>
-            </form>
-          ) : (
-            <>
-              <Link to={`/locations/${bin.id}`} className="flex min-w-0 flex-1 items-center gap-1 font-semibold">
-                <span className="truncate">{bin.name}</span>
-                <ChevronRight size={16} className="shrink-0 text-muted" />
-              </Link>
-              <button type="button" onClick={() => setNewName(bin.name)} aria-label="Rename bin" className="flex h-11 w-11 items-center justify-center rounded-xl text-muted">
-                <Pencil size={18} />
-              </button>
-            </>
-          )}
-          <button type="button" onClick={onClose} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-xl text-muted">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="-mt-2 flex items-center gap-2 text-[13px] text-muted">
-          <span className="min-w-0 flex-1">
-            {bin.code ? (
-              <>sticker <span className="font-mono">{bin.code}</span></>
-            ) : (
-              <>No sticker yet. Scan one to put it on this bin.</>
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => openCamera({ tap: true, title: `Sticker for ${bin.name}` })}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-accent"
-          >
-            <Camera size={16} /> {bin.code ? "Replace" : "Scan with camera"}
-          </button>
-        </div>
-
-        {live === null ? (
-          <p className="text-muted">Loading…</p>
-        ) : items.length === 0 ? (
-          <p className="px-1 py-2 text-center text-muted">Nothing in it yet.</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-2xl border border-border">
-            {items.map((i) => (
-              <li key={i.itemId} className="flex items-center gap-2 px-3 py-2">
-                <Link to={`/items/${i.itemId}`} className={`min-w-0 flex-1 truncate ${i.name ? "" : "italic text-muted"}`}>
-                  {itemName(i.name)}
-                </Link>
-                {i.units > 0 && <Badge tone="info">{i.units} stickered</Badge>}
-                {i.hasStock ? (
-                  <StockControl itemId={i.itemId} locationId={bin.id} placeName={bin.name} tracking={i.tracking} qty={i.qty} level={i.level} stale={i.stale} compact />
-                ) : (
-                  i.units === 0 && <QtyBadge qty={i.qty} level={i.level} units={i.units} tracking={i.tracking} />
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <form onSubmit={submit} className="flex items-end gap-2">
-          <label className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="text-[13px] text-muted">Add a part</span>
-            <input ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="What is it?" autoFocus enterKeyHint="done" />
-          </label>
-          <label className="flex w-20 flex-col gap-1">
-            <span className="text-[13px] text-muted">How many</span>
-            <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} className={`${inputClass} text-center font-mono`} placeholder="—" aria-label="How many" />
-          </label>
-          <Button variant="primary" type="submit" disabled={!name.trim() || add.isPending}>
-            Add
-          </Button>
-        </form>
-        {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-
-        {empty && (
-          <Button variant="ghost" className="self-start" disabled={remove.isPending} onClick={() => remove.mutate()}>
-            <Trash2 size={16} /> Remove this bin
-          </Button>
-        )}
+        {content}
       </section>
     </>
+  );
+}
+
+/** The usual case: one kind of part in the bin. Its photo, name and count, and ways to fix them. */
+export function OnePart({ item: i, bin }: { item: LocationItem; bin: LocationSummary }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [draft, setDraft] = useState<string | null>(null);
+  const label = itemName(i.name);
+
+  const rename = useMutation({
+    // Renaming keeps "needs details" as it was; that's cleared by filling in the details.
+    mutationFn: (name: string) => api<ItemDetail>(`/items/${i.itemId}`, { method: "PATCH", body: { name, needsDetails: i.needsDetails } }),
+    onSuccess: (d) => {
+      qc.setQueryData(["item", d.id], d);
+      toast.show({ message: `Renamed to ${d.name}` });
+      setDraft(null);
+      refreshAll(qc);
+    },
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
+  });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <PhotoSpot itemId={i.itemId} url={i.thumbUrl} size={112} label={label} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {draft !== null ? (
+            <form
+              className="flex flex-col gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (draft.trim()) rename.mutate(draft.trim());
+              }}
+            >
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} className={inputClass} aria-label="Part name" placeholder="What is it?" autoFocus />
+              <div className="flex gap-2">
+                <Button variant="primary" type="submit" disabled={!draft.trim() || rename.isPending}>Save</Button>
+                <Button type="button" variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-start gap-1">
+              <Link to={`/items/${i.itemId}`} className={`line-clamp-3 min-w-0 flex-1 pt-2 text-lg font-semibold leading-snug ${i.name ? "" : "italic text-muted"}`}>
+                {label}
+              </Link>
+              <button type="button" onClick={() => setDraft(i.name)} aria-label={i.name ? `Rename ${label}` : "Name this part"} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted">
+                <Pencil size={18} />
+              </button>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {i.units > 0 && <Badge tone="info">{i.units} stickered</Badge>}
+            <Link to={`/items/${i.itemId}/edit`} className={`text-sm ${i.needsDetails ? "text-warn" : "text-accent"}`}>
+              {i.needsDetails ? "Add details" : "Edit details"}
+            </Link>
+          </div>
+        </div>
+      </div>
+      {i.hasStock ? (
+        <StockControl itemId={i.itemId} locationId={bin.id} placeName={bin.name} tracking={i.tracking} qty={i.qty} level={i.level} stale={i.stale} />
+      ) : (
+        i.units === 0 && <QtyBadge qty={i.qty} level={i.level} units={i.units} tracking={i.tracking} />
+      )}
+    </div>
+  );
+}
+
+/** Two or more parts: a row each, with a photo (or a button to take one) and the count. */
+function PartList({ items, bin }: { items: LocationItem[]; bin: LocationSummary }) {
+  return (
+    <ul className="divide-y divide-border rounded-2xl border border-border">
+      {items.map((i) => {
+        const stock = i.hasStock && (
+          <StockControl itemId={i.itemId} locationId={bin.id} placeName={bin.name} tracking={i.tracking} qty={i.qty} level={i.level} stale={i.stale} compact />
+        );
+        return (
+          <li key={i.itemId} className="flex flex-col gap-2 px-3 py-2">
+            <div className="flex items-center gap-3">
+              <PhotoSpot itemId={i.itemId} url={i.thumbUrl} size={48} label={itemName(i.name)} />
+              <Link to={`/items/${i.itemId}`} className={`min-w-0 flex-1 ${i.name ? "" : "italic text-muted"}`}>
+                <span className="line-clamp-2">{itemName(i.name)}</span>
+              </Link>
+              {i.units > 0 && <Badge tone="info">{i.units} stickered</Badge>}
+              {i.tracking === "exact" ? stock : null}
+              {!i.hasStock && i.units === 0 && <QtyBadge qty={i.qty} level={i.level} units={i.units} tracking={i.tracking} />}
+            </div>
+            {i.tracking === "level" && stock}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Put a part in the bin: a name, a photo, or both, and how many if you know. */
+function AddPart({ bin, first, onDone, onCancel }: { bin: LocationSummary; first: boolean; onDone: () => void; onCancel?: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [qty, setQty] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!photo) return setPreview(null);
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  const add = useMutation({
+    mutationFn: async (body: CreateItem) => {
+      let item = await api<ItemDetail>("/items", { method: "POST", body });
+      if (photo) {
+        const { photo: p, thumb } = await preparePhoto(photo);
+        item = await uploadPhoto<ItemDetail>(item.id, p, thumb);
+      }
+      return item;
+    },
+    onSuccess: (item) => {
+      toast.show({ message: `${itemName(item.name)} added to ${bin.name}` });
+      onDone();
+    },
+    onError: (e: Error) => setError(e.message),
+    onSettled: () => refreshAll(qc),
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() && !photo) return;
+    setError(null);
+    add.mutate({ name: name.trim() || undefined, locationId: bin.id, qty: qty ? Number(qty) : undefined });
+  };
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13px] text-muted">{first ? "What goes in it?" : "Another part"}</span>
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="min-h-9 px-1 text-sm text-accent">Cancel</button>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <label
+          className="relative flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-2 text-accent"
+          title="Add a photo of it"
+        >
+          {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : <Camera size={20} />}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            aria-label={photo ? "Retake the photo" : "Add a photo of it"}
+            onChange={(e) => {
+              setPhoto(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={`${inputClass} min-w-0 flex-1`}
+          placeholder={photo ? "Name (later is fine)" : "What is it?"}
+          aria-label="Part name"
+          autoFocus
+          enterKeyHint="done"
+        />
+        <input
+          inputMode="numeric"
+          value={qty}
+          onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))}
+          className={`${inputClass} w-16 text-center font-mono`}
+          placeholder="#"
+          aria-label="How many"
+        />
+        <Button variant="primary" type="submit" disabled={(!name.trim() && !photo) || add.isPending} className="px-3">
+          {add.isPending ? "…" : "Add"}
+        </Button>
+      </div>
+      {photo && (
+        <button type="button" onClick={() => setPhoto(null)} className="self-start text-[13px] text-muted">
+          Remove the photo
+        </button>
+      )}
+      {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+    </form>
   );
 }

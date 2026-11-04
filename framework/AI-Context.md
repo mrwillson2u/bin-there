@@ -25,7 +25,7 @@
 
 ## Handoff (current state; keep this updated at the end of each session)
 
-*Last updated 2026-11-03, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), the four backlog quick wins (DEC-015 to DEC-018), project kits (DEC-019), the quick box-filling flow (DEC-020), the camera scanner rebuild (DEC-021), the tap-to-scan Stickers screen (DEC-022), and global fixed-width bin IDs (DEC-023).*
+*Last updated 2026-11-03, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), the four backlog quick wins (DEC-015 to DEC-018), project kits (DEC-019), the quick box-filling flow (DEC-020), the camera scanner rebuild (DEC-021), the tap-to-scan Stickers screen (DEC-022), global fixed-width bin IDs (DEC-023), and content-first screens (DEC-024).*
 
 ### Where things run
 
@@ -58,7 +58,7 @@ Tailscale Serve config persists across reboots; it was set once with `sudo tails
 
 ### What's built
 
-PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, delete/archive (DEC-013, 2026-11-03), the grid view of gridded boxes with drag-and-drop bin placement (DEC-014, 2026-11-03), the staleness review list, low-stock list, nightly purge of old deletions, and light mode (DEC-015 to DEC-018, 2026-11-03), project kits (DEC-019, 2026-11-03), quick filling of a gridded box: palette of new bins, contents on the tile, a bin sheet for adding parts (DEC-020, 2026-11-03), a rebuilt camera scanner (zxing-wasm or the browser's BarcodeDetector, plain back lens, lens button; DEC-021), a Stickers screen with a camera preview above the grid where you tap a bin, aim, and tap Scan, with brackets round what the camera sees, beep and buzz, move-a-sticker and Undo (DEC-022), and global fixed-width bin IDs, Bin 0001 (DEC-023, migration 0008), a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
+PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, delete/archive (DEC-013, 2026-11-03), the grid view of gridded boxes with drag-and-drop bin placement (DEC-014, 2026-11-03), the staleness review list, low-stock list, nightly purge of old deletions, and light mode (DEC-015 to DEC-018, 2026-11-03), project kits (DEC-019, 2026-11-03), quick filling of a gridded box: palette of new bins, contents on the tile, a bin sheet for adding parts (DEC-020, 2026-11-03), a rebuilt camera scanner (zxing-wasm or the browser's BarcodeDetector, plain back lens, lens button; DEC-021), a Stickers screen with a camera preview above the grid where you tap a bin, aim, and tap Scan, with brackets round what the camera sees, beep and buzz, move-a-sticker and Undo (DEC-022), global fixed-width bin IDs, Bin 0001 (DEC-023, migration 0008), content-first screens: the bin sheet leads with the part's photo, name and count, sticker codes appear only on a location's own page, location pages put sticker/move/delete at the bottom and can rename, and on desktop a bin opens beside the grid (DEC-024), a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
 
 ### Shipped 2026-11-03
 
@@ -67,7 +67,7 @@ All SPV checks done on 2026-11-03: Colin used it for real on the phone (quick-ca
 ### Next up (post-ship, Colin's interest)
 
 - **Photo search** (identify a part from a photo): plan in `reports/Self hosted photo part search.md`, hardware notes in the PRD backlog. Step 1 is Phase 0: an offline script scoring ~50 of Colin's parts, photographed in two sessions, against the catalog (DINOv3 embeddings on CPU, no GPU needed). Go bar: right item in the top 5 for ≥80% of modules/ICs/connectors and ≥70% overall, and it must beat the "recently taken out" list. Not started; needs Colin's photos. For the VLM half: Ollama on ubuntubot (not installed yet); take down the unused `neutts` container (holds 5 GB of VRAM) to fit the 8B Qwen.
-- Other backlog: `02-PRD.md` → Post-Ship Backlog (viewer access, Pi station, AI data fill, BOM check…). Small follow-ups noticed while building: no screen yet to rename a location or change a box's grid size.
+- Other backlog: `02-PRD.md` → Post-Ship Backlog (viewer access, Pi station, AI data fill, BOM check…). Small follow-ups noticed while building: no screen yet to change a box's grid size (renaming a location is on its page since DEC-024).
 - Backups should eventually move to Colin's main backup system (borgmatic on ubuntubot, currently being fixed).
 
 ---

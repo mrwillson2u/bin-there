@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 
-type Toast = { id: number; message: string; undoEventId?: number | null; tone?: "ok" | "error" };
-type ToastApi = { show: (t: Omit<Toast, "id">) => void };
+type Toast = { id: number; message: string; undoEventId?: number | null; tone?: "ok" | "error"; top?: boolean };
+type ToastApi = { show: (t: Omit<Toast, "id" | "top">) => void };
 
 const ToastContext = createContext<ToastApi | null>(null);
 const DISMISS_MS = 6000;
@@ -14,12 +14,19 @@ export function useToast() {
   return ctx;
 }
 
-/** One toast at a time, above the bottom bar. Stock changes come with Undo. */
+/**
+ * One toast at a time, above the bottom bar. Stock changes come with Undo. While a
+ * sheet is up from the bottom (it carries `data-sheet`), the toast shows at the top
+ * instead, so it doesn't cover what you're tapping.
+ */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [toast, setToast] = useState<Toast | null>(null);
   const nextId = useRef(1);
-  const show = useCallback((t: Omit<Toast, "id">) => setToast({ ...t, id: nextId.current++ }), []);
+  const show = useCallback(
+    (t: Omit<Toast, "id" | "top">) => setToast({ ...t, id: nextId.current++, top: document.querySelector("[data-sheet]") !== null }),
+    [],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -41,7 +48,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ show }}>
       {children}
       {toast && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4 pb-[env(safe-area-inset-bottom)] lg:bottom-6 lg:left-56">
+        <div
+          className={`pointer-events-none fixed inset-x-0 z-30 flex justify-center px-4 lg:left-56 ${
+            toast.top ? "top-0 pt-[max(0.75rem,env(safe-area-inset-top))]" : "bottom-24 pb-[env(safe-area-inset-bottom)] lg:bottom-6"
+          }`}
+        >
           <div
             role="status"
             className={`toast-in pointer-events-auto flex min-h-12 max-w-md flex-1 items-center gap-3 rounded-xl border px-4 shadow-lg ${

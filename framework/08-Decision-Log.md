@@ -510,7 +510,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-03 |
-| **Status** | Accepted (bin numbering superseded by DEC-023) |
+| **Status** | Accepted (bin numbering superseded by DEC-023; the bin sheet reworked by DEC-024) |
 | **Deciders** | Colin |
 | **Category** | UX |
 
@@ -564,7 +564,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-03 |
-| **Status** | Accepted |
+| **Status** | Accepted (the bin sheet's camera button removed by DEC-024) |
 | **Deciders** | Colin |
 | **Category** | UX |
 
@@ -611,6 +611,36 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Consequences:** `nextBinName` is global and padded; `drizzle/0008_bin_numbers_unique.sql`. On the live data: Grid box 1's bins become Bin 0001 to 0010 and Grid box 2's Bin 0011 to 0025 (dry-run on a copy, stickers unchanged).
 
+### DEC-024: Screens lead with what's there; sticker codes stay out of sight
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Colin tried the bin sheet (DEC-020) while filling boxes. It gave the most room to an "Add a part" form even when the bin already had its part, and showed the bin's 12-character sticker code with a camera "Replace" button whose purpose wasn't clear: replace what? A pencil next to the bin name looked like it might edit the part. Colin asked for every screen to be checked for what the person actually needs to see. Most bins hold one kind of part, but some hold more.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep the sheet, shrink the sticker line | Small change | The add form still crowds out the part; the code is still there to be misread |
+| Skip the sheet and open the part's own screen | One screen fewer | Loses the box context; empty bins have no part to open |
+| **Sheet built around the bin's contents** | The part, its photo and count come first; adding is one tap away | The sticker is no longer one tap from the grid (it has the Stickers screen and the bin's own page) |
+
+**Decision:** Each screen shows what's there before what you can do to it.
+- **The bin sheet.** An empty bin opens on "What goes in it?": a name, a count, and a camera button for a photo, so a part you can't name yet can still be saved. A bin with one part shows that part's photo, name and count. If there's no photo, the photo spot is an "Add photo" button that opens the camera. A pencil renames the part in place, and "Add details" opens its full form. A bin with several parts lists them, each with its photo spot and count. "Add another part" opens the form again. The sheet shows no sticker, no sticker button, and no bin rename.
+- **Sticker codes.** They are for the scanner, not for reading. A code shows only on its own location's page, in a short section at the bottom with "Replace sticker". Toasts and lists name the bin, not the code. Quick capture says a sticker is "Attached". The Stickers screen still shows codes, because checking stickers is its job.
+- **Location pages.** Contents come first. Sticker, Move, Delete and any add buttons whose section is hidden go to a short section at the bottom. A section that would only say "nothing here" is hidden, unless filling it is what that kind of place is for: a gridded box has no empty Items list, and a bin has no Inside list or "Add inside". A location is renamed from its own page with the pencil by its name. Location lists say what's inside ("M3 nuts, washers +2", "4 inside", "Empty") instead of "no sticker".
+- **Desktop.** A bin opens in the column beside the grid, with the bin outlined, instead of over the grid.
+- **Toasts.** While a sheet is up from the bottom, toasts show at the top so they don't cover it.
+
+**Rationale:** In a garage you open a bin to see or fix what's in it. Bins usually hold one thing, so that one thing deserves the space. Its photo matters most, because a part going into a bin is usually in your hand, and photos feed the planned photo search. Sticker codes are random strings nobody can read in small print, and showing them invites checking them by eye, which is the scanner's job.
+
+**Consequences:** `BinSheet.tsx` rebuilt; new `PhotoSpot.tsx`, whose photo upload the item page now shares; `LocationPage.tsx` reordered. Renaming a part from the sheet keeps "needs details". This supersedes the parts of DEC-020 and DEC-022 that put the sticker code, the sheet's sticker button and the bin rename in the sheet. Scanning a fresh sticker with the hardware scanner while a sheet is open still puts it on that bin.
+
 ---
 
 ## Decision Index
@@ -636,10 +666,11 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-017 | Deletions purged for good after 30 days, history included | Product | Accepted | 2026-11-03 |
 | DEC-018 | Light mode is a per-device setting, default dark | UX | Accepted | 2026-11-03 |
 | DEC-019 | Project kits are locations that are never a home | Product | Accepted | 2026-11-03 |
-| DEC-020 | Bins are numbered, show their contents, and are dragged in from a palette | UX | Accepted (numbering superseded by DEC-023) | 2026-11-03 |
+| DEC-020 | Bins are numbered, show their contents, and are dragged in from a palette | UX | Accepted (numbering superseded by DEC-023; sheet by DEC-024) | 2026-11-03 |
 | DEC-021 | Camera scanning: our own decoder, one steady lens, and a labelling run | UX | Accepted (run superseded by DEC-022) | 2026-11-03 |
-| DEC-022 | Stickers: tap a bin, aim, tap Scan | UX | Accepted | 2026-11-03 |
+| DEC-022 | Stickers: tap a bin, aim, tap Scan | UX | Accepted (sheet camera superseded by DEC-024) | 2026-11-03 |
 | DEC-023 | Bin IDs are global and fixed-width (Bin 0001) | Product | Accepted | 2026-11-03 |
+| DEC-024 | Screens lead with what's there; sticker codes stay out of sight | UX | Accepted | 2026-11-03 |
 
 ---
 

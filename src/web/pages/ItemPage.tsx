@@ -9,15 +9,14 @@ import {
   type Place,
   type StockResult,
 } from "../../shared/api";
-import { api, uploadPhoto } from "../api";
-import { preparePhoto } from "../lib/photo";
+import { api } from "../api";
 import { useWide } from "../lib/useWide";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
 import { EventList, timeAgo } from "../components/EventList";
-import { useToast } from "../components/Toast";
 import { PinButton } from "../components/PinButton";
+import { useAddPhoto } from "../components/PhotoSpot";
 import { Badge, Button, Card, inputClass, itemName, pathText } from "../components/ui";
 
 type Mode =
@@ -146,26 +145,8 @@ export function ItemPage() {
 }
 
 function Header({ item }: { item: ItemDetail }) {
-  const qc = useQueryClient();
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
+  const { add: addPhoto, busy } = useAddPhoto(item.id);
   const photo = item.photos[0];
-
-  const addPhoto = async (file: File | undefined) => {
-    if (!file) return;
-    setBusy(true);
-    try {
-      const { photo, thumb } = await preparePhoto(file);
-      const updated = await uploadPhoto<ItemDetail>(item.id, photo, thumb);
-      qc.setQueryData(["item", item.id], updated);
-      qc.invalidateQueries({ queryKey: ["items"] });
-      qc.invalidateQueries({ queryKey: ["location"] });
-    } catch (e) {
-      toast.show({ message: (e as Error).message, tone: "error" });
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-3">

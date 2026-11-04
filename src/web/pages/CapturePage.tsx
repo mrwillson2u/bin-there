@@ -117,8 +117,8 @@ export function CapturePage() {
       <Card className="flex flex-col divide-y divide-border">
         <Row icon={<QrCode size={18} />} label="Sticker">
           {code ? (
-            <span className="flex items-center gap-1 font-mono text-sm">
-              {code}
+            <span className="flex items-center gap-1 text-sm text-ok">
+              Attached
               <button onClick={() => setCode(null)} aria-label="Remove sticker" className="flex min-h-11 w-9 items-center justify-center text-muted">
                 <X size={16} />
               </button>

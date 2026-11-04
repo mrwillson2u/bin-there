@@ -1,52 +1,72 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, LayoutGrid, MoveRight, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
-import { locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type ScanResult } from "../../shared/api";
+import { Camera, LayoutGrid, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
+import { locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType, type ScanResult } from "../../shared/api";
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
+import { useWide } from "../lib/useWide";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
 import { BoxGrid } from "../components/BoxGrid";
-import { BinSheet } from "../components/BinSheet";
+import { BinSheet, OnePart } from "../components/BinSheet";
 import { StickersView } from "../components/StickersView";
 import { primeFeedback } from "../scan/feedback";
 import { useToast } from "../components/Toast";
 import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
-import { StockControl } from "../components/StockControl";
 import { PinButton } from "../components/PinButton";
-import { BinChip, Breadcrumbs, Button, Card, itemName, Thumb } from "../components/ui";
+import { BinChip, Breadcrumbs, Button, Card, inputClass } from "../components/ui";
 
 type Mode = "idle" | "assign" | "move";
+
+/** Sites and racks mostly hold other locations; everything else mostly holds parts. */
+const holdsPlaces = (t: LocationType) => t === "site" || t === "rack";
+
+const sectionTitle = "text-[13px] font-semibold uppercase tracking-wide text-muted";
+
+// A location's own page (DEC-024): what's in it first, then the things you do to the
+// location itself (its sticker, moving it, deleting it) at the bottom. A section that
+// would only say "nothing here" is left out unless filling it is what this kind of
+// place is for; its add button moves down with the others.
 
 export function LocationPage() {
   const id = Number(useParams().id);
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const wide = useWide();
   const { data: loc, error } = useQuery({
     queryKey: ["location", id],
     queryFn: () => api<LocationDetail>(`/locations/${id}`),
   });
   const [mode, setMode] = useState<Mode>("idle");
+  /** A problem with the sticker, a move or a delete; shown by those buttons. */
   const [message, setMessage] = useState<string | null>(null);
+  /** A problem placing a bin; shown under the grid. */
+  const [gridMessage, setGridMessage] = useState<string | null>(null);
   const [arranging, setArranging] = useState(false);
   const [openBin, setOpenBin] = useState<LocationSummary | null>(null);
   // Sticker mode: the full-screen camera + grid for labelling bins (DEC-022).
   const [labelling, setLabelling] = useState(false);
+  const [newName, setNewName] = useState<string | null>(null);
   const toast = useToast();
 
-  const done = (msg: string) => {
-    setMode("idle");
-    setMessage(msg);
+  const refresh = () => {
     qc.invalidateQueries({ queryKey: ["location"] });
     qc.invalidateQueries({ queryKey: ["locations"] });
+    qc.invalidateQueries({ queryKey: ["pins"] });
+  };
+  const done = (msg: string) => {
+    setMode("idle");
+    setMessage(null);
+    toast.show({ message: msg });
+    refresh();
   };
   const fail = (e: Error) => setMessage(e.message);
 
   const assign = useMutation({
     mutationFn: (code: string) => api<LocationDetail>(`/locations/${id}/code`, { method: "POST", body: { code } }),
-    onSuccess: (l) => done(`Sticker ${l.code} assigned`),
+    onSuccess: (l) => done(`Sticker assigned to ${l.name}`),
     onError: fail,
   });
   const move = useMutation({
@@ -54,6 +74,15 @@ export function LocationPage() {
       api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { parentId } }),
     onSuccess: (l) => done(`Moved to ${l.path.at(-2)?.name ?? "?"}`),
     onError: fail,
+  });
+  const rename = useMutation({
+    mutationFn: (name: string) => api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { name } }),
+    onSuccess: (l) => {
+      setNewName(null);
+      toast.show({ message: `Renamed to ${l.name}` });
+      refresh();
+    },
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
   });
 
   // Placing a bin on the box's grid. The grid updates at once and is put back if the server says no.
@@ -73,7 +102,7 @@ export function LocationPage() {
     },
     onError: (e: Error, _vars, ctx) => {
       if (ctx?.before) qc.setQueryData(["location", id], ctx.before);
-      setMessage(e.message);
+      setGridMessage(e.message);
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["location", id] });
@@ -89,7 +118,7 @@ export function LocationPage() {
       qc.invalidateQueries({ queryKey: ["location", id] });
       qc.invalidateQueries({ queryKey: ["locations"] });
     },
-    onError: fail,
+    onError: (e: Error) => setGridMessage(e.message),
   });
 
   // Only an empty location can be deleted (soft delete: hidden, history kept).
@@ -113,7 +142,7 @@ export function LocationPage() {
       api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
         .then((r) => {
           if (r.kind === "location") move.mutate(r.location.id);
-          else setMessage(`Sticker ${code} isn't a location`);
+          else setMessage("That sticker isn't on a location");
         })
         .catch(fail);
       return true;
@@ -126,153 +155,221 @@ export function LocationPage() {
   if (error) return <p className="text-danger">{(error as Error).message}</p>;
   if (!loc) return <p className="text-muted">Loading…</p>;
 
+  const isGrid = loc.type === "gridded_box";
+  const bins = loc.children.filter((c) => c.type === "bin");
+  const others = isGrid ? loc.children.filter((c) => c.type !== "bin") : loc.children;
+  const showItems = loc.items.length > 0 || (!isGrid && !holdsPlaces(loc.type));
+  const showInside = others.length > 0 || holdsPlaces(loc.type);
+  const canAddInside = loc.type !== "bin" && loc.type !== "project";
+  const isEmpty = loc.children.length === 0 && loc.items.length === 0;
+
+  const addItem = (
+    <Link to={`/capture?location=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
+      <Camera size={18} /> Add item here
+    </Link>
+  );
+  const addInside = (
+    <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
+      <Plus size={18} /> Add inside
+    </Link>
+  );
+
+  const itemsSection = showItems && (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h2 className={sectionTitle}>{isGrid ? "Loose in the box" : "Items"}</h2>
+        {addItem}
+      </div>
+      {loc.items.length === 0 ? (
+        <p className="px-1 py-3 text-center text-muted">Nothing in it yet.</p>
+      ) : loc.items.length === 1 ? (
+        <Card className="p-4">
+          <OnePart item={loc.items[0]!} bin={loc} />
+        </Card>
+      ) : (
+        <LocationItemList items={loc.items} />
+      )}
+    </section>
+  );
+
+  const insideSection = showInside && (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h2 className={sectionTitle}>Inside</h2>
+        {canAddInside && addInside}
+      </div>
+      <LocationList locations={others} empty="Nothing inside yet." />
+    </section>
+  );
+
+  const hasBins = bins.length > 0;
+  const sheetDocked = wide && openBin !== null;
+  const gridSection = isGrid && (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h2 className={sectionTitle}>Bins</h2>
+        <div className="flex gap-3">
+          {!arranging && hasBins && (
+            <button
+              type="button"
+              onClick={() => { primeFeedback(); setGridMessage(null); setOpenBin(null); setLabelling(true); }}
+              className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent"
+            >
+              <QrCode size={18} /> Stickers
+            </button>
+          )}
+          {!labelling && (
+            <button
+              type="button"
+              onClick={() => { setGridMessage(null); setOpenBin(null); setArranging((a) => !a); }}
+              className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
+            >
+              <LayoutGrid size={18} /> {arranging ? "Done" : hasBins ? "Add or arrange bins" : "Add bins"}
+            </button>
+          )}
+        </div>
+      </div>
+      {labelling && <StickersView box={loc} onExit={() => setLabelling(false)} />}
+      <BoxGrid
+        box={loc}
+        arranging={arranging}
+        selectedId={sheetDocked ? openBin.id : null}
+        onPlace={(bin, slot) => { setGridMessage(null); place.mutate({ bin, slot }); }}
+        onCreate={(binSize, slot) => { setGridMessage(null); addBin.mutate({ binSize, slot }); }}
+        onOpen={setOpenBin}
+        onProblem={setGridMessage}
+      />
+      {gridMessage && <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm" role="status">{gridMessage}</p>}
+      {!arranging && !labelling && hasBins && !wide && <p className="text-[13px] text-muted">Tap a bin to see what's in it or add a part.</p>}
+    </section>
+  );
+
+  const sheet = openBin && (
+    <BinSheet bin={loc.children.find((c) => c.id === openBin.id) ?? openBin} box={loc} onClose={() => setOpenBin(null)} onSwitch={setOpenBin} docked={wide} />
+  );
+
+  let body;
+  if (loc.type === "project") {
+    body = <KitPanel kit={loc} scanActive={mode === "idle"} />;
+  } else if (isGrid) {
+    body = (
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+        {gridSection}
+        <div className="flex flex-col gap-4">
+          {wide && (sheet || (hasBins && !arranging && (
+            <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-muted">Tap a bin to see what's in it or add a part.</p>
+          )))}
+          {itemsSection}
+          {insideSection}
+        </div>
+        {!wide && sheet}
+      </div>
+    );
+  } else {
+    const first = holdsPlaces(loc.type) ? insideSection : itemsSection;
+    const second = holdsPlaces(loc.type) ? itemsSection : insideSection;
+    body = (
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+        {first}
+        {second}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <Breadcrumbs path={loc.path} />
-        <div className="flex items-center gap-2">
-          {loc.type === "bin" && loc.binSize && <BinChip size={loc.binSize} />}
-          <h1 className="flex-1 text-xl font-semibold">{loc.name}</h1>
-          <PinButton kind="location" id={loc.id} pinned={loc.pinned} />
-        </div>
-        <p className="text-[13px] text-muted">
-          {locationTypeLabels[loc.type]}
-          {loc.code ? (
-            <> · sticker <span className="font-mono">{loc.code}</span></>
-          ) : (
-            loc.type !== "site" && <> · <span className="text-warn">no sticker</span></>
-          )}
-        </p>
-      </div>
-
-      {message && <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm" role="status">{message}</p>}
-
-      {mode !== "idle" ? (
-        <Card className="flex flex-col gap-3 p-4">
-          <p className="flex items-center gap-2 font-semibold">
-            <ScanLine size={20} className="text-accent" />
-            {mode === "assign" ? "Scan the sticker for this location" : "Scan where this is going"}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="primary" onClick={() => openCamera(mode === "assign" ? { tap: true, title: `Sticker for ${loc.name}` } : {})}>Use camera</Button>
-            <Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>
-          </div>
-        </Card>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {loc.type !== "project" && (
-            <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
-              <Plus size={18} /> Add inside
-            </Link>
-          )}
-          <Button onClick={() => { setMessage(null); setMode("assign"); }}>
-            <QrCode size={18} /> {loc.code ? "Replace sticker" : "Assign sticker"}
-          </Button>
-          {loc.type !== "site" && (
-            <Button onClick={() => { setMessage(null); setMode("move"); }}>
-              <MoveRight size={18} /> Move
-            </Button>
-          )}
-          {loc.children.length === 0 && loc.items.length === 0 && (
-            <Button
-              variant="danger"
-              disabled={remove.isPending}
-              onClick={() => {
-                if (window.confirm(`Delete ${loc.name}? It's empty, and its history is kept.`)) remove.mutate();
-              }}
-            >
-              <Trash2 size={18} /> Delete
-            </Button>
-          )}
-        </div>
-      )}
-
-      {loc.type === "project" ? (
-        <KitPanel kit={loc} scanActive={mode === "idle"} />
-      ) : (
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
-        <section className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Items</h2>
-            <Link to={`/capture?location=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
-              <Camera size={18} /> Add item here
-            </Link>
-          </div>
-          {loc.items.length === 0 ? (
-            <p className="px-1 py-3 text-center text-muted">No items here yet.</p>
-          ) : loc.items.length === 1 && loc.items[0]!.hasStock ? (
-            <SingleItem loc={loc} />
-          ) : (
-            <LocationItemList items={loc.items} />
-          )}
-        </section>
-
-        {loc.type === "gridded_box" ? (
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Bins</h2>
-              <div className="flex gap-3">
-                {!arranging && loc.children.some((c) => c.type === "bin") && (
-                  <button
-                    type="button"
-                    onClick={() => { primeFeedback(); setMessage(null); setOpenBin(null); setLabelling(true); }}
-                    className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent"
-                  >
-                    <QrCode size={18} /> Stickers
-                  </button>
-                )}
-                {!labelling && (
-                  <button
-                    type="button"
-                    onClick={() => { setMessage(null); setOpenBin(null); setArranging((a) => !a); }}
-                    className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
-                  >
-                    <LayoutGrid size={18} /> {arranging ? "Done" : loc.children.some((c) => c.type === "bin") ? "Add or arrange bins" : "Add bins"}
-                  </button>
-                )}
-              </div>
-            </div>
-            {labelling && <StickersView box={loc} onExit={() => setLabelling(false)} />}
-            <BoxGrid
-              box={loc}
-              arranging={arranging}
-              onPlace={(bin, slot) => { setMessage(null); place.mutate({ bin, slot }); }}
-              onCreate={(binSize, slot) => { setMessage(null); addBin.mutate({ binSize, slot }); }}
-              onOpen={setOpenBin}
-              onProblem={setMessage}
-            />
-            {!arranging && !labelling && loc.children.some((c) => c.type === "bin") && (
-              <p className="text-[13px] text-muted">Tap a bin to see what's in it or add a part.</p>
-            )}
-            {openBin && <BinSheet bin={loc.children.find((c) => c.id === openBin.id) ?? openBin} box={loc} onClose={() => setOpenBin(null)} onSwitch={setOpenBin} />}
-            {loc.children.some((c) => c.type !== "bin") && (
-              <LocationList locations={loc.children.filter((c) => c.type !== "bin")} empty="" />
-            )}
-          </section>
+        {newName !== null ? (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (newName.trim()) rename.mutate(newName.trim());
+            }}
+          >
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} className={`${inputClass} min-w-0 flex-1`} aria-label="Name" autoFocus />
+            <Button variant="primary" type="submit" disabled={!newName.trim() || rename.isPending}>Save</Button>
+            <Button type="button" variant="ghost" onClick={() => setNewName(null)}>Cancel</Button>
+          </form>
         ) : (
-          (loc.children.length > 0 || loc.items.length === 0) && (
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Inside</h2>
-              <LocationList locations={loc.children} empty="No boxes or bins inside." />
-            </section>
-          )
+          <div className="flex items-center gap-2">
+            {loc.type === "bin" && loc.binSize && <BinChip size={loc.binSize} />}
+            <h1 className="min-w-0 text-xl font-semibold">{loc.name}</h1>
+            <button type="button" onClick={() => setNewName(loc.name)} aria-label={`Rename ${loc.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted">
+              <Pencil size={18} />
+            </button>
+            <span className="flex-1" />
+            <PinButton kind="location" id={loc.id} pinned={loc.pinned} />
+          </div>
         )}
+        <p className="text-[13px] text-muted">{locationTypeLabels[loc.type]}</p>
       </div>
-      )}
-    </div>
-  );
-}
 
-/** A bin with one kind of part: its +/− is right here (F4). */
-function SingleItem({ loc }: { loc: LocationDetail }) {
-  const i = loc.items[0]!;
-  return (
-    <Card className="flex flex-col gap-3 p-4">
-      <Link to={`/items/${i.itemId}`} className="flex items-center gap-3">
-        <Thumb url={i.thumbUrl} size={56} />
-        <span className={`flex-1 font-semibold ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
-      </Link>
-      <StockControl itemId={i.itemId} locationId={loc.id} placeName={loc.name} tracking={i.tracking} qty={i.qty} level={i.level} stale={i.stale} />
-    </Card>
+      {body}
+
+      <section className="flex flex-col gap-3 border-t border-border pt-4" aria-label={`Manage ${loc.name}`}>
+        <div className="flex items-center gap-3">
+          <QrCode size={18} className="shrink-0 text-muted" />
+          <span className="min-w-0 flex-1 text-sm">
+            {loc.code ? (
+              <>Sticker <span className="break-all font-mono text-muted">{loc.code}</span></>
+            ) : (
+              <span className={loc.type === "site" ? "text-muted" : "text-warn"}>No sticker yet</span>
+            )}
+          </span>
+          {mode === "idle" && (
+            <Button onClick={() => { setMessage(null); setMode("assign"); }}>
+              {loc.code ? "Replace sticker" : "Assign sticker"}
+            </Button>
+          )}
+        </div>
+
+        {mode !== "idle" && (
+          <Card className="flex flex-col gap-3 p-4">
+            <p className="flex items-center gap-2 font-semibold">
+              <ScanLine size={20} className="text-accent" />
+              {mode === "assign" ? `Scan the new sticker for ${loc.name}` : "Scan where this is going"}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="primary" onClick={() => openCamera(mode === "assign" ? { tap: true, title: `Sticker for ${loc.name}` } : {})}>Use camera</Button>
+              <Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>
+            </div>
+          </Card>
+        )}
+        {message && <p className="text-sm text-danger" role="alert">{message}</p>}
+
+        {mode === "idle" && (
+          <div className="flex flex-wrap gap-2">
+            {!showItems && loc.type !== "project" && (
+              <Link to={`/capture?location=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
+                <Camera size={18} /> {isGrid ? "Add a loose item" : "Add item here"}
+              </Link>
+            )}
+            {!showInside && canAddInside && (
+              <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
+                <Plus size={18} /> Add inside
+              </Link>
+            )}
+            {loc.type !== "site" && (
+              <Button onClick={() => { setMessage(null); setMode("move"); }}>
+                <MoveRight size={18} /> Move
+              </Button>
+            )}
+            {isEmpty && (
+              <Button
+                variant="danger"
+                disabled={remove.isPending}
+                onClick={() => {
+                  if (window.confirm(`Delete ${loc.name}? It's empty, and its history is kept.`)) remove.mutate();
+                }}
+              >
+                <Trash2 size={18} /> Delete
+              </Button>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

@@ -49,9 +49,11 @@ export const tileName = (name: string) => /^Bin (\d+)$/.exec(name)?.[1] ?? name;
 
 /** What a bin tile says: its first item (and how many more), or its ID when empty. */
 export function binLabel(b: Pick<Bin, "name" | "preview" | "itemCount">): string {
-  if (b.itemCount === 0 || !b.preview[0]) return tileName(b.name);
+  const first = b.preview[0];
+  if (b.itemCount === 0 || first === undefined) return tileName(b.name);
+  // A part saved with just a photo still shows that the bin isn't empty ("Unnamed item").
   const more = b.itemCount - 1;
-  return more > 0 ? `${itemName(b.preview[0])} +${more}` : itemName(b.preview[0]);
+  return more > 0 ? `${itemName(first)} +${more}` : itemName(first);
 }
 
 export function BoxGrid({
