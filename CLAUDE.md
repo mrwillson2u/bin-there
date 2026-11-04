@@ -32,7 +32,7 @@ npm start              # node dist/server.js (needs a build first)
 npm run db:generate    # drizzle-kit: new SQL migration after editing src/server/db/schema.ts
 ```
 
-There is no linter configured. The Docker image build (`docker compose up -d --build`) runs
+Headless-browser checks and the user-story walk live in `scripts/ui-checks/` (see its README; Playwright is installed with `--no-save` in a dev copy, never on ubuntubot). There is no linter configured. The Docker image build (`docker compose up -d --build`) runs
 `npm test` and refuses to ship if tests fail.
 
 Run a throwaway copy, never against the real data:

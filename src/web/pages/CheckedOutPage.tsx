@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut } from "lucide-react";
+import { House, LogOut } from "lucide-react";
 import type { CheckedOutUnit } from "../../shared/api";
 import { api } from "../api";
 import { timeAgo } from "../components/EventList";
-import { Card, pathText, Thumb } from "../components/ui";
+import { Card, pathText, PlacePath, Thumb } from "../components/ui";
 import { UnitCheckIn } from "./ItemPage";
 
 /** Everything stickered that's out right now (F10): where it went, since when, where it lives. */
@@ -31,10 +31,9 @@ export function CheckedOutPage() {
                     {u.path.length ? pathText(u.path) : "Out"}
                     {u.note && ` · ${u.note}`} · {timeAgo(u.at)}
                   </span>
-                  <span className="block truncate text-[13px] text-muted">
-                    <span className="font-mono">{u.code}</span>
-                    {u.homePath.length > 0 && ` · lives in ${pathText(u.homePath)}`}
-                  </span>
+                  {u.homePath.length > 0 ? (
+                    <PlacePath path={u.homePath} className="items-center text-[13px] text-muted" before={<House size={13} className="mr-1" aria-label="Lives in" />} />
+                  ) : null}
                 </span>
               </Link>
               <UnitCheckIn unitId={u.unitId} />

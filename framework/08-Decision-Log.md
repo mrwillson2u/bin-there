@@ -616,7 +616,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-03 |
-| **Status** | Accepted |
+| **Status** | Accepted (the pane's silent sticker scan changed by DEC-025) |
 | **Deciders** | Colin |
 | **Category** | UX |
 
@@ -639,7 +639,38 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 
 **Rationale:** In a garage you open a bin to see or fix what's in it. Bins usually hold one thing, so that one thing deserves the space. Its photo matters most, because a part going into a bin is usually in your hand, and photos feed the planned photo search. Sticker codes are random strings nobody can read in small print, and showing them invites checking them by eye, which is the scanner's job.
 
-**Consequences:** `BinSheet.tsx` rebuilt; new `PhotoSpot.tsx`, whose photo upload the item page now shares; `LocationPage.tsx` reordered. Renaming a part from the sheet keeps "needs details". This supersedes the parts of DEC-020 and DEC-022 that put the sticker code, the sheet's sticker button and the bin rename in the sheet. Scanning a fresh sticker with the hardware scanner while a sheet is open still puts it on that bin.
+**Consequences:** `BinSheet.tsx` rebuilt; new `PhotoSpot.tsx`, whose photo upload the item page now shares; `LocationPage.tsx` reordered. Renaming a part from the sheet keeps "needs details". This supersedes the parts of DEC-020 and DEC-022 that put the sticker code, the sheet's sticker button and the bin rename in the sheet. Scanning a fresh sticker with the hardware scanner while a sheet is open still put it on that bin; DEC-025 changed that to ask first.
+
+### DEC-025: A scan never changes anything without saying so; flow review fixes
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-024 kept one hidden behaviour: with a bin pane open, scanning an unused sticker put it on that bin, and nothing on screen said a scan would do that. Colin pointed out there was no way to know. He also asked for user stories to check every flow against. Stories J9 to J14 were added to the UX framework, and all fourteen were walked through the app (`reports/UI flow review 2026-11-03.md`).
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep it, add a hint line to the pane | Still one scan | Puts sticker talk back into a pane meant for contents; a hint is easy to miss |
+| Drop it: the scan opens the "New sticker" page | Same as everywhere else | Leaves the box mid-fill |
+| **Ask in the pane when it happens** | Nothing written without a tap; explains itself at the moment it matters; you stay in the box | One more tap than before |
+
+**Decision:** A scan changes something only where the screen says what a scan will do (put-back, project kits, pick-a-place, quick capture, Stickers, Assign sticker). Everywhere else a scan opens what was scanned. With a bin pane open, an unused sticker brings up "New sticker scanned. Is it the sticker for Bin 0001?" with **Put it on Bin 0001**, **It's for something else** (the New sticker page) and **Not now**. If the bin already has a sticker, it asks whether to use the new one instead.
+
+The flow review also fixed:
+- **Paths.** One-line paths keep the last place whole and shorten the outer ones first, and drop the site's name when there's only one site.
+- **Pick from list.** It opens beside where the part is now, marks it "here now", and shows what's in each place.
+- **Saving details.** It goes back to the screen the form was opened from.
+- **Stale hint.** The new-bin hint now uses the new IDs.
+
+**Rationale:** Writes you didn't ask for are how the data drifts, and drift is what sank the last attempt. A scan is an input like any other: the screen has to say what it will do with it.
+
+**Consequences:** `BinSheet.tsx` asks before assigning; new `PlacePath` in `ui.tsx`; `PickLocation` takes `near`; `ItemEditPage` returns with `navigate(-1)`. The story walk and the earlier browser checks live in `scripts/ui-checks/`. Proposals from the review that aren't built yet are listed in the report, starting with what "needs details" should mean.
 
 ---
 
@@ -670,7 +701,8 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-021 | Camera scanning: our own decoder, one steady lens, and a labelling run | UX | Accepted (run superseded by DEC-022) | 2026-11-03 |
 | DEC-022 | Stickers: tap a bin, aim, tap Scan | UX | Accepted (sheet camera superseded by DEC-024) | 2026-11-03 |
 | DEC-023 | Bin IDs are global and fixed-width (Bin 0001) | Product | Accepted | 2026-11-03 |
-| DEC-024 | Screens lead with what's there; sticker codes stay out of sight | UX | Accepted | 2026-11-03 |
+| DEC-024 | Screens lead with what's there; sticker codes stay out of sight | UX | Accepted (pane scan changed by DEC-025) | 2026-11-03 |
+| DEC-025 | A scan never changes anything without saying so; flow review fixes | UX | Accepted | 2026-11-03 |
 
 ---
 

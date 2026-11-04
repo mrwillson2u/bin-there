@@ -153,7 +153,7 @@ export function LocationFormPage() {
           className={inputClass}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={isSite ? "e.g. Garage, Basement, Office" : type === "project" ? "e.g. Weather station, Robot arm" : type === "bin" ? "Leave blank for Bin 1, Bin 2, …" : "e.g. Rack A, Screws box, Tote 4"}
+          placeholder={isSite ? "e.g. Garage, Basement, Office" : type === "project" ? "e.g. Weather station, Robot arm" : type === "bin" ? "Leave blank for the next ID, like Bin 0042" : "e.g. Rack A, Screws box, Tote 4"}
           required={type !== "bin"}
           autoFocus
         />

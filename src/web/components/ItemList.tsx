@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { levelLabels, type ItemSummary, type LocationItem, type StockLevel } from "../../shared/api";
-import { Badge, itemName, pathText, Thumb } from "./ui";
+import { Badge, itemName, PlacePath, Thumb } from "./ui";
 
 const levelTone: Record<StockLevel, "ok" | "warn" | "danger"> = { plenty: "ok", low: "warn", out: "danger" };
 
@@ -42,11 +42,15 @@ export function ItemList({ items, empty }: { items: ItemSummary[]; empty: string
                 <span className="block text-[13px] text-muted">No location</span>
               ) : (
                 i.places.slice(0, 3).map((p) => (
-                  <span key={p.locationId} className="block truncate text-[13px] text-muted">
-                    {pathText(p.path)}
-                    {i.places.length > 1 && (p.qty !== null || p.units > 0) && ` · ${(p.qty ?? 0) + p.units}`}
-                    {i.places.length > 1 && i.tracking === "level" && p.level && ` · ${levelLabels[p.level]}`}
-                  </span>
+                  <PlacePath
+                    key={p.locationId}
+                    path={p.path}
+                    className="text-[13px] text-muted"
+                    after={
+                      i.places.length > 1 &&
+                      ((p.qty !== null || p.units > 0 ? ` · ${(p.qty ?? 0) + p.units}` : "") + (i.tracking === "level" && p.level ? ` · ${levelLabels[p.level]}` : ""))
+                    }
+                  />
                 ))
               )}
               {i.places.length > 3 && <span className="block text-[13px] text-muted">+{i.places.length - 3} more places</span>}

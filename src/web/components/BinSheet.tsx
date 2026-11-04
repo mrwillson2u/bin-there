@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Camera, ChevronRight, Pencil, Plus, QrCode, Trash2, X } from "lucide-react";
 import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSummary, ScanResult } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
@@ -47,16 +47,20 @@ export function BinSheet({
   const { data: detail } = useQuery({ queryKey: ["location", bin.id], queryFn: () => api<LocationDetail>(`/locations/${bin.id}`) });
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** An unused sticker scanned while the sheet is open: offered for this bin, never put on silently. */
+  const [newSticker, setNewSticker] = useState<string | null>(null);
 
   useEffect(() => {
     setAdding(false);
     setError(null);
+    setNewSticker(null);
   }, [bin.id]);
 
   const sticker = useMutation({
     mutationFn: (code: string) => api<LocationDetail>(`/locations/${bin.id}/code`, { method: "POST", body: { code } }),
     onSuccess: () => {
-      toast.show({ message: `Sticker added to ${bin.name}` });
+      toast.show({ message: bin.code ? `New sticker is on ${bin.name}` : `Sticker added to ${bin.name}` });
+      setNewSticker(null);
       refreshAll(qc);
     },
     onError: (e: Error) => setError(e.message),
@@ -73,13 +77,14 @@ export function BinSheet({
     onError: (e: Error) => setError(e.message),
   });
 
-  // The hardware scanner while the sheet is open: a fresh sticker goes on this bin;
-  // another bin's sticker opens that bin; anything else opens as usual.
+  // The hardware scanner while the sheet is open: another bin's sticker opens that bin
+  // here; an unused sticker asks whether it's this bin's (nothing is written until you
+  // say so, DEC-024); anything else opens as usual.
   useScanHandler((code) => {
     setError(null);
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
       .then((r) => {
-        if (r.kind === "unassigned") sticker.mutate(r.code);
+        if (r.kind === "unassigned") setNewSticker(r.code);
         else if (r.kind === "location") {
           const sibling = box.children.find((c) => c.id === r.location.id);
           if (sibling) onSwitch(sibling);
@@ -113,6 +118,24 @@ export function BinSheet({
           <X size={20} />
         </button>
       </div>
+
+      {newSticker && (
+        <div className="flex flex-col gap-2 rounded-2xl border border-accent/50 bg-accent/10 p-3" role="group" aria-label="New sticker scanned">
+          <p className="flex items-center gap-2 font-semibold">
+            <QrCode size={18} className="shrink-0 text-accent" /> New sticker scanned
+          </p>
+          <p className="text-sm text-muted">
+            {bin.code ? `${bin.name} already has a sticker. Use this one instead?` : `It isn't on anything yet. Is it the sticker for ${bin.name}?`}
+          </p>
+          <Button variant="primary" disabled={sticker.isPending} onClick={() => sticker.mutate(newSticker)}>
+            {bin.code ? `Use it on ${bin.name}` : `Put it on ${bin.name}`}
+          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" className="px-2" onClick={() => navigate(`/scan/${encodeURIComponent(newSticker)}`)}>It's for something else</Button>
+            <Button variant="ghost" className="px-2" onClick={() => setNewSticker(null)}>Not now</Button>
+          </div>
+        </div>
+      )}
 
       {detail === undefined ? (
         <p className="text-muted">Loading…</p>

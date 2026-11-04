@@ -1,7 +1,7 @@
 # UX Framework
 
 > **Status:** Draft
-> **Last Updated:** 2026-11-02
+> **Last Updated:** 2026-11-03
 > **Owner:** Colin
 
 ---
@@ -88,9 +88,16 @@ Every item should be able to hold: name, photo(s), category, consumable vs. retu
 | **J4 — Project kit** | When I start a project, I want to create a temporary project location and pull parts from all over into it, with each part remembering its home, **so that later (even years later, with the project shelved) a search shows every place that part exists, including that kit.** | **Built 2026-11-03** (DEC-019) | n/a |
 | **J5 — Browse a location** | When I look at a storage location, I want to see what's in it. For gridded organizer boxes, I want a **visual grid** showing each bin's size, color and position, **so I can find things by place, not just by search.** | List view in SPV; **grid built 2026-11-03** (DEC-014); **filling a box made quick 2026-11-03** (DEC-020: drag new bins from a palette, tiles show contents, tap a bin for a sheet to add parts); **bin sheet built around its contents 2026-11-03** (DEC-024: the part's photo, name and count first, sticker codes kept out of sight) | Open the box and look |
 | **J6 — Add new stuff** | When I buy new parts or catalog during the clean-out, I want to add items and assign them a location fast, **so the initial catalog is achievable and new stuff gets in.** | Must (SPV) | n/a |
-
 | **J7 — Scan to open** | When I scan a QR sticker on anything (bin, box, tote, rack, part), I want the app to open *that thing* immediately: a bin's parts, or a box's child bins with their parts, **with quick +/− and move actions right there, so the most common updates happen in one or two taps.** | Must (SPV) | n/a (came up constantly in the last attempt) |
 | **J8 — Check out / return** | When I take a **returnable** item (module, 12 V power supply) for a project, I want to check it out to that project/location and check it back in later, **so I can always see where every one of them is and where it was used.** | Should (post-SPV) | n/a |
+| **J9 — Fill a box** | When I set up a gridded box, I want to lay out its bins the way they sit and put each part in its bin, with a photo, **so a whole box gets cataloged in one sitting.** | **Built 2026-11-03** (DEC-020, DEC-024) | n/a |
+| **J10 — Label bins** | When a box's bins are laid out, I want to put a sticker on each and have the app pair them one at a time, **so scanning any bin later opens the right one, and a mix-up is easy to spot and fix.** | **Built 2026-11-03** (DEC-022) | n/a |
+| **J11 — Fix a mistake** | When I notice something's wrong (a count, the wrong bin, the wrong sticker), I want to fix it from where I'm looking, or undo my last change, **so a slip doesn't stay in the data.** | Undo built (SPV); fixing from the bin pane not yet (see the flow review) | n/a |
+| **J12 — Restock** | When I'm about to order parts, I want a list of what's low or out, **so I buy before a build stalls.** | **Built 2026-11-03** (DEC-016) | Notice when it's gone |
+| **J13 — Trust the counts** | When a count is old or has been nudged a lot, I want to be asked to check it, **so the numbers stay believable.** | **Built 2026-11-03** (DEC-015) | n/a |
+| **J14 — Details later** | When I've added parts quickly (a photo, maybe a name), I want to work through them later and fill in what they are, **so quick capture doesn't leave a pile of mystery parts.** | Built in the SPV (F5, DEC-007) | Airtable rows never filled in |
+
+**Checking the flows against these stories.** `scripts/ui-checks/stories-walk.mjs` walks every story through the real app on a phone-sized screen and counts what each one costs (taps, scans, typing, screens). The latest results and what to change next are in `reports/UI flow review 2026-11-03.md`. Rerun it after a UI change.
 
 **Design principle from lessons learned:** the update paths (J1 "use", J2, J3, J6) matter as much as lookup. If updating is a chore, the data drifts and the app dies.
 

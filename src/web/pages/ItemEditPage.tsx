@@ -92,7 +92,12 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
       qc.invalidateQueries({ queryKey: ["categories"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
       qc.invalidateQueries({ queryKey: ["location"] });
-      navigate(`/items/${d.id}`, { replace: true });
+      qc.invalidateQueries({ queryKey: ["pins"] });
+      toast.show({ message: `Saved ${itemName(d.name)}` });
+      // Back to wherever the form was opened from (the part, a bin, the needs-details list),
+      // so Back afterwards doesn't land on the same part again. Opened directly: show the part.
+      if ((window.history.state as { idx?: number } | null)?.idx) navigate(-1);
+      else navigate(`/items/${d.id}`, { replace: true });
     },
     onError: (e: Error) => setError(e.message),
   });

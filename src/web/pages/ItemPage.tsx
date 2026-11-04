@@ -17,7 +17,7 @@ import { PickLocation } from "../components/PickLocation";
 import { EventList, timeAgo } from "../components/EventList";
 import { PinButton } from "../components/PinButton";
 import { useAddPhoto } from "../components/PhotoSpot";
-import { Badge, Button, Card, inputClass, itemName, pathText } from "../components/ui";
+import { Badge, Button, Card, inputClass, itemName, pathText, PlacePath } from "../components/ui";
 
 type Mode =
   | { kind: "move"; place: Place }
@@ -75,10 +75,11 @@ export function ItemPage() {
                   <span className="font-mono text-sm">{u.code ?? "no sticker"}</span>
                   {u.out && <Badge tone="info">out {timeAgo(u.out.at)}</Badge>}
                 </span>
-                <span className="block truncate text-[13px] text-muted">
-                  {u.path.length ? pathText(u.path) : u.out ? "" : "No location"}
-                  {u.out?.note && `${u.path.length ? " · " : ""}${u.out.note}`}
-                </span>
+                {u.path.length ? (
+                  <PlacePath path={u.path} after={u.out?.note && ` · ${u.out.note}`} className="text-[13px] text-muted" />
+                ) : (
+                  <span className="block truncate text-[13px] text-muted">{u.out ? (u.out.note ?? "") : "No location"}</span>
+                )}
               </span>
               <span className="flex">
                 {u.out ? (
@@ -253,7 +254,7 @@ function MoveStock({ item, place, done }: { item: ItemDetail; place: Place; done
     onSettled: done,
   });
   return (
-    <PickLocation title={`Move from ${place.path.at(-1)?.name}: scan where it's going`} onPick={(l) => move.mutate(l)} onCancel={done}>
+    <PickLocation title={`Move from ${place.path.at(-1)?.name}: scan where it's going`} onPick={(l) => move.mutate(l)} onCancel={done} near={place.path}>
       {partial && (
         <label className="flex items-center gap-2 text-sm text-muted">
           How many?
@@ -278,7 +279,7 @@ function AddPlace({ item, done }: { item: ItemDetail; done: () => void }) {
     ...handlers((_, to: { name: string }) => `Added to ${to.name}`),
     onSettled: done,
   });
-  return <PickLocation title="Scan the bin or box it's also in" onPick={(l) => add.mutate(l)} onCancel={done} />;
+  return <PickLocation title="Scan the bin or box it's also in" onPick={(l) => add.mutate(l)} onCancel={done} near={item.places[0]?.path} />;
 }
 
 function MoveUnit({ unitId, code, done }: { unitId: number; code: string | null; done: () => void }) {

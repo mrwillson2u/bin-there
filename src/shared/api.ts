@@ -73,7 +73,7 @@ export const placeBinSchema = z
 export type PlaceBin = z.infer<typeof placeBinSchema>;
 
 export const createLocationSchema = z.object({
-  /** Optional for a bin: left out, it's numbered within its box ("Bin 1", "Bin 2", …). Everything else needs one. */
+  /** Optional for a bin: left out, it gets the next ID in the whole system ("Bin 0042", DEC-023). Everything else needs one. */
   name: z.string().trim().min(1).max(100).optional(),
   type: z.enum(locationTypes),
   parentId: z.number().int().positive().nullable().optional(),

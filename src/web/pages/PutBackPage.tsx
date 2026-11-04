@@ -7,7 +7,7 @@ import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl } from "../components/StockControl";
 import { useToast } from "../components/Toast";
-import { Button, Card, inputClass, itemName, pathText, Thumb } from "../components/ui";
+import { Button, Card, inputClass, itemName, pathText, PlacePath, Thumb } from "../components/ui";
 
 type Loc = { id: number; name: string };
 type Step =
@@ -278,10 +278,11 @@ function FindPart({ onPick }: { onPick: (itemId: number) => void }) {
                   <Thumb url={i.thumbUrl} size={52} />
                   <span className="min-w-0 flex-1">
                     <span className={`block truncate ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
-                    <span className="block truncate text-[13px] text-muted">
-                      {home ? pathText(home.path) : "No home yet"}
-                      {i.places.length > 1 && ` · +${i.places.length - 1}`}
-                    </span>
+                    {home ? (
+                      <PlacePath path={home.path} className="text-[13px] text-muted" after={i.places.length > 1 && ` · +${i.places.length - 1}`} />
+                    ) : (
+                      <span className="block truncate text-[13px] text-muted">No home yet</span>
+                    )}
                   </span>
                   <ChevronRight size={18} className="shrink-0 text-muted" />
                 </button>

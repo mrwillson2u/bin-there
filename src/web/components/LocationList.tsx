@@ -16,7 +16,7 @@ const icons: Record<LocationType, typeof Box> = {
 };
 
 /** What's in a location, in a few words: "M3 nuts, M3 washers +2", "4 inside", "Empty" (DEC-024). */
-function contents(l: LocationSummary): string {
+export function contents(l: Pick<LocationSummary, "childCount" | "itemCount" | "preview">): string {
   const parts: string[] = [];
   if (l.childCount > 0) parts.push(`${l.childCount} inside`);
   if (l.itemCount > 0) {

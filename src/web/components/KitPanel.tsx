@@ -7,7 +7,7 @@ import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl, useStockMutation } from "./StockControl";
 import { useToast } from "./Toast";
-import { Badge, Button, Card, inputClass, itemName, pathText, Thumb } from "./ui";
+import { Badge, Button, Card, inputClass, itemName, pathText, PlacePath, Thumb } from "./ui";
 
 // A project kit (J4, DEC-019): parts pulled together for one project. Each part keeps
 // its home, so "Return everything" sends it all back, and "Finish" does that and
@@ -144,11 +144,20 @@ function KitRow({ kit, item: i, onReturn, busy }: { kit: LocationDetail; item: L
           <Thumb url={i.thumbUrl} size={44} />
           <span className="min-w-0 flex-1">
             <span className={`block truncate ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
-            <span className={`block truncate text-[13px] ${i.homePath.length ? "text-muted" : "text-warn"}`}>
-              <House size={13} className="mr-1 inline align-[-2px]" />
-              {i.homePath.length ? pathText(i.homePath) : "no home yet"}
-              {i.units > 0 && <span className="ml-1.5"><Badge tone="info">{i.units} stickered</Badge></span>}
-            </span>
+            {i.homePath.length ? (
+              <PlacePath
+                path={i.homePath}
+                className="items-center text-[13px] text-muted"
+                before={<House size={13} className="mr-1" />}
+                after={i.units > 0 && <span className="ml-1.5"><Badge tone="info">{i.units} stickered</Badge></span>}
+              />
+            ) : (
+              <span className="block truncate text-[13px] text-warn">
+                <House size={13} className="mr-1 inline align-[-2px]" />
+                no home yet
+                {i.units > 0 && <span className="ml-1.5"><Badge tone="info">{i.units} stickered</Badge></span>}
+              </span>
+            )}
           </span>
         </Link>
         <Button variant="ghost" className="shrink-0 px-2" onClick={onReturn} disabled={busy || !i.homePath.length} aria-label={`Return ${itemName(i.name)} home`}>
@@ -272,9 +281,7 @@ function PullFrom({ kit, pick, onBack, onDone }: { kit: LocationDetail; pick: Pi
       ) : (
         places.map((p) => (
           <div key={p.locationId} className="flex flex-wrap items-center gap-2 rounded-xl border border-border px-3 py-2">
-            <span className="min-w-0 flex-1 truncate text-sm">
-              {pathText(p.path)} · <span className="font-mono">{p.qty ?? "?"}</span>
-            </span>
+            <PlacePath path={p.path} className="flex-1 text-sm" after={<> · <span className="font-mono">{p.qty ?? "?"}</span></>} />
             {p.qty !== null && p.qty > 1 && (
               <input
                 inputMode="numeric"

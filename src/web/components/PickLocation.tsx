@@ -1,24 +1,29 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, ScanLine } from "lucide-react";
-import type { LocationDetail, LocationSummary, ScanResult } from "../../shared/api";
+import type { Crumb, LocationDetail, LocationSummary, ScanResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { contents } from "./LocationList";
 import { BinChip, Button, Card } from "./ui";
 
 /**
  * "Where is it going?" Scan a location's sticker (scanner or camera), or browse to it.
- * While mounted, scans are consumed here.
+ * While mounted, scans are consumed here. Given where the thing is now (`near`), the
+ * list opens beside it (the bins of the same box) and marks that place "here now".
  */
 export function PickLocation({
   title,
   onPick,
   onCancel,
+  near,
   children,
 }: {
   title: string;
   onPick: (loc: { id: number; name: string }) => void;
   onCancel: () => void;
+  /** The path of where it is now. */
+  near?: Crumb[];
   children?: ReactNode;
 }) {
   const { openCamera } = useScan();
@@ -30,7 +35,7 @@ export function PickLocation({
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
       .then((r) => {
         if (r.kind === "location") onPick(r.location);
-        else setError(`Sticker ${code} isn't a location`);
+        else setError("That sticker isn't on a bin, box or other location");
       })
       .catch((e: Error) => setError(e.message));
     return true;
@@ -45,7 +50,7 @@ export function PickLocation({
       {children}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
       {browsing ? (
-        <Browser onPick={onPick} />
+        <Browser onPick={onPick} near={near} />
       ) : (
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" onClick={openCamera}>Scan with camera</Button>
@@ -60,11 +65,16 @@ export function PickLocation({
   );
 }
 
-function Browser({ onPick }: { onPick: (loc: { id: number; name: string }) => void }) {
+function Browser({ onPick, near }: { onPick: (loc: { id: number; name: string }) => void; near?: Crumb[] }) {
   const [at, setAt] = useState<LocationDetail | null>(null);
   const { data: top } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations") });
   const open = (id: number) => api<LocationDetail>(`/locations/${id}`).then(setAt);
   const list = at ? at.children : (top ?? []);
+  const hereId = near?.at(-1)?.id ?? null;
+  const startId = near && near.length >= 2 ? near[near.length - 2]!.id : null;
+  useEffect(() => {
+    if (startId !== null) void open(startId);
+  }, [startId]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -85,9 +95,12 @@ function Browser({ onPick }: { onPick: (loc: { id: number; name: string }) => vo
         {list.length === 0 && <li className="px-4 py-3 text-sm text-muted">Nothing inside.</li>}
         {list.map((l) => (
           <li key={l.id} className="flex items-center">
-            <button onClick={() => onPick(l)} className="flex min-h-12 flex-1 items-center gap-2 px-4 text-left">
+            <button onClick={() => onPick(l)} disabled={l.id === hereId} className="flex min-h-12 min-w-0 flex-1 items-center gap-2 px-4 py-1.5 text-left disabled:opacity-60">
               {l.binSize && <BinChip size={l.binSize} />}
-              {l.name}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{l.name}{l.id === hereId && <span className="text-muted"> (here now)</span>}</span>
+                <span className="block truncate text-[13px] text-muted">{contents(l)}</span>
+              </span>
             </button>
             {l.childCount > 0 && (
               <button onClick={() => open(l.id)} className="flex min-h-12 items-center px-4 text-muted" aria-label={`Open ${l.name}`}>

@@ -8,7 +8,7 @@ import { api } from "../api";
 import { LocationList } from "../components/LocationList";
 import { LocationItemList, QtyBadge } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
-import { BinChip, Button, inputClass, itemName, pathText, Thumb } from "../components/ui";
+import { BinChip, Button, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
 
 /** Home: with one site, that site's contents; with several, the list of sites. */
 export function HomePage() {
@@ -225,7 +225,7 @@ function Pinned({ pins }: { pins: Pins }) {
                 {l.binSize && <BinChip size={l.binSize} />}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{l.name}</span>
-                  {l.path.length > 1 && <span className="block truncate text-[13px] text-muted">{pathText(l.path.slice(0, -1))}</span>}
+                  {l.path.length > 1 && <PlacePath path={l.path.slice(0, -1)} className="text-[13px] text-muted" />}
                 </span>
                 <ChevronRight size={18} className="text-muted" />
               </Link>

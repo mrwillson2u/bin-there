@@ -1,7 +1,9 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, ImageOff } from "lucide-react";
-import { binSizeLabels, type BinSize, type Crumb } from "../../shared/api";
+import { binSizeLabels, type BinSize, type Crumb, type LocationSummary } from "../../shared/api";
+import { api } from "../api";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -92,3 +94,27 @@ export function Badge({ tone = "muted", children }: { tone?: keyof typeof badgeT
 
 export const itemName = (name: string) => name || "Unnamed item";
 export const pathText = (path: Crumb[]) => path.map((c) => c.name).join(" › ");
+
+/**
+ * A location path on one line. With only one site, its name is left off (it's the same
+ * everywhere). When it still doesn't fit, the outer places shorten first
+ * ("Rack… › Grid box 1 › Bin 0001"), so the bin you're after stays readable.
+ */
+export function PlacePath({ path: full, before, after, className = "" }: { path: Crumb[]; before?: ReactNode; after?: ReactNode; className?: string }) {
+  const { data: sites } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations"), staleTime: 60_000 });
+  const path = sites?.length === 1 && full.length > 1 && full[0]!.id === sites[0]!.id ? full.slice(1) : full;
+  return (
+    <span className={`flex min-w-0 overflow-hidden whitespace-nowrap ${className}`} title={pathText(full)}>
+      {before && <span className="shrink-0 whitespace-pre">{before}</span>}
+      {path.map((c, i) => (
+        // The last place never shrinks (a fraction of a pixel short would cost it two letters to the "…");
+        // it's only cut if it alone is wider than the line.
+        <span key={c.id} className={i === path.length - 1 ? "max-w-full shrink-0 truncate" : "min-w-[3.5ch] shrink truncate"}>
+          {i > 0 && "\u00a0›\u00a0"}
+          {c.name}
+        </span>
+      ))}
+      {after && <span className="shrink-0 whitespace-pre">{after}</span>}
+    </span>
+  );
+}
