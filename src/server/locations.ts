@@ -65,6 +65,29 @@ export function listLocations(db: Db, parentId: number | null): LocationSummary[
     .map((r) => toSummary(db, r));
 }
 
+/**
+ * Every place, whatever it's inside, with its path (DEC-027), in tree order: each place right
+ * after the one it's in. With only one site, the site itself is left out.
+ */
+export function listAllLocations(db: Db): PinnedLocation[] {
+  const tree = db.select({ id: locations.id, name: locations.name, parentId: locations.parentId }).from(locations).all();
+  const byId = new Map(tree.map((r) => [r.id, r]));
+  const pathOf = (id: number): Crumb[] => {
+    const out: Crumb[] = [];
+    for (let cur = byId.get(id); cur && out.length < 50; cur = cur.parentId === null ? undefined : byId.get(cur.parentId)) {
+      out.unshift({ id: cur.id, name: cur.name });
+    }
+    return out;
+  };
+  const rows = db.select(summaryColumns).from(locations).where(eq(locations.archived, false)).all();
+  const oneSite = rows.filter((r) => r.type === "site").length === 1;
+  const key = (p: Crumb[]) => p.map((c) => c.name.toLowerCase()).join("\u0000");
+  return rows
+    .filter((r) => !(oneSite && r.type === "site"))
+    .map((r) => ({ ...toSummary(db, r), path: pathOf(r.id) }))
+    .sort((a, b) => (key(a.path) < key(b.path) ? -1 : key(a.path) > key(b.path) ? 1 : a.id - b.id));
+}
+
 /** Summaries with breadcrumb paths, in the order given (skipping archived or missing ones). */
 export function listLocationsByIds(db: Db, ids: number[]): PinnedLocation[] {
   if (ids.length === 0) return [];

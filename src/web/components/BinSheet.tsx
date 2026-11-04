@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, ChevronRight, Pencil, Plus, QrCode, Trash2, X } from "lucide-react";
+import { Camera, ChevronRight, Pencil, Plus, QrCode, X } from "lucide-react";
 import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSummary, ScanResult } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
@@ -66,17 +66,6 @@ export function BinSheet({
     onError: (e: Error) => setError(e.message),
   });
 
-  const remove = useMutation({
-    mutationFn: () => api(`/locations/${bin.id}`, { method: "DELETE" }),
-    onSuccess: () => {
-      toast.show({ message: `${bin.name} removed` });
-      qc.removeQueries({ queryKey: ["location", bin.id] });
-      refreshAll(qc);
-      onClose();
-    },
-    onError: (e: Error) => setError(e.message),
-  });
-
   // The hardware scanner while the sheet is open: another bin's sticker opens that bin
   // here; an unused sticker asks whether it's this bin's (nothing is written until you
   // say so, DEC-024); anything else opens as usual.
@@ -104,7 +93,6 @@ export function BinSheet({
   }, [onClose]);
 
   const items = detail?.items ?? [];
-  const empty = detail !== undefined && items.length === 0 && detail.children.length === 0;
 
   const content = (
     <>
@@ -157,11 +145,7 @@ export function BinSheet({
         ))}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
-      {empty && (
-        <Button variant="ghost" className="self-start px-1 text-muted" disabled={remove.isPending} onClick={() => remove.mutate()}>
-          <Trash2 size={16} /> Remove this bin
-        </Button>
-      )}
+      {/* Deleting a bin is on its own page (tap its name above), not in this quick view. */}
     </>
   );
 

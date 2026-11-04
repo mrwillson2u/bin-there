@@ -12,6 +12,7 @@ import {
   assignLocationCode,
   createLocation,
   getLocation,
+  listAllLocations,
   listLocations,
   placeBin,
   updateLocation,
@@ -95,6 +96,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
 
   // ── Locations ──
   api.get("/locations", (c) => {
+    if (c.req.query("all") === "1") return c.json(listAllLocations(db));
     const parent = c.req.query("parent");
     return c.json(listLocations(db, parent ? Number(parent) : null));
   });

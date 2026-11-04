@@ -56,7 +56,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 
 | Field | Type | Notes |
 |-------|------|-------|
-| id, name | | e.g. Fasteners › Screws, Electronics › ICs. Optional parent_id for a light hierarchy |
+| id, name | | e.g. Fasteners, Resistors, Batteries. Optional parent_id for a light hierarchy, not used yet (DEC-027: flat, specific categories with their own fields for now) |
 | default_kind | enum ItemKind | consumable / returnable |
 | default_tracking | enum TrackingMode | exact / level (DEC-001) |
 | field_defs | JSON | e.g. `[{key:"thread",label:"Thread",type:"text"},{key:"length_mm",type:"number"}]` |

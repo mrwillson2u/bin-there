@@ -4,8 +4,9 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
+import { STARTER_CATEGORIES } from "./items";
 import { createApi } from "./app";
-import type { LocationDetail, LocationSummary, ScanResult } from "../shared/api";
+import type { LocationDetail, LocationSummary, PinnedLocation, ScanResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
 let site: LocationDetail;
@@ -66,6 +67,29 @@ describe("locations", () => {
     const bin = await create({ name: "Bin", type: "bin", parentId: box.id });
     const { status } = await call("PATCH", `/locations/${box.id}`, { parentId: bin.id });
     expect(status).toBe(400);
+  });
+
+  it("lists every place, whatever it's inside, in tree order with paths", async () => {
+    const rack = await create({ name: "Rack A", type: "rack" });
+    const box = await create({ name: "Box", type: "gridded_box", parentId: rack.id });
+    await create({ type: "bin", parentId: box.id });
+    await create({ type: "bin", parentId: box.id });
+    await create({ name: "Bench", type: "shelf" });
+    const gone = await create({ name: "Old tote", type: "tote" });
+    await call("DELETE", `/locations/${gone.id}`);
+    const all = (await call<PinnedLocation[]>("GET", "/locations?all=1")).json;
+    // One site: the site itself is left out; deleted places too.
+    expect(all.map((l) => l.path.map((c) => c.name).join(" > "))).toEqual([
+      "Garage > Bench",
+      "Garage > Rack A",
+      "Garage > Rack A > Box",
+      "Garage > Rack A > Box > Bin 0001",
+      "Garage > Rack A > Box > Bin 0002",
+    ]);
+    expect(all.find((l) => l.name === "Box")!.childCount).toBe(2);
+    await create({ name: "Basement", type: "site" });
+    const two = (await call<PinnedLocation[]>("GET", "/locations?all=1")).json;
+    expect(two.filter((l) => l.type === "site").map((l) => l.name)).toEqual(["Basement", "Garage"]);
   });
 
   it("ignores bin size on non-bins", async () => {
@@ -186,6 +210,41 @@ describe("migration 0008 (DEC-023)", () => {
     expect(raw.prepare("select name from locations order by id").all().map((r) => (r as { name: string }).name)).toEqual([
       "Bin 0001", "Bin 0002", "Small screws", "Bin 0003", "Bin 3 spare", "Bin 9", "Bin 0004", "Bin", "Bin 0005",
     ]);
+  });
+});
+
+describe("migration 0009 (DEC-027)", () => {
+  const names = (file: string) => {
+    const raw = new Database(file, { readonly: true });
+    const out = raw.prepare("select name from categories order by name").all().map((r) => (r as { name: string }).name);
+    raw.close();
+    return out;
+  };
+
+  it("gives a new database every starter category once", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "snt-cat-")), "app.db");
+    openDb(file);
+    expect(names(file)).toEqual(STARTER_CATEGORIES.map((c) => c.name).sort());
+  });
+
+  it("adds the new ones to an older database, without a second copy of one you already made", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "snt-cat-")), "app.db");
+    openDb(file);
+    // Make it look like it was last migrated by 0008: the new categories missing, except one made by hand.
+    const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
+    const when = journal.entries.find((e) => e.tag === "0009_more_categories")!.when;
+    const raw = new Database(file);
+    raw.prepare(`delete from "__drizzle_migrations" where created_at = ?`).run(when);
+    const added = STARTER_CATEGORIES.slice(7).map((c) => c.name);
+    raw.prepare(`delete from categories where name in (${added.map(() => "?").join(",")})`).run(...added);
+    raw.prepare("update categories set name = 'batteries' where name = 'Batteries'").run();
+    raw.exec(`insert into categories (name) values ('batteries')`);
+    raw.close();
+
+    openDb(file);
+    const after = names(file);
+    expect(after.filter((n) => n.toLowerCase() === "batteries")).toEqual(["batteries"]);
+    expect(after.filter((n) => n !== "batteries").sort()).toEqual(STARTER_CATEGORIES.map((c) => c.name).filter((n) => n !== "Batteries").sort());
   });
 });
 

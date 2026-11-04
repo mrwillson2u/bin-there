@@ -1,4 +1,5 @@
 // Other location pages after DEC-024: a rack (holds places) and a tote (holds parts).
+// DEC-027: every place in one list with a type filter, and moving a place without a sticker.
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 // Safety: never point this at the real data. It runs its own server on port 3001
@@ -45,5 +46,57 @@ await page.getByRole("heading", { name: "Yellow tote" }).waitFor();
 check((await page.getByRole("heading", { name: "Inside" }).count()) === 0, "tote with parts: no empty Inside section");
 check((await page.getByRole("region", { name: "Manage Yellow tote" }).getByText("TOTE01").count()) === 1, "tote's own page shows its sticker at the bottom");
 await page.screenshot({ path: `${shots}/p2-tote.png`, fullPage: true });
+
+// All places, whatever they're inside, filtered by type.
+const rackB = await api("POST", "/locations", { name: "Rack B", type: "rack", parentId: site.id });
+const box = await api("POST", "/locations", { name: "Grid box 1", type: "gridded_box", parentId: rack.id });
+const bin1 = await api("POST", "/locations", { type: "bin", parentId: box.id, binSize: "1x1", slot: { x: 0, y: 0 } });
+await api("POST", "/locations", { type: "bin", parentId: box.id, binSize: "2x1", slot: { x: 1, y: 0 } });
+await api("POST", "/items", { name: "M3 nuts", locationId: bin1.id, qty: 10 });
+await page.goto(`${base}/locations`);
+await page.getByRole("button", { name: "All places" }).click();
+await page.getByText("6 places").waitFor();
+await page.getByRole("group", { name: "Type" }).getByRole("button", { name: /^Bins/ }).click();
+await page.getByText("2 found").waitFor();
+await page.waitForTimeout(200);
+const binsChip = await page.getByRole("group", { name: "Type" }).getByRole("button", { name: /^Bins/ }).boundingBox();
+check(binsChip.x >= 0 && binsChip.x + binsChip.width <= 390, `the chosen type is first and fully in sight (x ${Math.round(binsChip.x)})`);
+const binRows = (await page.getByRole("main").getByRole("listitem").allTextContents()).map((t) => t.replace(/\u00a0/g, " "));
+check(binRows[0].includes("Bin 0001") && binRows[0].includes("M3 nuts") && binRows[0].includes("Rack A › Grid box 1"), "bins listed with what's in them and where: " + binRows[0]);
+check(binRows[1].includes("Empty"), "an empty bin says Empty: " + binRows[1]);
+check(new URL(page.url()).search.includes("type=bin"), "the type filter is in the address");
+await page.screenshot({ path: `${shots}/p3-all-bins.png`, fullPage: true });
+await page.getByLabel("Find a place").fill("nuts");
+await page.getByText("1 found").waitFor();
+check(true, "find a place by what's in it");
+await page.getByRole("button", { name: "By place" }).click();
+await page.getByRole("link", { name: /^Rack A/ }).waitFor();
+check(new URL(page.url()).search === "", "By place clears the filters");
+
+// Move the tote (no sticker needed) by picking from the list.
+await page.goto(`${base}/locations/${tote.id}`);
+await page.getByRole("button", { name: "Move" }).click();
+await page.getByRole("button", { name: "Pick from list" }).click();
+const picker = page.getByRole("list").filter({ hasText: "Rack B" });
+await picker.waitFor();
+const here = await page.getByRole("button", { name: /Rack A \(here now\)/ }).isDisabled();
+check(here, "the picker opens beside the tote, with Rack A marked 'here now'");
+await page.screenshot({ path: `${shots}/p4-move-pick.png`, fullPage: true });
+await page.getByRole("button", { name: /^Rack B/ }).click();
+await page.getByRole("status").filter({ hasText: "Moved to Rack B" }).waitFor();
+check((await api("GET", `/locations/${tote.id}`)).path.map((c) => c.name).join(" › ") === "Garage › Rack B › Yellow tote", "tote moved into Rack B");
+// A box can't be picked as its own destination.
+await page.goto(`${base}/locations/${box.id}`);
+await page.getByRole("button", { name: "Move" }).click();
+await page.getByRole("button", { name: "Pick from list" }).click();
+await page.getByRole("button", { name: /Rack A \(here now\)/ }).waitFor();
+await page.getByRole("button", { name: "Open Rack A" }).waitFor({ state: "detached", timeout: 1000 }).catch(() => {});
+const openRackA = page.getByRole("button", { name: "Open Rack A" });
+if (await openRackA.count()) {
+  await openRackA.click();
+  await page.getByRole("button", { name: /Put in Rack A/ }).waitFor();
+}
+check((await page.getByRole("button", { name: /^Grid box 1/ }).count()) === 0, "the box being moved isn't in the list");
+
 await browser.close();
 server.kill();

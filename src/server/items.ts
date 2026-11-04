@@ -590,4 +590,14 @@ export const STARTER_CATEGORIES: Parameters<typeof createCategory>[1][] = [
   { name: "Power supplies", defaultKind: "returnable", defaultTracking: "exact", fields: ["Voltage", "Current", "Connector"] },
   { name: "Tools", defaultKind: "returnable", defaultTracking: "exact" },
   { name: "Supplies", defaultTracking: "level" },
+  // Added by migration 0009 to databases that already had categories (DEC-027).
+  { name: "Batteries", defaultTracking: "exact", fields: ["Size", "Chemistry", "Voltage", "Capacity"] },
+  { name: "Resistors", defaultTracking: "level", fields: ["Resistance", "Tolerance", "Power", "Package"] },
+  { name: "Capacitors", defaultTracking: "level", fields: ["Capacitance", "Voltage", "Type", "Package"] },
+  { name: "Inductors", defaultTracking: "exact", fields: ["Inductance", "Current", "Package"] },
+  { name: "Diodes", defaultTracking: "level", fields: ["Part number", "Type", "Package"] },
+  { name: "LEDs", defaultTracking: "level", fields: ["Color", "Size", "Package"] },
+  { name: "Transistors", defaultTracking: "exact", fields: ["Part number", "Type", "Package"] },
+  { name: "ICs", defaultTracking: "exact", fields: ["Part number", "Function", "Package"] },
+  { name: "Switches & buttons", defaultTracking: "exact", fields: ["Type", "Rating", "Mounting"] },
 ];

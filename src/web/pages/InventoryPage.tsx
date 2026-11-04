@@ -100,6 +100,11 @@ export function InventoryPage() {
     return () => io.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // Filters that are on move to the front of the chip row; bring it back to the start so they're in sight.
+  const chips = useRef<HTMLDivElement>(null);
+  const onKey = ["needs", "low", "out", "stale", "cat", "kind"].map((k) => params.get(k) ?? "").join("|");
+  useEffect(() => chips.current?.scrollTo({ left: 0 }), [onKey]);
+
   if (sites && sites.length === 0) return <FirstSite />;
 
   const pages = inv.data?.pages ?? [];
@@ -149,6 +154,7 @@ export function InventoryPage() {
 
       {/* One line that scrolls sideways on a phone; wraps on a wide screen. */}
       <div
+        ref={chips}
         className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 [&>*]:shrink-0"
         role="group"
         aria-label="Filters"

@@ -121,7 +121,7 @@ await chip(/Running low/).click();
 await page.getByText("2 found").waitFor();
 check((await page.getByRole("button", { name: /Copy as a shopping list/ }).count()) === 1, "running low: offers the shopping-list copy");
 const lowChip = await chip(/Running low/).boundingBox();
-check(lowChip.x + lowChip.width <= 390, "the chip that's on moves to the front, in sight on a phone");
+check(lowChip.x >= 0 && lowChip.x + lowChip.width <= 390, `the chip that's on moves to the front, in sight on a phone (x ${Math.round(lowChip.x)})`);
 const lowNames = await rows().allTextContents();
 check(lowNames.some((t) => t.includes("Electrical tape")) && lowNames.some((t) => t.includes("M3 hex nuts")), "running low: tape (low) and nuts (0)");
 await page.screenshot({ path: `${shots}/i3-low.png` });

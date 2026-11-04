@@ -105,7 +105,8 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
 - Home (`/`) is `InventoryPage.tsx` (DEC-026): every part from `GET /api/inventory` via
   `useInfiniteQuery` (key `["items", "inventory", …]`, so any `["items"]` invalidation refreshes it),
   filters kept in the URL, list or tile view in `localStorage`, pinned parts on top with − / +.
-  `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits.
+  `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits, and an
+  All places list (`GET /api/locations?all=1`) with type chips (DEC-027).
   `SearchPage.tsx` lists only matches.
 - **Scanning** (`scan/`): `ScanProvider` installs one capture-phase `keydown` listener for the
   whole app. `detector.ts` (pure, unit-tested) tells scanner input from typing: a `Ctrl+B` prefix

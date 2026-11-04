@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, LayoutGrid, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
-import { locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType, type ScanResult } from "../../shared/api";
+import { locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType } from "../../shared/api";
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
 import { useWide } from "../lib/useWide";
@@ -15,6 +15,7 @@ import { primeFeedback } from "../scan/feedback";
 import { useToast } from "../components/Toast";
 import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
+import { PickLocation } from "../components/PickLocation";
 import { PinButton } from "../components/PinButton";
 import { BinChip, Breadcrumbs, Button, Card, inputClass } from "../components/ui";
 
@@ -138,15 +139,7 @@ export function LocationPage() {
       assign.mutate(code);
       return true;
     }
-    if (mode === "move") {
-      api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
-        .then((r) => {
-          if (r.kind === "location") move.mutate(r.location.id);
-          else setMessage("That sticker isn't on a location");
-        })
-        .catch(fail);
-      return true;
-    }
+    // In move mode, PickLocation takes the scan.
     return false;
   });
 
@@ -325,17 +318,27 @@ export function LocationPage() {
           )}
         </div>
 
-        {mode !== "idle" && (
+        {mode === "assign" && (
           <Card className="flex flex-col gap-3 p-4">
             <p className="flex items-center gap-2 font-semibold">
               <ScanLine size={20} className="text-accent" />
-              {mode === "assign" ? `Scan the new sticker for ${loc.name}` : "Scan where this is going"}
+              Scan the new sticker for {loc.name}
             </p>
             <div className="flex gap-2">
-              <Button variant="primary" onClick={() => openCamera(mode === "assign" ? { tap: true, title: `Sticker for ${loc.name}` } : {})}>Use camera</Button>
+              <Button variant="primary" onClick={() => openCamera({ tap: true, title: `Sticker for ${loc.name}` })}>Use camera</Button>
               <Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>
             </div>
           </Card>
+        )}
+        {/* Scan where it's going, or pick it from a list: plenty of places have no sticker. */}
+        {mode === "move" && (
+          <PickLocation
+            title={`Where is ${loc.name} going?`}
+            near={loc.path.slice(0, -1)}
+            exclude={loc.id}
+            onPick={(to) => move.mutate(to.id)}
+            onCancel={() => setMode("idle")}
+          />
         )}
         {message && <p className="text-sm text-danger" role="alert">{message}</p>}
 

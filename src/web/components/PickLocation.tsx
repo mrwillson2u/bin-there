@@ -17,6 +17,7 @@ export function PickLocation({
   onPick,
   onCancel,
   near,
+  exclude,
   children,
 }: {
   title: string;
@@ -24,6 +25,8 @@ export function PickLocation({
   onCancel: () => void;
   /** The path of where it is now. */
   near?: Crumb[];
+  /** A place that can't be picked or opened: the one being moved (so nothing goes inside itself). */
+  exclude?: number;
   children?: ReactNode;
 }) {
   const { openCamera } = useScan();
@@ -50,7 +53,7 @@ export function PickLocation({
       {children}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
       {browsing ? (
-        <Browser onPick={onPick} near={near} />
+        <Browser onPick={onPick} near={near} exclude={exclude} />
       ) : (
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" onClick={openCamera}>Scan with camera</Button>
@@ -65,11 +68,11 @@ export function PickLocation({
   );
 }
 
-function Browser({ onPick, near }: { onPick: (loc: { id: number; name: string }) => void; near?: Crumb[] }) {
+function Browser({ onPick, near, exclude }: { onPick: (loc: { id: number; name: string }) => void; near?: Crumb[]; exclude?: number }) {
   const [at, setAt] = useState<LocationDetail | null>(null);
   const { data: top } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations") });
   const open = (id: number) => api<LocationDetail>(`/locations/${id}`).then(setAt);
-  const list = at ? at.children : (top ?? []);
+  const list = (at ? at.children : (top ?? [])).filter((l) => l.id !== exclude);
   const hereId = near?.at(-1)?.id ?? null;
   const startId = near && near.length >= 2 ? near[near.length - 2]!.id : null;
   useEffect(() => {

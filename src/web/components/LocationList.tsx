@@ -15,6 +15,11 @@ const icons: Record<LocationType, typeof Box> = {
   other: Box,
 };
 
+export function LocationIcon({ type }: { type: LocationType }) {
+  const Icon = icons[type];
+  return <Icon size={20} className="shrink-0 text-muted" />;
+}
+
 /** What's in a location, in a few words: "M3 nuts, M3 washers +2", "4 inside", "Empty" (DEC-024). */
 export function contents(l: Pick<LocationSummary, "childCount" | "itemCount" | "preview">): string {
   const parts: string[] = [];

@@ -232,7 +232,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-02 |
-| **Status** | Accepted (confirmed by Colin 2026-11-03) |
+| **Status** | Accepted (confirmed by Colin 2026-11-03; confirmed again 2026-11-04, Q47: a name alone isn't enough, a part needs its category too) |
 | **Deciders** | AI (during M2 build); confirmed by Colin |
 | **Category** | Product |
 
@@ -714,6 +714,66 @@ The flow review also fixed:
 - **Pins.** Pinned places moved to Locations.
 - **Tap costs.** The story walk: J1 went from 4 taps to 3. J4, J5, J8 and J13 each cost one more tap, to reach the Locations tab or a filter.
 
+### DEC-027: Every place in one list; move a place by picking it; bin quick view without delete; more categories
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Colin's notes from testing DEC-026:
+- "Remove this bin" in the bin quick view didn't say whether it deleted the bin or only took it off the grid. It deleted it, behind a trash icon, in a view meant for a quick look.
+- Places could only be browsed one level at a time, so there was no way to see every bin at once or filter by type.
+- An empty bin's tile showed its ID, which only matters to the scanner.
+- Moving a place needed a scan, and plenty of places have no sticker.
+- He asked for more categories (batteries, resistors, capacitors and the like), and whether categories should have sub-categories.
+
+Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a category.
+
+**Decision:**
+- **Bin quick view.** It has no delete. Deleting stays on the bin's own page, with a confirm, as for any place.
+- **Empty bins.** An empty bin's tile says "Empty" (its accessible name is "Bin 0003, empty"). The Stickers screen still shows IDs, since that's where they matter.
+- **Locations.** A **By place / All places** switch.
+  - **All places** lists every place whatever it's inside, in tree order. Each row shows what's in it and where it is.
+  - **Type chips.** Bins, Racks, Gridded boxes, Totes and so on, each with a count. The chip that's on moves to the front.
+  - **Find box.** It matches a place's name, the places it's inside, or what's in it.
+  - With one site, the site itself is left out.
+- **Moving a place.** It uses the same picker as moving a part: scan where it's going, or **Pick from list**.
+  - The list opens beside where the place is now, marking it "here now".
+  - The place being moved is hidden, so nothing can go inside itself.
+  - A bin moved into another gridded box waits in that box's "not placed" tray, as before.
+- **Categories.** Nine more starter categories, each with its own fields:
+
+  | Category | Fields | Counted by |
+  |----------|--------|------------|
+  | Batteries | size, chemistry, voltage, capacity | count |
+  | Resistors | resistance, tolerance, power, package | level |
+  | Capacitors | capacitance, voltage, type, package | level |
+  | Inductors | inductance, current, package | count |
+  | Diodes | part number, type, package | level |
+  | LEDs | color, size, package | level |
+  | Transistors | part number, type, package | count |
+  | ICs | part number, function, package | count |
+  | Switches & buttons | type, rating, mounting | count |
+
+  "Electronic components" stays as the catch-all. Migration 0009 adds them to an existing database, skipping a name that's already there, and a new database gets them from the seed.
+- **No sub-categories for now.** Specific categories with their own fields already filter well and describe each part. A tree would add a step to every picker and filter. If the list grows long enough to need groups, `categories.parent_id` is already in the schema for one level.
+
+**Rationale:**
+- A quick view is for looking and small edits. A delete there, under a vague name, is a slip waiting to happen.
+- Browsing one level at a time hides the bins, and the bins are where the parts are.
+- Making a sticker a condition for moving something would block a real, common change.
+
+**Consequences:**
+- `GET /api/locations?all=1` (`listAllLocations`).
+- `PickLocation` takes `exclude`.
+- `BinSheet` lost its delete.
+- `binLabel` returns "Empty".
+- Migration `0009_more_categories.sql`, and `STARTER_CATEGORIES` extended.
+- Still open: taking a whole bin out to the bench or a project kit. Today that's a Move, and its grid spot is lost (Q48).
+
 ---
 
 ## Decision Index
@@ -726,7 +786,7 @@ The flow review also fixed:
 | DEC-004 | TypeScript: React (Vite PWA) + Hono + SQLite/Drizzle, one container | Tech Stack | Accepted | 2026-11-02 |
 | DEC-005 | SPV = F1–F8, ship 2026-11-23 | Scope | Accepted | 2026-11-02 |
 | DEC-006 | Resize photos on the phone, not the server | Architecture | Accepted | 2026-11-02 |
-| DEC-007 | When an item leaves "Needs details" | Product | Accepted | 2026-11-02 |
+| DEC-007 | When an item leaves "Needs details" | Product | Accepted (reconfirmed 2026-11-04) | 2026-11-02 |
 | DEC-008 | Backups run inside the app, not host cron | Architecture | Accepted | 2026-11-03 |
 | DEC-009 | The put-back bin is physical only | Product | Accepted | 2026-11-03 |
 | DEC-010 | Sites as the top level of the location tree | Product | Accepted | 2026-11-03 |
@@ -746,6 +806,7 @@ The flow review also fixed:
 | DEC-024 | Screens lead with what's there; sticker codes stay out of sight | UX | Accepted (pane scan changed by DEC-025) | 2026-11-03 |
 | DEC-025 | A scan never changes anything without saying so; flow review fixes | UX | Accepted | 2026-11-03 |
 | DEC-026 | Home is the inventory; Locations gets its own screen; Search is results only | UX | Accepted | 2026-11-04 |
+| DEC-027 | Every place in one list; move a place by picking it; bin quick view without delete; more categories | UX | Accepted | 2026-11-04 |
 
 ---
 

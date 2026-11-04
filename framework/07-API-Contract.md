@@ -36,6 +36,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/locations?parent=` | List children (top-level if no parent) |
+| GET | `/api/locations?all=1` | Every non-deleted place with its `path`, in tree order (each place right after the one it's in); with only one site, the site itself is left out (DEC-027) |
 | GET | `/api/locations/:id` | Location + breadcrumb path + child locations + stock + units |
 | POST | `/api/locations` | Create (optionally with `code`) |
 | PATCH | `/api/locations/:id` | Edit; changing `parent_id` = **move container** (F9) |

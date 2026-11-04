@@ -50,7 +50,7 @@ Counts are after the fixes below. A "tap" includes pressing Enter to submit.
 
 ## Proposed next, most useful first
 
-1. **Decide what "needs details" means (question for Colin).** A part only skips the list if it has
+1. **Decided 2026-11-04 (Q47): keep the rule.** A part needs a name and a category to leave the list. The phone list now marks it with a small pencil instead of the wide badge (DEC-026). Original note: A part only skips the list if it has
    a name and a category, and nothing in the bin pane sets a category. So in the walk, all 9 parts
    were on the list. The yellow badge sits on every row, cutting names short ("Electrical t…").
    One option: a part with a name counts as done, and only photo-only parts need details.

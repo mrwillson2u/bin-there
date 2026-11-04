@@ -64,6 +64,13 @@
       "when": 1793764260287,
       "tag": "0008_bin_numbers_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793823141186,
+      "tag": "0009_more_categories",
+      "breakpoints": true
     }
   ]
 }

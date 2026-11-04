@@ -138,7 +138,7 @@ await sheet().waitFor({ state: "detached" });
 check((await page.locator("video").count()) === 0, "camera is off after Done");
 
 // 9. The bin pane has no sticker controls; the bin's own page does, and its camera waits for a tap.
-await page.getByRole("button", { name: "Bin 0003", exact: true }).click();
+await page.getByRole("button", { name: "Bin 0003, empty", exact: true }).click();
 const pane = page.getByRole("dialog", { name: "Bin 0003 in Screws box" });
 await pane.waitFor();
 check((await pane.getByRole("button", { name: /Replace|Scan with camera/ }).count()) === 0, "no sticker button in the bin pane");

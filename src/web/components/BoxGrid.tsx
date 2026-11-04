@@ -46,11 +46,12 @@ const palette: { size: BinSize; rotated: boolean; label: string; short: string }
 
 /** On the grid every tile is a bin, so "Bin 0042" shows as just "0042"; other names as they are. */
 export const tileName = (name: string) => /^Bin (\d+)$/.exec(name)?.[1] ?? name;
+const EMPTY = "Empty";
 
-/** What a bin tile says: its first item (and how many more), or its ID when empty. */
+/** What a bin tile says: its first item (and how many more), or "Empty". The ID is for the sticker, not for people. */
 export function binLabel(b: Pick<Bin, "name" | "preview" | "itemCount">): string {
   const first = b.preview[0];
-  if (b.itemCount === 0 || first === undefined) return tileName(b.name);
+  if (b.itemCount === 0 || first === undefined) return EMPTY;
   // A part saved with just a photo still shows that the bin isn't empty ("Unnamed item").
   const more = b.itemCount - 1;
   return more > 0 ? `${itemName(first)} +${more}` : itemName(first);
@@ -222,7 +223,7 @@ export function BoxGrid({
         : "";
   // Screen readers get the full name ("Bin 0042"), plus the contents when the tile shows them.
   const ariaName = (b: Bin, label: string) =>
-    stickers ? `${b.name}, ${b.code ? `sticker ${b.code}` : "no sticker"}` : label === tileName(b.name) ? b.name : `${label}, ${b.name}`;
+    stickers ? `${b.name}, ${b.code ? `sticker ${b.code}` : "no sticker"}` : label === EMPTY ? `${b.name}, empty` : `${label}, ${b.name}`;
   const pxSize = (size: BinSize, rotated: boolean, px = cellPx) => {
     const fp = footprint(size, rotated, grid);
     const strip = size === "front_strip";
@@ -294,12 +295,12 @@ export function BoxGrid({
                   role="button"
                   aria-label={`${ariaName(b, label)}, ${binSizeLabels[b.binSize ?? "other"]} at column ${b.slot.x + 1} row ${b.slot.y + 1}${b.binSize === "2x1" ? ", tap to turn" : ""}`}
                 >
-                  <span className="line-clamp-2">{label}</span>
+                  <span className={`line-clamp-2 ${label === EMPTY ? "opacity-70" : ""}`}>{label}</span>
                   {b.binSize === "2x1" && <RotateCw size={12} className="absolute right-0.5 top-0.5 opacity-60" aria-hidden />}
                 </div>
               ) : (
                 <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize)} active:opacity-80`} aria-label={ariaName(b, label)}>
-                  {stickers ? <StickerLabel bin={b} /> : <span className="line-clamp-2">{label}</span>}
+                  {stickers ? <StickerLabel bin={b} /> : <span className={`line-clamp-2 ${label === EMPTY ? "opacity-70" : ""}`}>{label}</span>}
                 </button>
               )}
             </div>
@@ -321,12 +322,12 @@ export function BoxGrid({
               const label = binLabel(b);
               return arranging ? (
                 <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${ariaName(b, label)}, not placed`}>
-                  <span className="line-clamp-2">{label}</span>
+                  <span className={`line-clamp-2 ${label === EMPTY ? "opacity-70" : ""}`}>{label}</span>
                 </div>
               ) : (
                 <div key={b.id} className={`relative rounded-md ${ring(b.id)}`} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined}>
                   <button type="button" onClick={() => onOpen(b)} style={style} className={binClass(b.binSize)} aria-label={ariaName(b, label)}>
-                    {stickers ? <StickerLabel bin={b} /> : <span className="line-clamp-2">{label}</span>}
+                    {stickers ? <StickerLabel bin={b} /> : <span className={`line-clamp-2 ${label === EMPTY ? "opacity-70" : ""}`}>{label}</span>}
                   </button>
                 </div>
               );

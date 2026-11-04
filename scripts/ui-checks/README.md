@@ -11,9 +11,9 @@ script refuses the app's own `data` folder and any folder that isn't empty.
 | Script | What it covers |
 |--------|----------------|
 | `stories-walk.mjs` | The user stories J1 to J14 (all but J10, which needs the camera) on a phone-sized screen; prints taps, scans, typing and screens per story |
-| `fill-check.mjs` | Filling a gridded box: palette, bin pane, photos, rename, stickers asked for, bin page, desktop panel |
+| `fill-check.mjs` | Filling a gridded box: palette, "Empty" tiles, bin pane (no delete), photos, rename, stickers asked for, bin page, desktop panel |
 | `stickers-check.mjs` | The Stickers screen with a fake camera playing a QR code (real decoder, beep and buzz) |
-| `pages-check.mjs` | Rack and tote pages: which sections show, what list rows say |
+| `pages-check.mjs` | Rack and tote pages: which sections show, what list rows say; All places with type chips; moving a place by picking from a list |
 | `inventory-check.mjs` | The Inventory home and Locations screen: list and tiles, filters, pinned on top, paging, Back to the same spot, focused search, phone and desktop nav |
 
 Setup, once per dev copy (needs `ffmpeg`, and a Chromium; Playwright's headless shell works):

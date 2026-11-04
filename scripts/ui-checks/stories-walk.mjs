@@ -228,7 +228,7 @@ await story("J8", "Lend out the power supply, then check it back in", "/", async
 await story("J9", "Fill an empty bin from the grid (name, count, photo)", `/locations/${box1.id}`, async () => {
   const fresh = await api("POST", "/locations", { type: "bin", parentId: box1.id, binSize: "1x1", slot: { x: 0, y: 1 } });
   await page.reload(); await page.waitForTimeout(300);
-  await tap(page.getByRole("button", { name: fresh.name, exact: true }));
+  await tap(page.getByRole("button", { name: `${fresh.name}, empty`, exact: true }));
   const pane = page.getByRole("dialog");
   await pane.waitFor();
   await type(pane.getByLabel("Part name"), "M4 nuts");

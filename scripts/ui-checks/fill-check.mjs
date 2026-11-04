@@ -93,7 +93,7 @@ await page.waitForTimeout(300);
 check((await bins()).length === 3, "dropping a new bin off the grid adds nothing");
 
 // 4. Tap the tall 2×1 to turn it: it's at (1,0) rotated; wide fits at (1,0)-(2,0).
-const tall = page.getByRole("button", { name: /^Bin 0002, 2×1 .*tap to turn$/ });
+const tall = page.getByRole("button", { name: /^Bin 0002, empty, 2×1 .*tap to turn$/ });
 check((await tall.count()) === 1, "placed 2×1 says it can be tapped to turn");
 await tall.click();
 await page.waitForTimeout(400);
@@ -103,7 +103,8 @@ check(b[1].slot.rotated === false, "tapping the 2×1 turned it");
 // 5. Done, then tap Bin 0001: an empty bin opens on "what goes in it".
 await page.getByRole("button", { name: "Done" }).click();
 await page.getByText("Tap a bin to see what's in it or add a part.").waitFor();
-await page.getByRole("button", { name: "Bin 0001", exact: true }).click();
+check((await page.getByRole("button", { name: "Bin 0001, empty", exact: true }).textContent()) === "Empty", "an empty bin's tile says Empty, not its ID");
+await page.getByRole("button", { name: "Bin 0001, empty", exact: true }).click();
 const sheet = () => page.getByRole("dialog", { name: /in Screws box$/ });
 await page.getByRole("dialog", { name: "Bin 0001 in Screws box" }).waitFor();
 await sheet().getByText("Nothing in it yet.").waitFor();
@@ -173,15 +174,18 @@ await scan("BIN0002");
 await page.getByRole("dialog", { name: "Bin 0002 in Screws box" }).waitFor();
 check(true, "scanning a sibling's sticker switches the pane");
 
-// 8. An empty bin can be removed from its pane.
-await page.getByRole("button", { name: "Remove this bin" }).click();
-await toast("Bin 0002 removed");
-await page.getByRole("dialog").waitFor({ state: "detached" });
+// 8. The quick view has no delete; an empty bin is deleted from its own page.
+check((await sheet().getByRole("button", { name: /Remove|Delete/ }).count()) === 0, "the pane has no delete button");
+await sheet().getByRole("link", { name: "Open Bin 0002" }).click();
+await page.getByRole("heading", { name: "Bin 0002" }).waitFor();
+page.once("dialog", (d) => d.accept());
+await page.getByRole("button", { name: "Delete" }).click();
+await page.getByRole("heading", { name: "Screws box" }).waitFor();
 b = await bins();
 check(b.map((x) => x.name).join() === "Bin 0001,Bin 0003", "Bin 0002 removed: " + b.map((x) => x.name).join());
 
 // Photo first, no name: Bin 0003 gets an unnamed part with its photo.
-await page.getByRole("button", { name: "Bin 0003", exact: true }).click();
+await page.getByRole("button", { name: "Bin 0003, empty", exact: true }).click();
 await sheet().getByLabel("Add a photo of it").setInputFiles(`${shots}/part.jpg`);
 await sheet().getByPlaceholder("Name (later is fine)").waitFor();
 await sheet().getByRole("button", { name: "Add", exact: true }).click();
