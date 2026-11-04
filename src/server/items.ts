@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { categories, events, itemHomes, items, locations, photos, pins, stock, units, type StockRow } from "./db/schema";
 import { ApiError } from "./errors";
@@ -10,6 +10,8 @@ import type {
   CheckedOutUnit,
   CreateItem,
   Crumb,
+  Inventory,
+  InventoryQuery,
   ItemDetail,
   ItemSummary,
   LocationItem,
@@ -213,6 +215,68 @@ export function searchItems(db: Db, opts: { q?: string; needsDetails?: boolean; 
   }
   const rows = db.select().from(items).where(and(...conds)).orderBy(desc(items.updatedAt), desc(items.id)).limit(limit).all();
   return summaries(db, rows);
+}
+
+/**
+ * The home screen's list of every part (DEC-026): filtered, sorted, a page at a time, with
+ * pinned parts that pass the filters on top and left out of the pages below.
+ */
+export function listInventory(db: Db, f: InventoryQuery): Inventory {
+  const conds: SQL[] = [eq(items.archived, false)];
+  if (f.needs) conds.push(eq(items.needsDetails, true));
+  if (f.kind) conds.push(eq(items.kind, f.kind));
+  if (f.cat === "none") conds.push(isNull(items.categoryId));
+  else if (f.cat !== undefined) conds.push(eq(items.categoryId, f.cat));
+  if (f.out) conds.push(sql`exists (select 1 from units u where u.item_id = ${items.id} and u.status = 'checked_out')`);
+  if (f.low) conds.push(inArray(items.id, listLow(db).map((i) => i.id)));
+  if (f.stale) conds.push(inArray(items.id, [...new Set(listStale(db).map((e) => e.itemId))]));
+  const match = f.q ? ftsQuery(f.q) : null;
+  if (match) conds.push(sql`${items.id} in (select rowid from items_fts where items_fts match ${match})`);
+  const where = and(...conds)!;
+
+  const pinIds = db
+    .select({ itemId: pins.itemId })
+    .from(pins)
+    .where(isNotNull(pins.itemId))
+    .orderBy(desc(pins.id))
+    .all()
+    .map((r) => r.itemId!);
+  const pinnedRows = pinIds.length ? db.select().from(items).where(and(where, inArray(items.id, pinIds))).all() : [];
+  const byId = new Map(pinnedRows.map((r) => [r.id, r]));
+  const pinned = f.offset === 0 ? summaries(db, pinIds.flatMap((id) => byId.get(id) ?? [])) : [];
+
+  const total = db.select({ n: sql<number>`count(*)` }).from(items).where(where).get()!.n;
+  const rest = pinIds.length ? and(where, notInArray(items.id, pinIds))! : where;
+  const sort = f.sort ?? (match ? "match" : "name");
+  const rows =
+    sort === "match"
+      ? db
+          .select({ item: items })
+          .from(items)
+          .innerJoin(sql`items_fts`, sql`items_fts.rowid = ${items.id}`)
+          .where(and(rest, sql`items_fts match ${match}`))
+          .orderBy(sql`bm25(items_fts, 10.0, 3.0, 1.0)`, asc(items.id))
+          .limit(f.limit)
+          .offset(f.offset)
+          .all()
+          .map((r) => r.item)
+      : db
+          .select()
+          .from(items)
+          .where(rest)
+          .orderBy(
+            ...(sort === "recent"
+              ? [desc(items.updatedAt), desc(items.id)]
+              : sort === "added"
+                ? [desc(items.id)]
+                : // Unnamed parts last, then A to Z ignoring case.
+                  [sql`${items.name} = ''`, sql`${items.name} collate nocase`, asc(items.id)]),
+          )
+          .limit(f.limit)
+          .offset(f.offset)
+          .all();
+  const end = f.offset + rows.length;
+  return { pinned, items: summaries(db, rows), total, next: end < total - pinnedRows.length ? end : null };
 }
 
 /** Summaries in the order given (skipping archived or missing items). */

@@ -1,7 +1,7 @@
 # UX Framework
 
 > **Status:** Draft
-> **Last Updated:** 2026-11-03
+> **Last Updated:** 2026-11-04
 > **Owner:** Colin
 
 ---
@@ -96,6 +96,8 @@ Every item should be able to hold: name, photo(s), category, consumable vs. retu
 | **J12 — Restock** | When I'm about to order parts, I want a list of what's low or out, **so I buy before a build stalls.** | **Built 2026-11-03** (DEC-016) | Notice when it's gone |
 | **J13 — Trust the counts** | When a count is old or has been nudged a lot, I want to be asked to check it, **so the numbers stay believable.** | **Built 2026-11-03** (DEC-015) | n/a |
 | **J14 — Details later** | When I've added parts quickly (a photo, maybe a name), I want to work through them later and fill in what they are, **so quick capture doesn't leave a pile of mystery parts.** | Built in the SPV (F5, DEC-007) | Airtable rows never filled in |
+
+**Where the jobs start (DEC-026, 2026-11-04).** Home is the Inventory: every part with a search bar at the top (J1), filters for what needs attention (J12 running low, J13 counts to check, J14 needs details, checked out for J8), and list or tile views. Browsing by place (J5) starts from the Locations tab. Scanning a sticker (J7) works from any screen.
 
 **Checking the flows against these stories.** `scripts/ui-checks/stories-walk.mjs` walks every story through the real app on a phone-sized screen and counts what each one costs (taps, scans, typing, screens). The latest results and what to change next are in `reports/UI flow review 2026-11-03.md`. Rerun it after a UI change.
 

@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
 import { ftsQuery } from "./items";
-import type { Category, EventView, ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../shared/api";
+import type { Category, EventView, Inventory, ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
 
@@ -261,5 +261,67 @@ describe("pins", () => {
     const after = await ok<{ items: ItemSummary[] }>("DELETE", `/pins/item/${s.id}`);
     expect(after.items.map((i) => i.name)).toEqual(["10k resistor"]);
     expect((await call("PUT", "/pins/item/999")).status).toBe(404);
+  });
+});
+
+describe("inventory", () => {
+  const names = (r: Inventory) => [r.pinned.map((i) => i.name), r.items.map((i) => i.name)];
+
+  it("lists everything A to Z, unnamed last, with pinned parts on top and not repeated", async () => {
+    const b = await bin("Bin");
+    const zip = await item({ name: "zip ties", locationId: b.id, qty: 5 });
+    await item({ name: "Anchors", locationId: b.id, qty: 5 });
+    await item({});
+    await item({ name: "M3 screw", locationId: b.id, qty: 5 });
+    expect(names(await ok<Inventory>("GET", "/inventory"))).toEqual([[], ["Anchors", "M3 screw", "zip ties", ""]]);
+
+    await ok("PUT", `/pins/item/${zip.id}`);
+    const r = await ok<Inventory>("GET", "/inventory");
+    expect(names(r)).toEqual([["zip ties"], ["Anchors", "M3 screw", ""]]);
+    expect([r.total, r.next]).toEqual([4, null]);
+    // A pinned part that doesn't pass the filter isn't shown.
+    expect(names(await ok<Inventory>("GET", "/inventory?q=m3"))).toEqual([[], ["M3 screw"]]);
+  });
+
+  it("pages through the rest, with pinned parts only on the first page", async () => {
+    for (const n of ["A", "B", "C", "D", "E"]) await item({ name: n });
+    const pinned = await item({ name: "P" });
+    await ok("PUT", `/pins/item/${pinned.id}`);
+    const p1 = await ok<Inventory>("GET", "/inventory?limit=2");
+    expect([...names(p1), p1.total, p1.next]).toEqual([["P"], ["A", "B"], 6, 2]);
+    const p2 = await ok<Inventory>("GET", `/inventory?limit=2&offset=${p1.next}`);
+    expect([...names(p2), p2.next]).toEqual([[], ["C", "D"], 4]);
+    const p3 = await ok<Inventory>("GET", `/inventory?limit=2&offset=${p2.next}`);
+    expect([...names(p3), p3.next]).toEqual([[], ["E"], null]);
+  });
+
+  it("filters by category, kind, needs details, low and checked out", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const [c1, c2] = [cats[0]!, cats[1]!];
+    const b = await bin("Bin");
+    await item({ name: "Washer", categoryId: c1.id, locationId: b.id, qty: 0 });
+    await item({ name: "Tape", categoryId: c2.id, locationId: b.id, tracking: "level", level: "plenty" });
+    const psu = await item({ name: "PSU", kind: "returnable", code: "PSU1", locationId: b.id });
+    await item({});
+    await ok("POST", `/units/${psu.unitList[0]!.id}/checkout`, { note: "lent to Sam" });
+
+    const get = async (qs: string) => (await ok<Inventory>("GET", `/inventory?${qs}`)).items.map((i) => i.name);
+    expect(await get(`cat=${c1.id}`)).toEqual(["Washer"]);
+    expect(await get("cat=none")).toEqual(["PSU", ""]);
+    expect(await get("kind=returnable")).toEqual(["PSU"]);
+    expect(await get("needs=1")).toEqual(["PSU", ""]);
+    expect(await get("low=1")).toEqual(["Washer"]);
+    expect(await get("out=1")).toEqual(["PSU"]);
+    expect(await get("stale=1")).toEqual([]);
+    expect(await get("needs=1&kind=returnable")).toEqual(["PSU"]);
+    expect((await call("GET", "/inventory?cat=abc")).status).toBe(400);
+  });
+
+  it("puts best matches first when searching, unless a sort is picked", async () => {
+    await item({ name: "M3 screw" });
+    await item({ name: "Washer for M3 bolts" });
+    const order = async (qs: string) => (await ok<Inventory>("GET", `/inventory?${qs}`)).items.map((i) => i.name);
+    expect(await order("q=m3")).toEqual(["M3 screw", "Washer for M3 bolts"]);
+    expect(await order("q=m3&sort=added")).toEqual(["Washer for M3 bolts", "M3 screw"]);
   });
 });

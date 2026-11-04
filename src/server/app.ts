@@ -21,6 +21,7 @@ import {
   archiveItem,
   countNeedsDetails,
   listCheckedOut,
+  listInventory,
   listLow,
   listStale,
   recentlyUsed,
@@ -48,6 +49,7 @@ import {
   createItemSchema,
   createLocationSchema,
   createUnitSchema,
+  inventoryQuerySchema,
   moveStockSchema,
   moveUnitSchema,
   checkInSchema,
@@ -126,6 +128,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.get("/items", (c) =>
     c.json(searchItems(db, { q: c.req.query("q"), needsDetails: c.req.query("needs") === "1" })),
   );
+  api.get("/inventory", (c) => c.json(listInventory(db, parseBody(inventoryQuerySchema, c.req.query()))));
   api.get("/items/recently-used", (c) => c.json(recentlyUsed(db, Number(c.req.query("days") ?? 30) || 30)));
   api.get("/items/low", (c) => c.json(listLow(db)));
   api.get("/review", (c) => c.json(listStale(db)));

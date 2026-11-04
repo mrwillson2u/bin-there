@@ -41,7 +41,7 @@ export function KitPanel({ kit, scanActive }: { kit: LocationDetail; scanActive:
       if (r.finished) {
         // Leave first and drop the kit's own query, so nothing refetches the deleted kit.
         qc.removeQueries({ queryKey: ["location", kit.id] });
-        navigate("/", { replace: true });
+        navigate("/locations", { replace: true });
         toast.show({ message: `${kit.name} finished: ${r.returned} thing${r.returned === 1 ? "" : "s"} put back home` });
       }
       refresh();

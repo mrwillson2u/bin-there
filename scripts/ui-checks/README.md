@@ -14,6 +14,7 @@ script refuses the app's own `data` folder and any folder that isn't empty.
 | `fill-check.mjs` | Filling a gridded box: palette, bin pane, photos, rename, stickers asked for, bin page, desktop panel |
 | `stickers-check.mjs` | The Stickers screen with a fake camera playing a QR code (real decoder, beep and buzz) |
 | `pages-check.mjs` | Rack and tote pages: which sections show, what list rows say |
+| `inventory-check.mjs` | The Inventory home and Locations screen: list and tiles, filters, pinned on top, paging, Back to the same spot, focused search, phone and desktop nav |
 
 Setup, once per dev copy (needs `ffmpeg`, and a Chromium; Playwright's headless shell works):
 

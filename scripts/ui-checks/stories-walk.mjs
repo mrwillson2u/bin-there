@@ -101,12 +101,12 @@ const story = async (id, title, start, fn) => {
 };
 
 await story("J1", "Find a part and record taking 2", "/", async () => {
-  await tap(page.getByRole("link", { name: "Search parts…" }));
-  await type(page.getByLabel("Search"), "m3");
+  // Home is the inventory, with the search bar at the top (DEC-026).
+  await type(page.getByLabel("Search parts"), "m3");
   await page.getByRole("link", { name: /M3 x 10 socket screws/ }).waitFor();
   const row = await page.getByRole("link", { name: /M3 x 10 socket screws/ }).textContent();
   note(`search row says: "${row}"`);
-  const lastCrumb = page.getByRole("link", { name: /M3 x 10 socket screws/ }).locator('[title] > span').last();
+  const lastCrumb = page.getByRole("link", { name: /M3 x 10 socket screws/ }).locator("[title]").first().locator(":scope > span").last();
   note(`the bin at the end of the path is fully shown: ${await lastCrumb.evaluate((e) => e.scrollWidth <= e.clientWidth)} ("${await lastCrumb.textContent()}")`);
   await snap("J1-search");
   await tap(page.getByRole("link", { name: /M3 x 10 socket screws/ }));
@@ -174,6 +174,7 @@ await story("J3b", "Move a bin to another gridded box", "/", async () => {
 });
 
 await story("J4", "Start a project kit and pull a part into it", "/", async () => {
+  await tap(page.getByRole("link", { name: "Locations" }).first());
   await tap(page.getByRole("link", { name: "Start a project kit" }));
   await type(page.getByPlaceholder(/Weather station/), "Weather station");
   await tap(page.getByRole("button", { name: /^Create|^Add|^Save/ }).first());
@@ -188,7 +189,8 @@ await story("J4", "Start a project kit and pull a part into it", "/", async () =
 });
 
 await story("J5", "Browse to a box and look in a bin", "/", async () => {
-  await tap(page.getByRole("link", { name: /Rack A/ }));
+  await tap(page.getByRole("link", { name: "Locations" }).first());
+  await tap(page.getByRole("link", { name: /^Rack A/ }));
   await tap(page.getByRole("link", { name: /Grid box 1/ }));
   await snap("J5-box");
   await tap(page.getByRole("button", { name: "M2 nuts +1, Bin 0003" }));
@@ -215,8 +217,9 @@ await story("J8", "Lend out the power supply, then check it back in", "/", async
   await type(page.getByLabel("Note"), "lent to Sam");
   await tap(page.getByRole("button", { name: "Just mark out" }));
   await toast("Checked out");
-  await tap(page.getByRole("link", { name: "Home" }).first());
-  await tap(page.getByRole("link", { name: /checked out/ }));
+  await tap(page.getByRole("link", { name: "Inventory" }).first());
+  await tap(page.getByRole("button", { name: /^Checked out/ }));
+  await tap(page.getByRole("link", { name: /Where they went/ }));
   await snap("J8-out");
   await tap(page.getByRole("button", { name: "Check in" }));
   await toast("Checked back in");
@@ -257,14 +260,15 @@ await story("J11b", "Part put in the wrong bin: move it from the box view", `/lo
 });
 
 await story("J12", "See what's running low", "/", async () => {
-  await tap(page.getByRole("link", { name: /running low/ }));
-  await page.getByRole("heading", { name: "Running low" }).waitFor();
+  await tap(page.getByRole("button", { name: /^Running low/ }));
+  await page.getByText(/Marked low or out/).waitFor();
   await snap("J12-low");
   note(`can change a level from the list: ${(await page.getByRole("radiogroup").count()) > 0}`);
 });
 
 await story("J13", "Check counts that may be off", "/", async () => {
-  await tap(page.getByRole("link", { name: /worth checking/ }));
+  await tap(page.getByRole("button", { name: /^Counts to check/ }));
+  await tap(page.getByRole("link", { name: /Check them one by one/ }));
   await page.getByRole("heading", { name: "Counts worth checking" }).waitFor();
   await snap("J13-review");
   await tap(page.getByRole("button", { name: /^Still/ }).first());
@@ -272,11 +276,12 @@ await story("J13", "Check counts that may be off", "/", async () => {
 });
 
 await story("J14", "Fill in details for quick-added parts", "/", async () => {
-  const banner = page.getByRole("link", { name: /need.? details/ });
-  note(`home says: "${await banner.textContent()}"`);
-  await tap(banner);
+  const filter = page.getByRole("button", { name: /^Needs details/ });
+  note(`home's filter says: "${await filter.textContent()}"`);
+  await tap(filter);
   await snap("J14-queue");
-  await tap(page.getByRole("link", { name: /M2 washers/ }));
+  await tap(page.getByRole("link", { name: /^M2 washers/ }));
+  await page.getByRole("heading", { name: "M2 washers" }).waitFor();
   await tap(page.getByRole("link", { name: /Needs details/ }));
   await snap("J14-edit");
   await tap(page.getByRole("button", { name: "Save" }));
@@ -285,8 +290,8 @@ await story("J14", "Fill in details for quick-added parts", "/", async () => {
   note(`Save returns to: ${new URL(page.url()).pathname}`);
   await page.goBack(); await page.waitForTimeout(300);
   note(`then one Back lands on: ${new URL(page.url()).pathname}${new URL(page.url()).search}`);
-  const left = await page.getByRole("link", { name: /need.? details/ }).count();
-  note(`next item in the queue reachable from where Save lands: ${left > 0 ? "via Home banner" : "no"}`);
+  const left = await page.getByRole("main").getByRole("listitem").count();
+  note(`after one Back, the rest of the queue is on screen: ${left} part${left === 1 ? "" : "s"}`);
 });
 
 await browser.close();

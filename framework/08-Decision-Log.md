@@ -672,6 +672,48 @@ The flow review also fixed:
 
 **Consequences:** `BinSheet.tsx` asks before assigning; new `PlacePath` in `ui.tsx`; `PickLocation` takes `near`; `ItemEditPage` returns with `navigate(-1)`. The story walk and the earlier browser checks live in `scripts/ui-checks/`. Proposals from the review that aren't built yet are listed in the report, starting with what "needs details" should mean.
 
+### DEC-026: Home is the inventory; Locations gets its own screen; Search is results only
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Home was the garage's list of places, with banners for what needed attention and pinned things on top. Colin asked for home to be a list of every part instead, with a search bar and filters, shown as a list (name, small photo, details across the row) or as tiles (big photo, a few details under it), with pinned parts on top. The list of places should be its own screen in the side bar, and Search should stay as a focused page that lists only what matches.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep places on home, add an Inventory tab | Browsing by place stays one tap | Finding a part (J1, the most common job) stays a tap further away |
+| **Inventory as home, Locations as a tab** | Search is right at the top of home; every part is browsable and filterable; the attention banners become filters that show the parts | Getting to a place by browsing costs one more tap (scanning its sticker is unchanged) |
+
+**Decision:**
+- **Inventory (home, `/`).** A search bar, then filter chips, then the list or tiles. Pinned parts sit on top and keep their − / +.
+  - **Filter chips.** Needs details, Running low, Checked out and Counts to check each show their count and appear only when there's something to show. They're followed by Category and Kind menus. Chips that are on move to the front, and a Clear chip appears.
+  - **Sorting.** Sort by name, last changed, or newest first. Searching sorts by best match.
+  - **Views.** List or tiles, remembered on the device.
+  - **Address.** Filters are kept in the page address, so Back returns to the same filtered list.
+  - **Loading.** Pages load 60 at a time as you scroll.
+  - **Filter notes.** Running low offers "Copy as a shopping list". Checked out links to where things went. Counts to check links to the one-by-one review.
+  - **Phone rows.** "Needs details" shows as a small pencil next to the name, the same pencil as on its filter chip, so the path keeps its room.
+- **Locations (`/locations`).** What home used to be: the site's places, pinned places, project kits, add a location or site, and the theme choice.
+- **Search (`/search`).** Results only. Nothing is listed until you type.
+- **Navigation.**
+  - **Phone bar:** Inventory, Locations, Scan, Activity, Put-back. On the phone, the search bar on Inventory is the search.
+  - **Side bar:** Inventory, Locations, Search, Put-back, Activity.
+- **Old address.** `/low` now opens Inventory with Running low on.
+
+**Rationale:** Finding a part is the job the app lives or dies on (J1). Putting the search and every part on home makes it zero taps away. Filters with counts say what needs attention and show the parts in one place, instead of four banners that each opened a different screen.
+
+**Consequences:**
+- **New endpoint.** `GET /api/inventory` filters, sorts and pages, and returns pinned parts separately (`listInventory` in `items.ts`).
+- **Pages.** `HomePage.tsx` became `LocationsPage.tsx`. New `InventoryPage.tsx`. `LowStockPage.tsx` removed.
+- **Pins.** Pinned places moved to Locations.
+- **Tap costs.** The story walk: J1 went from 4 taps to 3. J4, J5, J8 and J13 each cost one more tap, to reach the Locations tab or a filter.
+
 ---
 
 ## Decision Index
@@ -703,6 +745,7 @@ The flow review also fixed:
 | DEC-023 | Bin IDs are global and fixed-width (Bin 0001) | Product | Accepted | 2026-11-03 |
 | DEC-024 | Screens lead with what's there; sticker codes stay out of sight | UX | Accepted (pane scan changed by DEC-025) | 2026-11-03 |
 | DEC-025 | A scan never changes anything without saying so; flow review fixes | UX | Accepted | 2026-11-03 |
+| DEC-026 | Home is the inventory; Locations gets its own screen; Search is results only | UX | Accepted | 2026-11-04 |
 
 ---
 

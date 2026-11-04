@@ -102,6 +102,11 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
 - React 19, React Router, TanStack Query, Tailwind v4. `api.ts` is a thin `fetch` wrapper that
   throws `RequestError`; pages use `useQuery`/`useMutation` and invalidate queries after writes.
 - `App.tsx` holds the routes and the shell (bottom bar on phones, sidebar at `lg`).
+- Home (`/`) is `InventoryPage.tsx` (DEC-026): every part from `GET /api/inventory` via
+  `useInfiniteQuery` (key `["items", "inventory", …]`, so any `["items"]` invalidation refreshes it),
+  filters kept in the URL, list or tile view in `localStorage`, pinned parts on top with − / +.
+  `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits.
+  `SearchPage.tsx` lists only matches.
 - **Scanning** (`scan/`): `ScanProvider` installs one capture-phase `keydown` listener for the
   whole app. `detector.ts` (pure, unit-tested) tells scanner input from typing: a `Ctrl+B` prefix
   from the hardware scanner puts it in scan mode and swallows keys until Enter; a timing-burst

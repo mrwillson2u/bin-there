@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { Minus, Plus } from "lucide-react";
-import { levelLabels, stockLevels, type LocationDetail, type Pins, type StockLevel, type StockResult, type TrackingMode } from "../../shared/api";
+import { levelLabels, stockLevels, type Inventory, type ItemSummary, type LocationDetail, type Pins, type StockLevel, type StockResult, type TrackingMode } from "../../shared/api";
 import { api } from "../api";
 import { useToast } from "./Toast";
 import { inputClass } from "./ui";
@@ -15,7 +15,7 @@ type Props = {
   qty: number | null;
   level: StockLevel | null;
   stale?: boolean;
-  /** Smaller controls for lists (e.g. pinned parts on Home). */
+  /** Smaller controls for lists (e.g. pinned parts on Inventory). */
   compact?: boolean;
 };
 
@@ -30,7 +30,12 @@ export function useStockMutation() {
       onSuccess: (r: StockResult, vars: V) => {
         qc.setQueryData(["item", r.item.id], r.item);
         // Update other screens showing this item right away, so counts don't flicker back while they refetch.
-        qc.setQueryData<Pins>(["pins"], (old) => old && { ...old, items: old.items.map((i) => (i.id === r.item.id ? r.item : i)) });
+        const swap = (i: ItemSummary) => (i.id === r.item.id ? r.item : i);
+        qc.setQueryData<Pins>(["pins"], (old) => old && { ...old, items: old.items.map(swap) });
+        qc.setQueriesData<InfiniteData<Inventory>>(
+          { queryKey: ["items", "inventory"] },
+          (old) => old && { ...old, pages: old.pages.map((p) => ({ ...p, pinned: p.pinned.map(swap), items: p.items.map(swap) })) },
+        );
         qc.setQueriesData<LocationDetail>({ queryKey: ["location"] }, (loc) => {
           if (!loc?.items) return loc;
           return {

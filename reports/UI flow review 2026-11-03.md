@@ -70,6 +70,24 @@ Counts are after the fixes below. A "tap" includes pressing Enter to submit.
 7. **Small consistency items.** The part page uses a "Take photo" button where the bin pane uses
    the photo spot. The arrow-only Move button on a stickered unit doesn't say what it does.
 
+## Update 2026-11-04: Inventory as home (DEC-026)
+
+Home became the Inventory (every part, a search bar and filters), and the list of places moved
+to a Locations tab. Rerunning the walk after that change:
+
+| Story | Before | After | Why |
+|-------|--------|-------|-----|
+| J1 Find a part, record taking 2 | 4 taps | 3 taps | The search bar is on home, no tap to open Search |
+| J4 Start a project kit | 5 taps | 6 taps | "Start a project kit" is on Locations |
+| J5 Browse to a box, look in a bin | 3 taps | 4 taps | Browsing starts from the Locations tab |
+| J8 Lend out and check in | 5 taps | 6 taps | Home's "checked out" banner is a filter now, with a link to where things went |
+| J12 See what's running low | 1 tap | 1 tap | A filter on Inventory now, with "Copy as a shopping list" |
+| J13 Check counts that may be off | 2 taps | 3 taps | A filter, then "Check them one by one" |
+| J14 Details later | 4 per part | 4 per part | Back after Save now lands on the filtered needs-details list, with the rest of it on screen |
+
+Scanning a sticker still opens the place or part from any screen, so the extra tap only
+applies when browsing. `inventory-check.mjs` covers the new screens.
+
 ## How to rerun
 
 See `scripts/ui-checks/README.md`. Run the story walk after any UI change and compare the counts with the table above.

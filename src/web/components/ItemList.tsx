@@ -13,8 +13,10 @@ export function QtyBadge({ qty, level, units, tracking }: { qty: number | null; 
   return <Badge tone="warn">not counted</Badge>;
 }
 
-function ItemTotal({ item: i }: { item: ItemSummary }) {
-  if (i.totalQty !== null) return <span className="font-mono text-lg font-semibold tabular-nums">{i.totalQty}</span>;
+/** An item's total across its places: a count, its lowest level, or "not counted". */
+export function ItemTotal({ item: i, small }: { item: ItemSummary; small?: boolean }) {
+  const num = small ? "font-mono text-sm font-semibold tabular-nums text-text" : "font-mono text-lg font-semibold tabular-nums";
+  if (i.totalQty !== null) return <span className={num}>{i.totalQty}</span>;
   if (i.tracking === "level") {
     const levels = i.places.map((p) => p.level).filter((l): l is StockLevel => l !== null);
     // With several places, show the lowest level.

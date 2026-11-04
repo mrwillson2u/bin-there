@@ -7,18 +7,18 @@ import { api } from "../api";
 import { ItemList } from "../components/ItemList";
 import { inputClass } from "../components/ui";
 
+/** Focused search (DEC-026): only the parts that match what you type. Browsing is on Inventory. */
 export function SearchPage() {
   const [params, setParams] = useSearchParams();
-  const needs = params.get("needs") === "1";
   const [text, setText] = useState(params.get("q") ?? "");
   const [q, setQ] = useState(text);
 
   // Search as you type, without a request per keystroke.
   useEffect(() => {
     const t = setTimeout(() => {
-      setQ(text);
+      setQ(text.trim());
       setParams((p) => {
-        if (text) p.set("q", text);
+        if (text.trim()) p.set("q", text);
         else p.delete("q");
         return p;
       }, { replace: true });
@@ -27,18 +27,11 @@ export function SearchPage() {
   }, [text, setParams]);
 
   const { data, isFetching } = useQuery({
-    queryKey: ["items", { q, needs }],
-    queryFn: () => api<ItemSummary[]>(`/items?q=${encodeURIComponent(q)}${needs ? "&needs=1" : ""}`),
+    queryKey: ["items", { q }],
+    queryFn: () => api<ItemSummary[]>(`/items?q=${encodeURIComponent(q)}`),
+    enabled: q !== "",
     placeholderData: keepPreviousData,
   });
-  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: () => api<{ needsDetails: number }>("/stats") });
-
-  const toggleNeeds = () =>
-    setParams((p) => {
-      if (needs) p.delete("needs");
-      else p.set("needs", "1");
-      return p;
-    }, { replace: true });
 
   return (
     <div className="flex flex-col gap-3 lg:mx-auto lg:w-full lg:max-w-3xl">
@@ -62,19 +55,14 @@ export function SearchPage() {
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={toggleNeeds}
-          aria-pressed={needs}
-          className={`min-h-9 rounded-full border px-3 text-sm ${needs ? "border-warn bg-warn/15 text-warn" : "border-border text-muted"}`}
-        >
-          Needs details{stats ? ` (${stats.needsDetails})` : ""}
-        </button>
-        <span className="flex-1" />
-        {isFetching && <span className="text-[13px] text-muted">Searching…</span>}
-      </div>
-      {!q && !needs && <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Recently changed</h2>}
-      {data && <ItemList items={data} empty={needs ? "Nothing needs details." : q ? `Nothing matches “${q}”.` : "No items yet. Scan a sticker or tap Add item."} />}
+      {!q ? (
+        <p className="px-1 py-6 text-center text-muted">Type a name, category, supplier or note. Every word must match.</p>
+      ) : (
+        <>
+          {isFetching && <span className="self-end text-[13px] text-muted">Searching…</span>}
+          {data && <ItemList items={data} empty={`Nothing matches “${q}”.`} />}
+        </>
+      )}
     </div>
   );
 }

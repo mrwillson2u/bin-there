@@ -270,6 +270,41 @@ export type ReviewEntry = {
 
 export type Stats = { needsDetails: number; checkedOut: number; stale: number; low: number };
 
+// ── Inventory: the home screen's list of every part ─────────────────────────
+
+export const inventorySorts = ["name", "recent", "added"] as const;
+export type InventorySort = (typeof inventorySorts)[number];
+export const inventorySortLabels: Record<InventorySort, string> = { name: "Name", recent: "Last changed", added: "Newest first" };
+
+const flag = z.literal("1").optional().transform((v) => v === "1");
+
+/** GET /inventory query. Every filter narrows the list; with `q` and no `sort`, best matches come first. */
+export const inventoryQuerySchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  /** A category id, or "none" for parts with no category. */
+  cat: z.union([z.literal("none"), z.coerce.number().int().positive()]).optional(),
+  kind: z.enum(itemKinds).optional(),
+  needs: flag,
+  low: flag,
+  out: flag,
+  stale: flag,
+  sort: z.enum(inventorySorts).optional(),
+  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(200).default(60),
+});
+export type InventoryQuery = z.infer<typeof inventoryQuerySchema>;
+
+export type Inventory = {
+  /** Pinned parts that pass the filters, newest pin first. Only on the first page. */
+  pinned: ItemSummary[];
+  /** This page of everything else (pinned parts are never repeated here). */
+  items: ItemSummary[];
+  /** How many parts pass the filters, pinned ones included. */
+  total: number;
+  /** Offset of the next page, or null at the end. */
+  next: number | null;
+};
+
 // ── Project kits (J4, DEC-019) ───────────────────────────────────────────────
 
 /** An active project kit: a `project` location, wherever it sits in the tree. */

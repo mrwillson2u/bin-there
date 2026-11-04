@@ -1,7 +1,7 @@
 # Product Requirements Document
 
 > **Status:** Draft
-> **Last Updated:** 2026-11-02
+> **Last Updated:** 2026-11-04
 > **Owner:** Colin
 
 ---
@@ -28,7 +28,7 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | **F8. Backups** | Automated database + photo backup | Must-have | Nightly backup runs; restore tested once |
 | **F9. Bulk move** (J3) | Move a whole container (with everything in it) or a selected group of items | Should-have | Moving a box moves all of its bins and contents in one action |
 | **F12. Sites** (added 2026-11-03) | More than one place to keep things (garage, basement, office…) | Should-have | Sites are the top level; everything lives in a site; paths and search show the site; with one site, Home shows it directly (DEC-010) |
-| **F11. Pins** (added 2026-11-03) | Pin parts or containers you're actively working with; they show at the top of Home | Should-have | Pin/unpin from any item or location screen; pinned things are one tap from Home, newest first; pinned parts have their own − / + on Home (for their home location); pins are the same on every device |
+| **F11. Pins** (added 2026-11-03) | Pin parts or containers you're actively working with; they show at the top of Inventory and Locations | Should-have | Pin/unpin from any item or location screen; pinned parts sit on top of Inventory (home) and pinned places on top of Locations, newest first (DEC-026); pinned parts have their own − / + in the list (for their home location); pins are the same on every device |
 | **F13. Find it in put-back** (added 2026-11-03) | For sticker-less parts you can't place: search by name/value with photos and home paths, plus a "Recently taken out" list (parts with − in the last 30 days) | Should-have | Search or tap a recent part → its home → one tap puts it back |
 | **F10. Check out / check in** (J8) | Returnables checked out to a location/project and back, with history | Should-have | "Where are all my 12 V supplies?" shows each unit's current place and last use |
 
@@ -48,7 +48,7 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 
 | Feature / Idea | Added | Why It Can Wait |
 |----------------|-------|-----------------|
-| ~~**Project kits** (J4)~~ | 2026-11-02 | **Built 2026-11-03** (DEC-019): kits on Home; pull parts in by search or by scanning a part or bin; − for what's used up; Return / Finish send the rest home |
+| ~~**Project kits** (J4)~~ | 2026-11-02 | **Built 2026-11-03** (DEC-019): kits on Locations (Home until DEC-026); pull parts in by search or by scanning a part or bin; − for what's used up; Return / Finish send the rest home |
 | ~~**Visual grid view** (J5) for gridded organizer boxes~~ | 2026-11-02 | **Built 2026-11-03** (DEC-014): the box screen draws the 6 × 4 grid + front strip with bins in their colors; Arrange mode places them by drag-and-drop with snapping. **2026-11-03** (DEC-020): new bins are dragged in from a palette, numbered automatically, show their contents on the tile, and a tap opens a sheet to add parts without leaving the box. Not yet: a way to set a different grid size per box (data supports it) |
 | **Viewer access** for spouse / friends (read-only search + location), via accounts or a lighter mechanism | 2026-11-02 | Owner-only use proves the app first |
 | **Pi garage station**: kiosk browser, USB scanner, Put-back mode as default. Option: put the HW0006 Pro in **USB-COM (virtual serial) mode** and read it via Web Serial in Chromium, so scans never pass through keyboard input at all | 2026-11-02 | Setup only, no app rework (DEC-002) |
@@ -59,7 +59,7 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | ~~**Low-stock / shopping list**~~ | 2026-11-02 | **Built 2026-11-03** (DEC-016): Home shows "N running low" → the list, with Copy as text. Exact items get a per-item low-stock warning on the edit screen |
 | **"Do I have enough for N boards?"** (BOM check against exact-mode items) | 2026-11-02 | Depends on exact counts being trusted first |
 | **Lending tracking** (who borrowed what) | 2026-11-02 | Needs viewer accounts first |
-| ~~**Light mode** theme~~ | 2026-11-02 | **Built 2026-11-03** (DEC-018): Device / Dark / Light at the bottom of Home |
+| ~~**Light mode** theme~~ | 2026-11-02 | **Built 2026-11-03** (DEC-018): Device / Dark / Light at the bottom of Locations (Home until DEC-026) |
 | Look at Homebox / InvenTree / PartKeepr for ideas | 2026-11-02 | Inspiration only |
 | ~~**Purge old deletions**~~ | 2026-11-03 | **Built 2026-11-03** (DEC-017): items deleted over 30 days ago are removed for good (photos, stock, units, history, row) nightly and on start. Decided against a second, real delete button (see DEC-013) |
 | ~~**Delete / archive** items and locations~~ | 2026-11-03 | **Built 2026-11-03** (DEC-013): soft delete from the item edit screen (undoable) and from an empty location's screen. Was missing from the SPV; found in the post-ship audit |
@@ -185,3 +185,4 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | 2026-11-03 | AI | Post-ship: Stickers reworked to tap a bin, aim, tap Scan, with brackets, beep and buzz, move-and-undo for mix-ups (DEC-022); bin IDs global and fixed-width, Bin 0001 (DEC-023) |
 | 2026-11-03 | AI | Post-ship: screens lead with what's there (DEC-024). The bin sheet shows the part's photo, name and count, with adding behind "Add another part" once a bin has something; sticker codes only on a location's own page; location pages put contents first and sticker/move/delete at the bottom; rename a location from its page; desktop opens a bin beside the grid |
 | 2026-11-03 | AI | Post-ship: user stories J9 to J14 added and all fourteen walked through the app (`reports/UI flow review 2026-11-03.md`); a scan in the bin pane asks before putting a sticker on (DEC-025); paths keep the bin visible; pick-from-list opens beside the part; saving details goes back |
+| 2026-11-04 | AI | Post-ship: home is the Inventory, every part with search, filters (needs details, running low, checked out, counts to check, category, kind), sort, list or tiles, pinned parts on top; the old home is the Locations screen; Search lists only matches (DEC-026) |

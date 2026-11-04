@@ -225,8 +225,8 @@ await page.goto(`${base}/locations/${b[0].id}`);
 await page.getByRole("region", { name: "Manage Bin 0001" }).getByText("BIN0001").waitFor();
 check((await page.getByRole("button", { name: "Replace sticker" }).count()) === 1, "the bin's own page shows its sticker and 'Replace sticker'");
 
-// Home's location list says what's inside, not sticker status.
-await page.goto(`${base}/`);
+// The Locations screen's list says what's inside, not sticker status.
+await page.goto(`${base}/locations`);
 const row = page.getByRole("link", { name: /Screws box/ });
 const rowText = await row.textContent();
 check(rowText.includes("Gridded box · 3 inside") && !rowText.includes("no sticker"), "location row: " + rowText);

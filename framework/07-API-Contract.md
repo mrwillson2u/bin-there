@@ -1,7 +1,7 @@
 # API Contract
 
 > **Status:** Draft
-> **Last Updated:** 2026-11-02
+> **Last Updated:** 2026-11-04
 > **Owner:** Colin
 
 ---
@@ -56,7 +56,8 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 ### Items
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/items?q=&category=&needs_details=` | Search (FTS) with total qty + every location path |
+| GET | `/api/inventory?q=&cat=&kind=&needs=1&low=1&out=1&stale=1&sort=&offset=&limit=` | The Inventory screen (DEC-026). Every filter narrows: `cat` is a category id or `none`; `kind` is `consumable`/`returnable`; `needs`, `low` (as `/items/low`), `out` (a unit checked out), `stale` (as `/review`). `sort` is `name` (default; unnamed last), `recent` or `added`; with `q` and no `sort`, best match. Returns `{ pinned, items, total, next }`: pinned parts that pass the filters (first page only, newest pin first), then a page of the rest (`limit` default 60, max 200), `total` counting both, `next` the next offset or null |
+| GET | `/api/items?q=&needs=1` | Search (FTS) with total qty + every location path; without `q`, recently changed. Used by the Search page, put-back and project kits |
 | GET | `/api/items/recently-used?days=30` | Items with a non-undone "use" in the last N days, most recent first (put-back suggestions) |
 | GET | `/api/items/low` | The shopping list: level items low/out anywhere, exact items at zero or at/below their `lowThreshold`; worst first (DEC-016) |
 | GET | `/api/review` | Stale exact counts (`ReviewEntry[]`: item, location path, qty, last counted, changes since), in walking order by location (DEC-015) |
@@ -67,7 +68,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
 | POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |
 | GET | `/api/photos/:file` | Serve a stored photo (immutable cache) |
-| GET | `/api/stats` | `{ needsDetails, checkedOut, stale, low }` counts for the home screen banners |
+| GET | `/api/stats` | `{ needsDetails, checkedOut, stale, low }` counts for the Inventory filter chips |
 
 ### Stock actions (each writes an Event in the same transaction and returns `{ eventId, item }` so the client can offer Undo)
 | Method | Path | Body | Purpose |

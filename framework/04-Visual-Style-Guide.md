@@ -8,7 +8,7 @@
 
 ## Overview
 
-**Clean and minimal, dark mode first.** A quiet, near-black interface where content (part names, quantities, location paths, photos) stands out. One accent color for actions. Big, unmistakable tap targets for +/− and scan. It must read clearly on a phone in garage lighting. **Light mode** shipped 2026-11-03 (DEC-018) as a token swap: `html[data-theme="light"]` in `src/web/index.css` overrides the color tokens; the bin colors stay the same because they match the real bins. The choice (Device / Dark / Light) is at the bottom of Home, stored per device; the default is dark.
+**Clean and minimal, dark mode first.** A quiet, near-black interface where content (part names, quantities, location paths, photos) stands out. One accent color for actions. Big, unmistakable tap targets for +/− and scan. It must read clearly on a phone in garage lighting. **Light mode** shipped 2026-11-03 (DEC-018) as a token swap: `html[data-theme="light"]` in `src/web/index.css` overrides the color tokens; the bin colors stay the same because they match the real bins. The choice (Device / Dark / Light) is at the bottom of the Locations screen (DEC-026), stored per device; the default is dark.
 
 **Tone words:** calm, precise, fast, utilitarian. No decoration that costs taps or bytes.
 

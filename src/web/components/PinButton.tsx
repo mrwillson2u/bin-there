@@ -4,7 +4,7 @@ import type { Pins } from "../../shared/api";
 import { api } from "../api";
 import { useToast } from "./Toast";
 
-/** Pin an item or location to the top of the Garage screen (F11). */
+/** Pin a part to the top of Inventory, or a place to the top of Locations (F11, DEC-026). */
 export function PinButton({ kind, id, pinned }: { kind: "item" | "location"; id: number; pinned: boolean }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -13,7 +13,8 @@ export function PinButton({ kind, id, pinned }: { kind: "item" | "location"; id:
     onSuccess: (pins) => {
       qc.setQueryData(["pins"], pins);
       qc.invalidateQueries({ queryKey: [kind, id] });
-      toast.show({ message: pinned ? "Unpinned" : "Pinned to Home" });
+      if (kind === "item") qc.invalidateQueries({ queryKey: ["items"] });
+      toast.show({ message: pinned ? "Unpinned" : `Pinned to the top of ${kind === "item" ? "Inventory" : "Locations"}` });
     },
     onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
   });
