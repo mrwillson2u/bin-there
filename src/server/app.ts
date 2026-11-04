@@ -16,7 +16,9 @@ import {
   listLocations,
   placeBin,
   putBackBin,
-  setPositions,
+  placeInRack,
+  setRackLabels,
+  setRackSize,
   takeOutBin,
   updateLocation,
 } from "./locations";
@@ -66,7 +68,9 @@ import {
   putBackSchema,
   recountSchema,
   setHomesSchema,
-  setPositionsSchema,
+  rackLabelsSchema,
+  rackSizeSchema,
+  rackSlotSchema,
   takeOutSchema,
   updateItemSchema,
   updateLocationSchema,
@@ -111,10 +115,10 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     return c.json(listLocations(db, parent ? Number(parent) : null));
   });
   api.get("/locations/:id", (c) => c.json(getLocation(db, intParam(c.req.param("id")))));
-  api.put("/locations/:id/positions", async (c) => {
-    const input = parseBody(setPositionsSchema, await c.req.json());
-    return c.json(setPositions(db, intParam(c.req.param("id")), input.positions));
-  });
+  // Racks and shelves with positions (DEC-034).
+  api.put("/locations/:id/rack-size", async (c) => c.json(setRackSize(db, intParam(c.req.param("id")), parseBody(rackSizeSchema, await c.req.json()).size)));
+  api.put("/locations/:id/rack-labels", async (c) => c.json(setRackLabels(db, intParam(c.req.param("id")), parseBody(rackLabelsSchema, await c.req.json()).labels)));
+  api.put("/locations/:id/rack-slot", async (c) => c.json(placeInRack(db, intParam(c.req.param("id")), parseBody(rackSlotSchema, await c.req.json()).slot)));
   api.post("/locations/:id/take-out", async (c) => {
     const input = parseBody(takeOutSchema, await c.req.json().catch(() => ({})));
     return c.json(takeOutBin(db, intParam(c.req.param("id")), input));

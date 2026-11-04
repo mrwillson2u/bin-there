@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, ListOrdered, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
-import { locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType } from "../../shared/api";
+import { LayoutGrid, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
+import { holdsPositions, locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType } from "../../shared/api";
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
 import { useWide } from "../lib/useWide";
@@ -17,6 +17,7 @@ import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
 import { PickLocation } from "../components/PickLocation";
 import { OutBanner, TakeOutForm } from "../components/TakeOut";
+import { RackSetup, RackView } from "../components/RackView";
 import { PinButton } from "../components/PinButton";
 import { BinChip, Breadcrumbs, Button, Card, inputClass, PositionTag } from "../components/ui";
 
@@ -50,9 +51,7 @@ export function LocationPage() {
   const [openBin, setOpenBin] = useState<LocationSummary | null>(null);
   // Sticker mode: the full-screen camera + grid for labelling bins (DEC-022).
   const [labelling, setLabelling] = useState(false);
-  /** Editing the name, and where it sits in its parent (DEC-033). */
-  const [edit, setEdit] = useState<{ name: string; position: string } | null>(null);
-  const [positioning, setPositioning] = useState(false);
+  const [edit, setEdit] = useState<{ name: string } | null>(null);
   const toast = useToast();
 
   const refresh = () => {
@@ -80,10 +79,10 @@ export function LocationPage() {
     onError: fail,
   });
   const rename = useMutation({
-    mutationFn: (body: { name: string; position?: string | null }) => api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body }),
-    onSuccess: (l, body) => {
+    mutationFn: (body: { name: string }) => api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body }),
+    onSuccess: (l) => {
       setEdit(null);
-      toast.show({ message: body.name !== loc?.name ? `Renamed to ${l.name}` : "Saved" });
+      toast.show({ message: `Renamed to ${l.name}` });
       refresh();
     },
     onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
@@ -154,8 +153,6 @@ export function LocationPage() {
   if (!loc) return <p className="text-muted">Loading…</p>;
 
   const isGrid = loc.type === "gridded_box";
-  // A position means something inside a rack, shelf, tote…; not for a site, or a bin on a box's grid.
-  const canPosition = loc.parentType !== null && !(loc.type === "bin" && loc.parentType === "gridded_box");
   const bins = loc.children.filter((c) => c.type === "bin");
   const others = isGrid ? loc.children.filter((c) => c.type !== "bin") : loc.children;
   const showItems = loc.items.length > 0 || (!isGrid && !holdsPlaces(loc.type));
@@ -196,18 +193,15 @@ export function LocationPage() {
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
         <h2 className={`${sectionTitle} flex-1`}>Inside</h2>
-        {/* Number what's inside the way it's marked, e.g. a rack's slots (DEC-033). */}
-        {others.length > 0 && !positioning && (
-          <button type="button" onClick={() => setPositioning(true)} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
-            <ListOrdered size={18} /> Positions
-          </button>
-        )}
-        {canAddInside && !positioning && addInside}
+        {canAddInside && addInside}
       </div>
-      {positioning ? (
-        <PositionsEditor parent={loc} places={others} onDone={() => setPositioning(false)} />
+      {loc.rack ? (
+        <RackView rack={loc} />
       ) : (
-        <LocationList locations={others} empty="Nothing inside yet." />
+        <>
+          {holdsPositions(loc.type) && <RackSetup rack={loc} />}
+          <LocationList locations={others} empty="Nothing inside yet." />
+        </>
       )}
     </section>
   );
@@ -295,30 +289,19 @@ export function LocationPage() {
             className="flex flex-wrap items-center gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              if (edit.name.trim()) rename.mutate({ name: edit.name.trim(), ...(canPosition ? { position: edit.position.trim() || null } : {}) });
+              if (edit.name.trim()) rename.mutate({ name: edit.name.trim() });
             }}
           >
-            {canPosition && (
-              <input
-                value={edit.position}
-                onChange={(e) => setEdit({ ...edit, position: e.target.value })}
-                className={`${inputClass} w-20 text-center font-mono`}
-                aria-label={`Position in ${loc.path.at(-2)?.name ?? "its place"}`}
-                placeholder="#"
-                maxLength={20}
-              />
-            )}
-            <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className={`${inputClass} min-w-0 flex-1`} aria-label="Name" autoFocus />
+            <input value={edit.name} onChange={(e) => setEdit({ name: e.target.value })} className={`${inputClass} min-w-0 flex-1`} aria-label="Name" autoFocus />
             <Button variant="primary" type="submit" disabled={!edit.name.trim() || rename.isPending}>Save</Button>
             <Button type="button" variant="ghost" onClick={() => setEdit(null)}>Cancel</Button>
-            {canPosition && <p className="w-full text-[13px] text-muted"># is where it sits in {loc.path.at(-2)?.name}, like the number marked on a rack slot. Leave it blank for none.</p>}
           </form>
         ) : (
           <div className="flex items-center gap-2">
             {loc.type === "bin" && loc.binSize && <BinChip size={loc.binSize} />}
             {loc.position && <PositionTag position={loc.position} big />}
             <h1 className="min-w-0 text-xl font-semibold">{loc.name}</h1>
-            <button type="button" onClick={() => setEdit({ name: loc.name, position: loc.position ?? "" })} aria-label={`Rename ${loc.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted">
+            <button type="button" onClick={() => setEdit({ name: loc.name })} aria-label={`Rename ${loc.name}`} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted">
               <Pencil size={18} />
             </button>
             <span className="flex-1" />
@@ -411,71 +394,5 @@ export function LocationPage() {
         )}
       </section>
     </div>
-  );
-}
-
-/**
- * Number everything inside at once (DEC-033): one box per place, in the order they're listed.
- * "Fill 1, 2, 3…" numbers them in that order to start from.
- */
-function PositionsEditor({ parent, places, onDone }: { parent: LocationDetail; places: LocationSummary[]; onDone: () => void }) {
-  const qc = useQueryClient();
-  const toast = useToast();
-  const [values, setValues] = useState<Record<number, string>>(() => Object.fromEntries(places.map((p) => [p.id, p.position ?? ""])));
-  const counts = new Map<string, number>();
-  for (const p of places) {
-    const v = (values[p.id] ?? "").trim().toLowerCase();
-    if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
-  }
-  const dup = (id: number) => (counts.get((values[id] ?? "").trim().toLowerCase()) ?? 0) > 1;
-  const anyDup = places.some((p) => dup(p.id));
-  const save = useMutation({
-    mutationFn: () =>
-      api<LocationDetail>(`/locations/${parent.id}/positions`, {
-        method: "PUT",
-        body: { positions: places.map((p) => ({ id: p.id, position: (values[p.id] ?? "").trim() || null })) },
-      }),
-    onSuccess: () => {
-      for (const key of ["location", "locations", "items", "pins"]) qc.invalidateQueries({ queryKey: [key] });
-      toast.show({ message: "Positions saved" });
-      onDone();
-    },
-    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
-  });
-  return (
-    <form
-      className="flex flex-col gap-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!anyDup) save.mutate();
-      }}
-    >
-      <p className="text-[13px] text-muted">Type where each one sits in {parent.name}, like the numbers marked on it. Numbers sort as numbers, so 2 comes before 10.</p>
-      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-        {places.map((p) => (
-          <li key={p.id} className="flex items-center gap-3 px-3 py-2">
-            <input
-              value={values[p.id] ?? ""}
-              onChange={(e) => setValues({ ...values, [p.id]: e.target.value })}
-              aria-label={`Position of ${p.name}`}
-              aria-invalid={dup(p.id) || undefined}
-              placeholder="#"
-              maxLength={20}
-              className={`${inputClass} w-20 text-center font-mono ${dup(p.id) ? "border-danger text-danger" : ""}`}
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate">{p.name}</span>
-              <span className="block truncate text-[13px] text-muted">{locationTypeLabels[p.type]}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-      {anyDup && <p className="text-sm text-danger" role="alert">Two places have the same position.</p>}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="primary" type="submit" disabled={anyDup || save.isPending}>Save positions</Button>
-        <Button type="button" onClick={() => setValues(Object.fromEntries(places.map((p, i) => [p.id, String(i + 1)])))}>Fill 1, 2, 3…</Button>
-        <Button type="button" variant="ghost" onClick={onDone}>Cancel</Button>
-      </div>
-    </form>
   );
 }

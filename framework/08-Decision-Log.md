@@ -941,7 +941,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-04 |
-| **Status** | Accepted |
+| **Status** | Accepted for the icons; the typed positions were superseded by DEC-034 the same day |
 | **Deciders** | Colin |
 | **Category** | UX / Data |
 
@@ -970,6 +970,42 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 **Consequences:**
 - **Types.** `Crumb.position` and `LocationSummary.position`. `LocationDetail.parentType` tells screens whether a position makes sense there.
 - **New pieces.** `PositionTag` in `ui.tsx`, `crumbLabel` for plain text, and `PositionsEditor` in `LocationPage.tsx`.
+
+### DEC-034: Racks have a size and numbered positions; drag to arrange
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted (supersedes DEC-033's typed positions) |
+| **Deciders** | Colin |
+| **Category** | UX / Data |
+
+**Context:** DEC-033 had Colin type a position into a box per place. He found that clunky. He wanted to drag the order, have positions numbered 1, 2, 3… by default with the option to rename them, and to set a rack's size and then pick what goes in each position.
+
+**Decision:**
+- **Size.** A rack or shelf can have a number of positions (`locations.rack_size`), labelled 1, 2, 3… Any position can be renamed ("Top", "A") (`rack_labels`; blank keeps the number, and each label is used once).
+- **Places in positions.** A place inside sits in one position (`rack_slot`) or in "Not in a position".
+- **Setting it up.** "Set them up" on a rack without positions, or "Numbered positions" when creating a rack or shelf. On first set-up, what's inside fills 1, 2, 3… in name order (Box 2 before Box 10).
+- **The rack's page.** It lists the positions in order. A filled position opens its box. An empty one says "Empty · Put something here" and opens a sheet offering four ways to fill it:
+  - Something already in the rack that's not in a position (one tap).
+  - Scan a box's sticker.
+  - "From somewhere else" (the place picker).
+  - "New box here" (the new-place form, which then says "Goes in this position").
+- **Arrange.**
+  - **Size.** − and + change it. It can't shrink past a position in use.
+  - **Labels.** Type over a position's number to rename it.
+  - **Moving.** Drag a box by its handle onto another position; onto a taken one, the two swap. Drop it on "Not in a position" to take it out. The arrow keys on the handle move it one position.
+  - **While dragging.** A label follows the finger ("Box 10 → 1"), the target is outlined, and the page scrolls near the edges.
+- **Shown everywhere.** As in DEC-033, the position's label is a tag before the name in lists, paths and breadcrumbs. Lists put places in position order first, then the rest by name.
+- **Your data.** Migration 0014 carried DEC-033's whole-number positions over: Colin's Grid box 1 to 3 went into positions 1 to 3 of a 3-position Grid-Box Rack. Migration 0015 dropped the typed position.
+
+**Rationale:** The rack's own numbering is the layout. Like the gridded box, it's easier to set the shape once and move things within it than to type numbers onto things.
+
+**Consequences:**
+- **Endpoints.** `PUT /api/locations/:id/rack-size`, `/rack-labels` and `/rack-slot` (a drop that swaps). `rackSize` and `rackSlot` on create and `PATCH`.
+- **Types.** `LocationSummary.rackSlot`, plus the label as `position`. `LocationDetail.rack`.
+- **Shared rules.** `holdsPositions`, `rackLabel` and `comparePlaces` (by position).
+- **Web.** New `RackView.tsx` (`RackSetup`, `RackView`, `LabelInput`, `FillSlot`). DEC-033's typed positions editor and rename field were removed.
 
 ---
 
@@ -1009,7 +1045,8 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-030 | Photos show as squares; the original is kept and the crop can be adjusted | UX / Data | Accepted | 2026-11-04 |
 | DEC-031 | The part's page leads with its name; photos have a main one, a strip and a viewer | UX / Data | Accepted | 2026-11-04 |
 | DEC-032 | Picking a place: tap a row to look inside, Choose to pick it; pin from Inventory | UX | Accepted | 2026-11-04 |
-| DEC-033 | Places have positions (rack slots); "add" means a plus, not a camera | UX / Data | Accepted | 2026-11-04 |
+| DEC-033 | Places have positions (rack slots); "add" means a plus, not a camera | UX / Data | Accepted (positions superseded by DEC-034) | 2026-11-04 |
+| DEC-034 | Racks have a size and numbered positions; drag to arrange | UX / Data | Accepted | 2026-11-04 |
 
 ---
 

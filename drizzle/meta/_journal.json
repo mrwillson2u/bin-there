@@ -99,6 +99,20 @@
       "when": 1793831091273,
       "tag": "0013_location_position",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793832140053,
+      "tag": "0014_rack_positions",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1793832141170,
+      "tag": "0015_drop_typed_position",
+      "breakpoints": true
     }
   ]
 }

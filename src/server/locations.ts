@@ -4,7 +4,7 @@ import { events, itemHomes, items, locations, pins, stock, units } from "./db/sc
 import { ApiError } from "./errors";
 import { locationItems } from "./items";
 import { isPinned } from "./pins";
-import { comparePlaces, type BinOut, type BinSize, type CreateLocation, type Crumb, type LocationDetail, type LocationSummary, type PinnedLocation, type UpdateLocation } from "../shared/api";
+import { comparePlaces, holdsPositions, rackLabel, type BinOut, type BinSize, type CreateLocation, type Crumb, type LocationDetail, type LocationSummary, type PinnedLocation, type UpdateLocation } from "../shared/api";
 import { DEFAULT_GRID, slotProblem, type Grid, type PlacedBin, type Slot } from "../shared/grid";
 
 // Written out in full: an interpolated column renders unqualified and would bind to the inner `c`.
@@ -22,7 +22,8 @@ const summaryColumns = {
   outAt: locations.outAt,
   outToId: locations.outToId,
   outNote: locations.outNote,
-  position: locations.position,
+  rackSlot: locations.rackSlot,
+  parentId: locations.parentId,
   childCount,
 };
 
@@ -57,15 +58,32 @@ function contents(db: Db, locationId: number): string[] {
     .map((r) => r.name);
 }
 
+/** A parent's position labels (DEC-034), looked up once per parent. */
+function labelsOf(db: Db, cache: Map<number, (string | null)[] | null>, parentId: number | null) {
+  if (parentId === null) return null;
+  if (!cache.has(parentId)) cache.set(parentId, db.select({ l: locations.rackLabels }).from(locations).where(eq(locations.id, parentId)).get()?.l ?? null);
+  return cache.get(parentId)!;
+}
+
 function toSummary(
   db: Db,
-  { gridX, gridY, gridRotated, outAt, outToId, outNote, ...row }: SummaryRow & OutRow & Omit<LocationSummary, "slot" | "itemCount" | "preview" | "out">,
+  { gridX, gridY, gridRotated, outAt, outToId, outNote, parentId, ...row }: SummaryRow &
+    OutRow & { parentId: number | null } & Omit<LocationSummary, "slot" | "itemCount" | "preview" | "out" | "position">,
+  labels: Map<number, (string | null)[] | null> = new Map(),
 ): LocationSummary {
   const names = contents(db, row.id);
-  return { ...row, slot: slotOf({ gridX, gridY, gridRotated }), itemCount: names.length, preview: names.slice(0, 2), out: outOf(db, { outAt, outToId, outNote }) };
+  return {
+    ...row,
+    slot: slotOf({ gridX, gridY, gridRotated }),
+    itemCount: names.length,
+    preview: names.slice(0, 2),
+    out: outOf(db, { outAt, outToId, outNote }),
+    position: row.rackSlot === null ? null : rackLabel(labelsOf(db, labels, parentId), row.rackSlot),
+  };
 }
 
 export function listLocations(db: Db, parentId: number | null): LocationSummary[] {
+  const labels = new Map<number, (string | null)[] | null>();
   return db
     .select(summaryColumns)
     .from(locations)
@@ -76,7 +94,7 @@ export function listLocations(db: Db, parentId: number | null): LocationSummary[
       ),
     )
     .all()
-    .map((r) => toSummary(db, r))
+    .map((r) => toSummary(db, r, labels))
     .sort(comparePlaces);
 }
 
@@ -85,27 +103,35 @@ export function listLocations(db: Db, parentId: number | null): LocationSummary[
  * after the one it's in. With only one site, the site itself is left out.
  */
 export function listAllLocations(db: Db): PinnedLocation[] {
-  const tree = db.select({ id: locations.id, name: locations.name, position: locations.position, parentId: locations.parentId }).from(locations).all();
+  const tree = db
+    .select({ id: locations.id, name: locations.name, parentId: locations.parentId, rackSlot: locations.rackSlot, rackLabels: locations.rackLabels })
+    .from(locations)
+    .all();
   const byId = new Map(tree.map((r) => [r.id, r]));
+  const labelOf = (r: (typeof tree)[number]) => {
+    const parent = r.parentId === null ? undefined : byId.get(r.parentId);
+    return r.rackSlot === null ? null : rackLabel(parent?.rackLabels, r.rackSlot);
+  };
   const pathOf = (id: number): Crumb[] => {
     const out: Crumb[] = [];
     for (let cur = byId.get(id); cur && out.length < 50; cur = cur.parentId === null ? undefined : byId.get(cur.parentId)) {
-      out.unshift({ id: cur.id, name: cur.name, position: cur.position });
+      out.unshift({ id: cur.id, name: cur.name, position: labelOf(cur) });
     }
     return out;
   };
   const rows = db.select(summaryColumns).from(locations).where(eq(locations.archived, false)).all();
   const oneSite = rows.filter((r) => r.type === "site").length === 1;
-  // Tree order: compare step by step, each step in the order places sit (DEC-033).
+  // Tree order: compare step by step, each step in the order places sit (DEC-034).
   const byPath = (a: Crumb[], b: Crumb[]) => {
     for (let i = 0; i < Math.min(a.length, b.length); i++) {
-      if (a[i]!.id !== b[i]!.id) return comparePlaces(a[i]!, b[i]!) || a[i]!.id - b[i]!.id;
+      if (a[i]!.id !== b[i]!.id) return comparePlaces(byId.get(a[i]!.id)!, byId.get(b[i]!.id)!) || a[i]!.id - b[i]!.id;
     }
     return a.length - b.length;
   };
+  const labels = new Map<number, (string | null)[] | null>();
   return rows
     .filter((r) => !(oneSite && r.type === "site"))
-    .map((r) => ({ ...toSummary(db, r), path: pathOf(r.id) }))
+    .map((r) => ({ ...toSummary(db, r, labels), path: pathOf(r.id) }))
     .sort((a, b) => byPath(a.path, b.path));
 }
 
@@ -128,16 +154,20 @@ function gridOf(loc: { type: string; gridCols: number | null; gridRows: number |
 
 /** Ancestors from the top level down to (and including) the location. */
 export function locationPath(db: Db, id: number): Crumb[] {
-  const rows = db.all<{ id: number; name: string; position: string | null; depth: number }>(sql`
-    with recursive chain(id, name, position, parent_id, depth) as (
-      select id, name, position, parent_id, 0 from locations where id = ${id}
+  const rows = db.all<{ id: number; name: string; rack_slot: number | null; rack_labels: string | null; depth: number }>(sql`
+    with recursive chain(id, name, rack_slot, rack_labels, parent_id, depth) as (
+      select id, name, rack_slot, rack_labels, parent_id, 0 from locations where id = ${id}
       union all
-      select l.id, l.name, l.position, l.parent_id, chain.depth + 1
+      select l.id, l.name, l.rack_slot, l.rack_labels, l.parent_id, chain.depth + 1
       from locations l join chain on l.id = chain.parent_id
     )
-    select id, name, position, depth from chain order by depth desc
+    select id, name, rack_slot, rack_labels, depth from chain order by depth desc
   `);
-  return rows.map(({ id, name, position }) => ({ id, name, position }));
+  // Each step's position label comes from the step before it (its parent's labels, DEC-034).
+  return rows.map((r, i) => {
+    const parentLabels = i > 0 && rows[i - 1]!.rack_labels ? (JSON.parse(rows[i - 1]!.rack_labels!) as (string | null)[]) : null;
+    return { id: r.id, name: r.name, position: r.rack_slot === null ? null : rackLabel(parentLabels, r.rack_slot) };
+  });
 }
 
 export function getLocation(db: Db, id: number): LocationDetail {
@@ -152,7 +182,9 @@ export function getLocation(db: Db, id: number): LocationDetail {
     code: loc.code,
     binSize: loc.binSize,
     slot: slotOf(loc),
-    position: loc.position,
+    rackSlot: loc.rackSlot,
+    position: loc.rackSlot === null ? null : rackLabel(labelsOf(db, new Map(), loc.parentId), loc.rackSlot),
+    rack: holdsPositions(loc.type) && loc.rackSize ? { size: loc.rackSize, labels: Array.from({ length: loc.rackSize }, (_, i) => loc.rackLabels?.[i] ?? null) } : null,
     parentId: loc.parentId,
     parentType: loc.parentId === null ? null : (db.select({ type: locations.type }).from(locations).where(eq(locations.id, loc.parentId)).get()?.type ?? null),
     notes: loc.notes,
@@ -222,40 +254,89 @@ function checkSlot(db: Db, parentId: number | null, binId: number | null, binSiz
   if (problem) throw new ApiError(409, "CONFLICT", problem);
 }
 
-/** A position is unique among the places in the same parent (DEC-033), ignoring case. */
-function assertPositionFree(db: Db, parentId: number, position: string, selfId: number | undefined) {
-  const taken = db
+/** The place a rack slot is asked for in, if it has positions and the slot is one of them. */
+function requireRack(db: Db, parentId: number | null, slot: number) {
+  const parent = parentId === null ? undefined : db.select().from(locations).where(eq(locations.id, parentId)).get();
+  if (!parent || !holdsPositions(parent.type) || !parent.rackSize) throw new ApiError(400, "VALIDATION", "That place doesn't have positions");
+  if (slot >= parent.rackSize) throw new ApiError(400, "VALIDATION", `${parent.name} has ${parent.rackSize} positions`);
+  return parent;
+}
+
+function occupant(db: Db, parentId: number, slot: number, selfId?: number) {
+  return db
     .select({ id: locations.id, name: locations.name })
     .from(locations)
-    .where(and(eq(locations.parentId, parentId), eq(locations.archived, false), sql`lower(${locations.position}) = lower(${position})`))
+    .where(and(eq(locations.parentId, parentId), eq(locations.rackSlot, slot), eq(locations.archived, false)))
     .all()
     .find((r) => r.id !== selfId);
-  if (taken) throw new ApiError(409, "CONFLICT", `Position ${position} is already ${taken.name}`);
 }
 
 /**
- * Set the positions of the places inside one (DEC-033), all at once, so numbers can be swapped.
- * Places not listed keep theirs; the result must still have each position once.
+ * How many positions a rack or shelf has (DEC-034). Setting it up for the first time puts what's
+ * already inside into positions 1, 2, 3… in name order. It can't shrink past a position in use.
  */
-export function setPositions(db: Db, parentId: number, list: { id: number; position: string | null }[]): LocationDetail {
-  const parent = getLocation(db, parentId);
-  const children = new Map(parent.children.map((c) => [c.id, c]));
-  const next = new Map(parent.children.map((c) => [c.id, c.position]));
-  for (const p of list) {
-    if (!children.has(p.id)) throw new ApiError(400, "VALIDATION", `${p.id} isn't in ${parent.name}`);
-    next.set(p.id, p.position);
-  }
-  const seen = new Map<string, number>();
-  for (const [id, pos] of next) {
-    if (!pos) continue;
-    const other = seen.get(pos.toLowerCase());
-    if (other !== undefined) throw new ApiError(409, "CONFLICT", `${children.get(other)!.name} and ${children.get(id)!.name} are both at ${pos}`);
-    seen.set(pos.toLowerCase(), id);
+export function setRackSize(db: Db, id: number, size: number | null): LocationDetail {
+  const loc = getLocation(db, id);
+  if (!holdsPositions(loc.type)) throw new ApiError(400, "VALIDATION", "Only racks and shelves have positions");
+  const used = loc.children.filter((c) => c.rackSlot !== null).sort((a, b) => b.rackSlot! - a.rackSlot!);
+  if (size !== null && used[0] && used[0].rackSlot! >= size) {
+    throw new ApiError(409, "CONFLICT", `${used[0].name} is in position ${used[0].position}. Move it first`);
   }
   db.transaction((tx) => {
-    for (const p of list) tx.update(locations).set({ position: p.position, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, p.id)).run();
+    tx.update(locations).set({ rackSize: size, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
+    if (size === null) {
+      tx.update(locations).set({ rackSlot: null }).where(eq(locations.parentId, id)).run();
+      return;
+    }
+    if (!loc.rack) {
+      // First set-up: fill the positions with what's inside, in the order it's listed.
+      const taken = new Set(used.map((c) => c.rackSlot!));
+      let next = 0;
+      for (const c of loc.children.filter((c) => c.rackSlot === null && c.type !== "project")) {
+        while (taken.has(next)) next++;
+        if (next >= size) break;
+        tx.update(locations).set({ rackSlot: next }).where(eq(locations.id, c.id)).run();
+        taken.add(next);
+      }
+    }
   });
-  return getLocation(db, parentId);
+  return getLocation(db, id);
+}
+
+/** Labels for a rack's positions (DEC-034); blank keeps the number. Each label once. */
+export function setRackLabels(db: Db, id: number, labels: (string | null)[]): LocationDetail {
+  const loc = getLocation(db, id);
+  if (!loc.rack) throw new ApiError(400, "VALIDATION", "That place doesn't have positions");
+  const next = Array.from({ length: loc.rack.size }, (_, i) => (i < labels.length ? labels[i]! : loc.rack!.labels[i]!) ?? null);
+  const seen = new Map<string, number>();
+  next.forEach((_, i) => {
+    const l = rackLabel(next, i).toLowerCase();
+    const other = seen.get(l);
+    if (other !== undefined) throw new ApiError(409, "CONFLICT", `Positions ${other + 1} and ${i + 1} would both be ${rackLabel(next, i)}`);
+    seen.set(l, i);
+  });
+  db.update(locations).set({ rackLabels: next.some((l) => l) ? next : null, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
+  return getLocation(db, id);
+}
+
+/**
+ * Put a place into a position of the rack it's in (DEC-034), or out of one (null). Dropping it
+ * on a position that's in use swaps the two.
+ */
+export function placeInRack(db: Db, id: number, slot: number | null): LocationDetail {
+  const loc = db.select().from(locations).where(eq(locations.id, id)).get();
+  if (!loc || loc.archived) throw new ApiError(404, "NOT_FOUND", `No location ${id}`);
+  if (slot !== null) {
+    requireRack(db, loc.parentId, slot);
+    const other = occupant(db, loc.parentId!, slot, id);
+    db.transaction((tx) => {
+      if (other) tx.update(locations).set({ rackSlot: loc.rackSlot }).where(eq(locations.id, other.id)).run();
+      tx.update(locations).set({ rackSlot: slot, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
+    });
+  } else {
+    db.update(locations).set({ rackSlot: null, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
+  }
+  return getLocation(db, loc.parentId ?? id);
 }
 
 export function createLocation(db: Db, input: CreateLocation): LocationDetail {
@@ -267,8 +348,13 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
   const slot = isBin && input.slot ? { x: input.slot.x, y: input.slot.y, rotated: input.slot.rotated ?? false } : null;
   const binSize = isBin ? (input.binSize ?? null) : null;
   if (slot) checkSlot(db, input.parentId ?? null, null, binSize, slot);
-  const position = input.parentId ? (input.position ?? null) : null;
-  if (position) assertPositionFree(db, input.parentId!, position, undefined);
+  const rackSlot = input.rackSlot ?? null;
+  if (rackSlot !== null) {
+    requireRack(db, input.parentId ?? null, rackSlot);
+    const other = occupant(db, input.parentId!, rackSlot);
+    if (other) throw new ApiError(409, "CONFLICT", `${other.name} is already in that position`);
+  }
+  const rackSize = holdsPositions(input.type) ? (input.rackSize ?? null) : null;
   const name = input.name ?? nextBinName(db);
   const id = db.transaction((tx) => {
     const row = tx
@@ -283,7 +369,8 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
         gridX: slot?.x ?? null,
         gridY: slot?.y ?? null,
         gridRotated: slot?.rotated ?? false,
-        position,
+        rackSlot,
+        rackSize,
       })
       .returning({ id: locations.id })
       .get();
@@ -309,13 +396,18 @@ export function updateLocation(db: Db, id: number, input: UpdateLocation): Locat
   // Moved somewhere else for good: it's no longer out of its old box.
   const moving = input.parentId !== undefined && input.parentId !== before.parentId;
   const clearOut = moving ? { outAt: null, outToId: null, outNote: null } : {};
-  // A position only means something in the place it was given in (DEC-033).
+  // A position only means something in the place it was given in (DEC-034).
   const parentAfter = input.parentId !== undefined ? input.parentId : before.parentId;
-  if (input.position && parentAfter !== null) assertPositionFree(db, parentAfter, input.position, id);
-  const position = input.position !== undefined ? { position: parentAfter === null ? null : input.position } : moving ? { position: null } : {};
+  const { rackSlot: wantSlot, rackSize: _size, ...fields } = input;
+  if (wantSlot !== undefined && wantSlot !== null) {
+    requireRack(db, parentAfter, wantSlot);
+    const other = occupant(db, parentAfter!, wantSlot, id);
+    if (other) throw new ApiError(409, "CONFLICT", `${other.name} is already in that position`);
+  }
+  const position = wantSlot !== undefined ? { rackSlot: wantSlot } : moving ? { rackSlot: null } : {};
   db.transaction((tx) => {
     tx.update(locations)
-      .set({ ...input, ...clearSlot, ...clearOut, ...position, updatedAt: sql`(datetime('now'))` })
+      .set({ ...fields, ...clearSlot, ...clearOut, ...position, updatedAt: sql`(datetime('now'))` })
       .where(eq(locations.id, id))
       .run();
     if (input.parentId !== undefined && input.parentId !== before.parentId) {

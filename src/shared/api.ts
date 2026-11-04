@@ -72,18 +72,15 @@ export const placeBinSchema = z
   .nullable();
 export type PlaceBin = z.infer<typeof placeBinSchema>;
 
-const positionSchema = z
-  .string()
-  .trim()
-  .max(20)
-  .nullable()
-  .optional()
-  .transform((v) => (v === undefined ? undefined : v || null));
+/** Racks and shelves can have numbered positions (DEC-034). */
+export const holdsPositions = (type: LocationType) => type === "rack" || type === "shelf";
+/** A position's label: its own, or its number (1-based). */
+export const rackLabel = (labels: (string | null)[] | null | undefined, slot: number) => labels?.[slot] || String(slot + 1);
+const rackSlot = z.number().int().min(0).max(199);
 
-/** PUT /locations/:id/positions: number everything in a rack at once (DEC-033). */
-export const setPositionsSchema = z.object({
-  positions: z.array(z.object({ id: z.number().int().positive(), position: z.string().trim().max(20).nullable().transform((v) => v || null) })).max(500),
-});
+export const rackSizeSchema = z.object({ size: z.number().int().min(1).max(200).nullable() });
+export const rackLabelsSchema = z.object({ labels: z.array(z.string().trim().max(20).nullable().transform((v) => v || null)).max(200) });
+export const rackSlotSchema = z.object({ slot: rackSlot.nullable() });
 
 export const createLocationSchema = z.object({
   /** Optional for a bin: left out, it gets the next ID in the whole system ("Bin 0042", DEC-023). Everything else needs one. */
@@ -95,8 +92,10 @@ export const createLocationSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   /** For a bin in a gridded box: put it straight into this slot (DEC-020). */
   slot: placeBinSchema.optional(),
-  /** Where it sits in its parent, as marked there (DEC-033). Blank = none. */
-  position: positionSchema,
+  /** For a rack or shelf: how many positions it has (DEC-034). */
+  rackSize: z.number().int().min(1).max(200).nullable().optional(),
+  /** Put it straight into this position of its parent (0-based). */
+  rackSlot: rackSlot.nullable().optional(),
 });
 export type CreateLocation = z.infer<typeof createLocationSchema>;
 
@@ -124,11 +123,12 @@ export type LocationSummary = {
   preview: string[];
   /** A bin taken out of its box: where it went. Its spot on the grid stays saved (DEC-028). */
   out: BinOut | null;
-  /** Where it sits in the place it's in: "3", "A2", "Top" (DEC-033). */
+  /** Which position of its parent it's in (0-based; DEC-034), and that position's label. */
+  rackSlot: number | null;
   position: string | null;
 };
 
-/** One step of a path. `position` is where it sits in the step before (a rack slot, DEC-033). */
+/** One step of a path. `position` is the label of its position in the step before (DEC-034). */
 export type Crumb = { id: number; name: string; position?: string | null };
 
 /** "3 · Grid box 1", or just the name: how a step of a path reads as text. */
@@ -136,12 +136,14 @@ export const crumbLabel = (c: Pick<Crumb, "name" | "position">) => (c.position ?
 
 const byNumber = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 /**
- * Places in the order they sit (DEC-033): those with a position first, by position with numbers
- * read as numbers (2 before 10), then the rest by name, also number-aware.
+ * Places in the order they sit (DEC-034): those in a position first, in position order, then the
+ * rest by name, number-aware (Box 2 before Box 10).
  */
-export function comparePlaces(a: { name: string; position?: string | null }, b: { name: string; position?: string | null }): number {
-  if (!!a.position !== !!b.position) return a.position ? -1 : 1;
-  return (a.position && b.position ? byNumber.compare(a.position, b.position) : 0) || byNumber.compare(a.name, b.name);
+export function comparePlaces(a: { name: string; rackSlot?: number | null }, b: { name: string; rackSlot?: number | null }): number {
+  const sa = a.rackSlot ?? null;
+  const sb = b.rackSlot ?? null;
+  if ((sa === null) !== (sb === null)) return sa === null ? 1 : -1;
+  return (sa !== null && sb !== null ? sa - sb : 0) || byNumber.compare(a.name, b.name);
 }
 
 /** Where a bin taken out of its box is: a project kit, or just a note ("on the bench"). */
@@ -149,8 +151,10 @@ export type BinOut = { at: string; to: Crumb | null; note: string | null };
 
 export type LocationDetail = LocationSummary & {
   parentId: number | null;
-  /** The type of the place it's in, so screens know whether a position makes sense there. */
+  /** The type of the place it's in. */
   parentType: LocationType | null;
+  /** A rack or shelf with positions (DEC-034): how many, and labels (null = its number). */
+  rack: { size: number; labels: (string | null)[] } | null;
   notes: string | null;
   /** For a gridded box: its grid size (cells); null for every other type. */
   grid: Grid | null;

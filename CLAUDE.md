@@ -64,8 +64,10 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
 - Domain modules take `db` as the first argument and throw `ApiError(status, code, message)` from
   `errors.ts`; `api.onError` turns that into `{ error: { code, message } }`. `parseBody(schema, body)`
   validates with zod and throws a 400 on failure.
-  - `locations.ts`: hierarchy. Sites are the top level; everything else must have a parent. Places can
-    have a `position` in their parent (DEC-033); lists sort with `comparePlaces` from `src/shared/api.ts`.
+  - `locations.ts`: hierarchy. Sites are the top level; everything else must have a parent. Racks and
+    shelves can have numbered positions (`rack_size`, `rack_labels`) that the places inside sit in
+    (`rack_slot`, DEC-034); lists sort with `comparePlaces` from `src/shared/api.ts`. The rack page's
+    view is `src/web/components/RackView.tsx`.
   - `items.ts`: items, categories, search. Search uses an FTS5 table kept in sync by `indexItem`;
     any change to an item's searchable fields must call it.
   - `stock.ts`: adjust, recount, move, and stickered units (create, move, check out, check in).

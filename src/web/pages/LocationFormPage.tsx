@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MapPin, ScanLine } from "lucide-react";
 import {
+  rackLabel,
+  holdsPositions,
   binSizeLabels,
   binSizes,
   locationTypeHints,
@@ -16,7 +18,7 @@ import {
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { PickLocation } from "../components/PickLocation";
-import { BinChip, Breadcrumbs, Button, Field, inputClass, pathText } from "../components/ui";
+import { BinChip, Breadcrumbs, Button, Field, inputClass, pathText, PositionTag } from "../components/ui";
 
 const creatableTypes = locationTypes;
 const insideTypes = creatableTypes.filter((t) => t !== "site");
@@ -56,6 +58,10 @@ export function LocationFormPage() {
   }, [parent, typeTouched]);
   const isSite = type === "site";
   const [binSize, setBinSize] = useState<BinSize>("1x1");
+  // Racks and shelves: how many numbered positions (DEC-034). From an empty position: which one it goes in.
+  const [rackSize, setRackSize] = useState("");
+  const slotParam = params.get("slot");
+  const rackSlot = fixedParent !== null && slotParam !== null && /^\d+$/.test(slotParam) ? Number(slotParam) : null;
   const [code, setCode] = useState(params.get("code") ?? "");
 
   // On this screen a scan fills in the sticker instead of navigating away.
@@ -68,7 +74,15 @@ export function LocationFormPage() {
     mutationFn: () =>
       api<LocationDetail>("/locations", {
         method: "POST",
-        body: { name: name.trim() || undefined, type, parentId: isSite ? null : parentId, code: code.trim() || null, binSize: type === "bin" ? binSize : null },
+        body: {
+          name: name.trim() || undefined,
+          type,
+          parentId: isSite ? null : parentId,
+          code: code.trim() || null,
+          binSize: type === "bin" ? binSize : null,
+          ...(holdsPositions(type) && Number(rackSize) >= 1 ? { rackSize: Math.min(200, Number(rackSize)) } : {}),
+          ...(rackSlot !== null ? { rackSlot } : {}),
+        },
       }),
     onSuccess: (loc) => {
       qc.invalidateQueries({ queryKey: ["locations"] });
@@ -145,6 +159,25 @@ export function LocationFormPage() {
               </button>
             ))}
           </div>
+        </Field>
+      )}
+
+      {rackSlot !== null && parent?.rack && (
+        <p className="flex items-center gap-2 text-sm text-muted">
+          <PositionTag position={rackLabel(parent.rack.labels, rackSlot)} big /> Goes in this position of {parent.name}
+        </p>
+      )}
+
+      {holdsPositions(type) && (
+        <Field label="Numbered positions (optional)">
+          <input
+            className={`${inputClass} w-28`}
+            value={rackSize}
+            onChange={(e) => setRackSize(e.target.value.replace(/\D/g, ""))}
+            inputMode="numeric"
+            placeholder="e.g. 12"
+          />
+          <span className="text-[13px] text-muted">If it has numbered slots, how many. They're numbered 1, 2, 3… and you can rename them.</span>
         </Field>
       )}
 

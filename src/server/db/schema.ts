@@ -47,8 +47,12 @@ export const locations = sqliteTable("locations", {
   outAt: text("out_at"),
   outToId: integer("out_to_id").references((): AnySQLiteColumn => locations.id),
   outNote: text("out_note"),
-  // Where it sits in the place it's in, as marked there: "3", "A2", "Top" (DEC-033). Unique among siblings.
-  position: text("position"),
+  // A rack or shelf with numbered positions (DEC-034): how many, and any labels other than
+  // the default 1, 2, 3… (null entries keep the number).
+  rackSize: integer("rack_size"),
+  rackLabels: text("rack_labels", { mode: "json" }).$type<(string | null)[]>(),
+  // Which of its parent's positions it's in (0-based), or null for "not in a position".
+  rackSlot: integer("rack_slot"),
   notes: text("notes"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   ...timestamps,

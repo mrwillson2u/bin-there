@@ -104,38 +104,88 @@ describe("locations", () => {
   });
 });
 
-describe("positions in a rack (DEC-033)", () => {
+describe("racks with positions (DEC-034)", () => {
   type Err = { error: { message: string } };
-  it("orders a rack's places by position, numbers as numbers, and keeps each position once", async () => {
+  const order = async (rackId: number) =>
+    (await call<LocationDetail>("GET", `/locations/${rackId}`)).json.children.map((x) => [x.position, x.name]);
+
+  it("sets up positions 1, 2, 3… from what's inside, swaps on a drop, and takes labels", async () => {
     const rack = await create({ name: "Grid-Box Rack", type: "rack" });
-    const a = await create({ name: "Screws", type: "gridded_box", parentId: rack.id, position: "10" });
-    const b = await create({ name: "Nuts", type: "gridded_box", parentId: rack.id, position: "2" });
-    const c = await create({ name: "Loose", type: "tote", parentId: rack.id });
-    const order = async () => (await call<LocationDetail>("GET", `/locations/${rack.id}`)).json.children.map((x) => [x.position, x.name]);
-    expect(await order()).toEqual([["2", "Nuts"], ["10", "Screws"], [null, "Loose"]]);
+    for (const n of ["Box 10", "Box 2", "Box 3"]) await create({ name: n, type: "gridded_box", parentId: rack.id });
+    expect(await order(rack.id)).toEqual([[null, "Box 2"], [null, "Box 3"], [null, "Box 10"]]); // names number-aware
 
-    const dup = await call<Err>("PATCH", `/locations/${c.id}`, { position: "2" });
-    expect([dup.status, dup.json.error.message]).toEqual([409, "Position 2 is already Nuts"]);
-    expect((await call("PATCH", `/locations/${c.id}`, { position: "  " })).status).toBe(200); // blank = none
+    const setUp = (await call<LocationDetail>("PUT", `/locations/${rack.id}/rack-size`, { size: 5 })).json;
+    expect(setUp.rack).toEqual({ size: 5, labels: [null, null, null, null, null] });
+    expect(await order(rack.id)).toEqual([["1", "Box 2"], ["2", "Box 3"], ["3", "Box 10"]]);
 
-    // Swap two numbers in one go.
-    const swapped = (await call<LocationDetail>("PUT", `/locations/${rack.id}/positions`, { positions: [{ id: a.id, position: "2" }, { id: b.id, position: "10" }] })).json;
-    expect(swapped.children.map((x) => [x.position, x.name])).toEqual([["2", "Screws"], ["10", "Nuts"], [null, "Loose"]]);
-    const clash = await call<Err>("PUT", `/locations/${rack.id}/positions`, { positions: [{ id: c.id, position: "2" }] });
-    expect([clash.status, clash.json.error.message]).toEqual([409, "Screws and Loose are both at 2"]);
-    expect((await call("PUT", `/locations/${rack.id}/positions`, { positions: [{ id: site.id, position: "1" }] })).status).toBe(400);
+    // Drop Box 10 on position 1: they swap.
+    const box10 = setUp.children.find((c) => c.name === "Box 10")!;
+    await call("PUT", `/locations/${box10.id}/rack-slot`, { slot: 0 });
+    expect(await order(rack.id)).toEqual([["1", "Box 10"], ["2", "Box 3"], ["3", "Box 2"]]);
 
-    // Paths and the activity log carry it; moving away clears it.
-    const bin = await create({ type: "bin", parentId: a.id });
-    expect((await call<LocationDetail>("GET", `/locations/${bin.id}`)).json.path.map((x) => [x.name, x.position])).toEqual([
-      ["Garage", null], ["Grid-Box Rack", null], ["Screws", "2"], ["Bin 0001", null],
-    ]);
-    const events = (await call<{ location: string | null }[]>("GET", `/events?location=${bin.id}`)).json;
-    expect(events[0]!.location).toBe("Garage › Grid-Box Rack › 2 · Screws › Bin 0001");
-    const moved = (await call<LocationDetail>("PATCH", `/locations/${a.id}`, { parentId: site.id })).json;
-    expect(moved.position).toBeNull();
-    expect((await call<LocationDetail>("GET", `/locations/${a.id}`)).json.parentType).toBe("site");
+    // Labels: blank keeps the number; two the same is refused.
+    const labelled = (await call<LocationDetail>("PUT", `/locations/${rack.id}/rack-labels`, { labels: [null, null, "Top", "", null] })).json;
+    expect(labelled.rack!.labels).toEqual([null, null, "Top", null, null]);
+    expect(await order(rack.id)).toEqual([["1", "Box 10"], ["2", "Box 3"], ["Top", "Box 2"]]);
+    const dup = await call<Err>("PUT", `/locations/${rack.id}/rack-labels`, { labels: ["2"] });
+    expect([dup.status, dup.json.error.message]).toEqual([409, "Positions 1 and 2 would both be 2"]);
+
+    // Can't shrink past a position in use; can grow.
+    const shrink = await call<Err>("PUT", `/locations/${rack.id}/rack-size`, { size: 2 });
+    expect([shrink.status, shrink.json.error.message]).toEqual([409, "Box 2 is in position Top. Move it first"]);
+    expect((await call("PUT", `/locations/${rack.id}/rack-size`, { size: 8 })).status).toBe(200);
+
+    // A new box straight into a free position; a taken one is refused.
+    const fresh = await create({ name: "Box 4", type: "gridded_box", parentId: rack.id, rackSlot: 3 });
+    expect(fresh.position).toBe("4");
+    expect((await call("POST", "/locations", { name: "Box 5", type: "gridded_box", parentId: rack.id, rackSlot: 3 })).status).toBe(409);
+
+    // Paths and the activity log show the label; moving away clears it.
+    const bin = await create({ type: "bin", parentId: fresh.id });
+    expect((await call<LocationDetail>("GET", `/locations/${bin.id}`)).json.path.map((x) => x.position ?? null)).toEqual([null, null, "4", null]);
+    const ev = (await call<{ location: string | null }[]>("GET", `/events?location=${bin.id}`)).json;
+    expect(ev[0]!.location).toBe("Garage › Grid-Box Rack › 4 · Box 4 › Bin 0001");
+    const moved = (await call<LocationDetail>("PATCH", `/locations/${fresh.id}`, { parentId: site.id })).json;
+    expect([moved.rackSlot, moved.position]).toEqual([null, null]);
+    // …and can come back straight into a position.
+    const back = (await call<LocationDetail>("PATCH", `/locations/${fresh.id}`, { parentId: rack.id, rackSlot: 7 })).json;
+    expect(back.position).toBe("8");
+
+    // Taking positions away leaves everything inside, not in a position.
+    await call("PUT", `/locations/${rack.id}/rack-size`, { size: null });
+    expect((await order(rack.id)).every(([p]) => p === null)).toBe(true);
+    expect((await call("PUT", `/locations/${fresh.id}/rack-slot`, { slot: 0 })).status).toBe(400);
+    const tote = await create({ name: "Tote", type: "tote" });
+    expect((await call("PUT", `/locations/${tote.id}/rack-size`, { size: 3 })).status).toBe(400);
   });
+});
+
+describe("migration 0014 (DEC-034)", () => {
+  it("carries typed whole-number positions into rack positions and drops the old column", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "snt-rack-")), "app.db");
+    const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
+    const upTo = journal.entries.findIndex((e) => e.tag === "0014_rack_positions");
+    const raw = new Database(file);
+    raw.exec(`create table "__drizzle_migrations" (id integer primary key autoincrement, hash text not null, created_at numeric)`);
+    for (const e of journal.entries.slice(0, upTo)) {
+      for (const stmt of readFileSync(join("drizzle", `${e.tag}.sql`), "utf8").split("--> statement-breakpoint")) if (stmt.trim()) raw.exec(stmt);
+      raw.prepare(`insert into "__drizzle_migrations" (hash, created_at) values ('x', ?)`).run(e.when);
+    }
+    raw.exec(`insert into categories (name) values ('Tools')`);
+    raw.exec(`insert into locations (id, type, name) values (1, 'site', 'Garage')`);
+    raw.exec(`insert into locations (id, type, name, parent_id) values (2, 'rack', 'Grid-Box Rack', 1)`);
+    const add = raw.prepare(`insert into locations (type, name, parent_id, position) values ('gridded_box', ?, 2, ?)`);
+    for (const [n, p] of [["Grid box 1", "1"], ["Grid box 2", "2"], ["Grid box 3", "3"], ["Odd one", "Top"]]) add.run(n, p);
+    raw.close();
+
+    openDb(file);
+    const after = new Database(file, { readonly: true });
+    const rows = after.prepare("select name, rack_slot, rack_size from locations order by id").all() as { name: string; rack_slot: number | null; rack_size: number | null }[];
+    expect(rows.map((r) => [r.name, r.rack_slot, r.rack_size])).toEqual([
+      ["Garage", null, null], ["Grid-Box Rack", null, 3], ["Grid box 1", 0, null], ["Grid box 2", 1, null], ["Grid box 3", 2, null], ["Odd one", null, null],
+    ]);
+    expect((after.prepare("pragma table_info(locations)").all() as { name: string }[]).some((c) => c.name === "position")).toBe(false);
+  }, 20_000);
 });
 
 describe("stickers and scanning", () => {
