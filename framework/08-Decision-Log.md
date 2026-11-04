@@ -976,7 +976,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-04 |
-| **Status** | Accepted (supersedes DEC-033's typed positions) |
+| **Status** | Accepted (supersedes DEC-033's typed positions; dropping now moves things along instead of swapping, DEC-035) |
 | **Deciders** | Colin |
 | **Category** | UX / Data |
 
@@ -1006,6 +1006,38 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - **Types.** `LocationSummary.rackSlot`, plus the label as `position`. `LocationDetail.rack`.
 - **Shared rules.** `holdsPositions`, `rackLabel` and `comparePlaces` (by position).
 - **Web.** New `RackView.tsx` (`RackSetup`, `RackView`, `LabelInput`, `FillSlot`). DEC-033's typed positions editor and rename field were removed.
+
+### DEC-035: Dropping a box in a rack moves the others along, and you see them slide
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** With DEC-034, dropping a box on a taken position swapped the two. Colin wanted it to nudge everything between the old position and the new one by one instead, the way a list reorders. He also wanted the drag to show everything sliding into place, so it's clear what will happen.
+
+**Decision:**
+- **One rule for moving within a rack** (`rackMove` in `src/shared/rack.ts`). The server saves with it and the screen previews with it, so they can't disagree.
+  - **Dropped on a taken position:** the box takes that position, and everything between its old and new position moves along one (empty positions in between move too).
+  - **Dropped on an empty position:** it just goes there. Nothing else moves.
+  - **Coming in from "Not in a position" onto a taken position:** the ones from there on move down into the next empty position. If there's none below, the ones above move up. A full rack says "Every position is in use. Add one first".
+  - **Dropped on "Not in a position":** it leaves its position, which stays empty.
+- **The list.** The positions are fixed rows of the same height, and the boxes are cards on top of them. A card slides (0.2 s) whenever its position changes: while dragging, after a drop, with the arrow keys, or when a save fails and things go back. Reduced-motion settings turn the sliding off.
+- **While dragging:**
+  - The box being dragged follows the finger, lifted and outlined.
+  - The others slide to where they would end up. The target position is tinted, or turns red when there's no room.
+  - A box coming in from "Not in a position" shows a label ("Box 9 → 2") while the rack opens a gap for it.
+- **Saving.** The result shows at once and is then saved. If the server refuses, everything slides back.
+
+**Rationale:** A rack is an ordered row. Moving one box should keep the others in the same order, not trade places with one. Seeing the result before letting go makes it obvious what a drop will do.
+
+**Consequences:**
+- `placeInRack` uses `rackMove`.
+- `RackView`'s list was rebuilt as fixed rows plus sliding cards.
+- New unit tests in `src/shared/rack.test.ts`.
+- `pages-check.mjs` checks the slide, the order after each kind of drop, and the keyboard.
 
 ---
 
@@ -1046,7 +1078,8 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-031 | The part's page leads with its name; photos have a main one, a strip and a viewer | UX / Data | Accepted | 2026-11-04 |
 | DEC-032 | Picking a place: tap a row to look inside, Choose to pick it; pin from Inventory | UX | Accepted | 2026-11-04 |
 | DEC-033 | Places have positions (rack slots); "add" means a plus, not a camera | UX / Data | Accepted (positions superseded by DEC-034) | 2026-11-04 |
-| DEC-034 | Racks have a size and numbered positions; drag to arrange | UX / Data | Accepted | 2026-11-04 |
+| DEC-034 | Racks have a size and numbered positions; drag to arrange | UX / Data | Accepted (drop behaviour changed by DEC-035) | 2026-11-04 |
+| DEC-035 | Dropping a box in a rack moves the others along, and you see them slide | UX | Accepted | 2026-11-04 |
 
 ---
 

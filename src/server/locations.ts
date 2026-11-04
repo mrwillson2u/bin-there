@@ -6,6 +6,7 @@ import { locationItems } from "./items";
 import { isPinned } from "./pins";
 import { comparePlaces, holdsPositions, rackLabel, type BinOut, type BinSize, type CreateLocation, type Crumb, type LocationDetail, type LocationSummary, type PinnedLocation, type UpdateLocation } from "../shared/api";
 import { DEFAULT_GRID, slotProblem, type Grid, type PlacedBin, type Slot } from "../shared/grid";
+import { rackMove, type RackRow } from "../shared/rack";
 
 // Written out in full: an interpolated column renders unqualified and would bind to the inner `c`.
 const childCount = sql<number>`(select count(*) from locations c where c.parent_id = "locations"."id" and c.archived = 0)`;
@@ -320,23 +321,34 @@ export function setRackLabels(db: Db, id: number, labels: (string | null)[]): Lo
 }
 
 /**
- * Put a place into a position of the rack it's in (DEC-034), or out of one (null). Dropping it
- * on a position that's in use swaps the two.
+ * Put a place into a position of the rack it's in, or out of one (null). Dropped on a taken
+ * position, the ones in between move along (DEC-035, see `rackMove`).
  */
 export function placeInRack(db: Db, id: number, slot: number | null): LocationDetail {
   const loc = db.select().from(locations).where(eq(locations.id, id)).get();
   if (!loc || loc.archived) throw new ApiError(404, "NOT_FOUND", `No location ${id}`);
-  if (slot !== null) {
-    requireRack(db, loc.parentId, slot);
-    const other = occupant(db, loc.parentId!, slot, id);
-    db.transaction((tx) => {
-      if (other) tx.update(locations).set({ rackSlot: loc.rackSlot }).where(eq(locations.id, other.id)).run();
-      tx.update(locations).set({ rackSlot: slot, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
-    });
-  } else {
+  if (slot === null) {
     db.update(locations).set({ rackSlot: null, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
+    return getLocation(db, loc.parentId ?? id);
   }
-  return getLocation(db, loc.parentId ?? id);
+  const parent = requireRack(db, loc.parentId, slot);
+  const kids = db
+    .select({ id: locations.id, rackSlot: locations.rackSlot })
+    .from(locations)
+    .where(and(eq(locations.parentId, parent.id), eq(locations.archived, false)))
+    .all();
+  const row: RackRow = Array.from({ length: parent.rackSize! }, () => null);
+  for (const k of kids) if (k.rackSlot !== null && k.rackSlot < row.length) row[k.rackSlot] = k.id;
+  const next = rackMove(row, id, slot);
+  if (!next) throw new ApiError(409, "CONFLICT", `Every position in ${parent.name} is in use. Add one first`);
+  db.transaction((tx) => {
+    for (const k of kids) {
+      const at = next.indexOf(k.id);
+      const want = at < 0 ? (k.id === id ? null : k.rackSlot) : at;
+      if (want !== k.rackSlot) tx.update(locations).set({ rackSlot: want, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, k.id)).run();
+    }
+  });
+  return getLocation(db, parent.id);
 }
 
 export function createLocation(db: Db, input: CreateLocation): LocationDetail {

@@ -67,7 +67,8 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `locations.ts`: hierarchy. Sites are the top level; everything else must have a parent. Racks and
     shelves can have numbered positions (`rack_size`, `rack_labels`) that the places inside sit in
     (`rack_slot`, DEC-034); lists sort with `comparePlaces` from `src/shared/api.ts`. The rack page's
-    view is `src/web/components/RackView.tsx`.
+    view is `src/web/components/RackView.tsx`; moves within a rack follow `rackMove` in
+    `src/shared/rack.ts` on both server and screen (DEC-035).
   - `items.ts`: items, categories, search. Search uses an FTS5 table kept in sync by `indexItem`;
     any change to an item's searchable fields must call it.
   - `stock.ts`: adjust, recount, move, and stickered units (create, move, check out, check in).

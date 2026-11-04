@@ -39,7 +39,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | GET | `/api/locations?all=1` | Every non-deleted place with its `path`, in tree order (each place right after the one it's in); with only one site, the site itself is left out (DEC-027) |
 | PUT | `/api/locations/:id/rack-size` | Body `{ size }` (1–200, or null to remove): a rack's or shelf's number of positions. First set-up fills them with what's inside, in name order; can't shrink past a position in use (409). DEC-034 |
 | PUT | `/api/locations/:id/rack-labels` | Body `{ labels: (string\|null)[] }`: rename positions (blank keeps the number); two the same is a 409 |
-| PUT | `/api/locations/:id/rack-slot` | Body `{ slot }` (0-based, or null): put this place in a position of the rack it's in; a taken position swaps the two. Returns the rack |
+| PUT | `/api/locations/:id/rack-slot` | Body `{ slot }` (0-based, or null): put this place in a position of the rack it's in. On a taken position the ones in between move along; from outside the positions, the rest make room down (or up) into the nearest empty one; 409 when every position is in use (DEC-035, `rackMove` in `src/shared/rack.ts`). Returns the rack |
 | POST | `/api/locations/:id/take-out` | Body `{ toLocationId?, note? }`: take a bin out of its box to a project kit or with a note (one is needed). It stays the box's child and keeps its slot; logged as `check_out` with no item. 409 if already out (DEC-028) |
 | POST | `/api/locations/:id/put-back` | Put a bin that's out back (its saved slot, or unplaced if the spot was freed with `PUT …/slot` null); logged as `check_in`. 409 if it isn't out |
 | GET | `/api/locations/:id` | Location + breadcrumb path + child locations + stock + units |

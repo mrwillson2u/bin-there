@@ -109,7 +109,7 @@ describe("racks with positions (DEC-034)", () => {
   const order = async (rackId: number) =>
     (await call<LocationDetail>("GET", `/locations/${rackId}`)).json.children.map((x) => [x.position, x.name]);
 
-  it("sets up positions 1, 2, 3… from what's inside, swaps on a drop, and takes labels", async () => {
+  it("sets up positions 1, 2, 3… from what's inside, moves along on a drop, and takes labels", async () => {
     const rack = await create({ name: "Grid-Box Rack", type: "rack" });
     for (const n of ["Box 10", "Box 2", "Box 3"]) await create({ name: n, type: "gridded_box", parentId: rack.id });
     expect(await order(rack.id)).toEqual([[null, "Box 2"], [null, "Box 3"], [null, "Box 10"]]); // names number-aware
@@ -118,21 +118,21 @@ describe("racks with positions (DEC-034)", () => {
     expect(setUp.rack).toEqual({ size: 5, labels: [null, null, null, null, null] });
     expect(await order(rack.id)).toEqual([["1", "Box 2"], ["2", "Box 3"], ["3", "Box 10"]]);
 
-    // Drop Box 10 on position 1: they swap.
+    // Drop Box 10 on position 1: the ones in between move down one (DEC-035).
     const box10 = setUp.children.find((c) => c.name === "Box 10")!;
     await call("PUT", `/locations/${box10.id}/rack-slot`, { slot: 0 });
-    expect(await order(rack.id)).toEqual([["1", "Box 10"], ["2", "Box 3"], ["3", "Box 2"]]);
+    expect(await order(rack.id)).toEqual([["1", "Box 10"], ["2", "Box 2"], ["3", "Box 3"]]);
 
     // Labels: blank keeps the number; two the same is refused.
     const labelled = (await call<LocationDetail>("PUT", `/locations/${rack.id}/rack-labels`, { labels: [null, null, "Top", "", null] })).json;
     expect(labelled.rack!.labels).toEqual([null, null, "Top", null, null]);
-    expect(await order(rack.id)).toEqual([["1", "Box 10"], ["2", "Box 3"], ["Top", "Box 2"]]);
+    expect(await order(rack.id)).toEqual([["1", "Box 10"], ["2", "Box 2"], ["Top", "Box 3"]]);
     const dup = await call<Err>("PUT", `/locations/${rack.id}/rack-labels`, { labels: ["2"] });
     expect([dup.status, dup.json.error.message]).toEqual([409, "Positions 1 and 2 would both be 2"]);
 
     // Can't shrink past a position in use; can grow.
     const shrink = await call<Err>("PUT", `/locations/${rack.id}/rack-size`, { size: 2 });
-    expect([shrink.status, shrink.json.error.message]).toEqual([409, "Box 2 is in position Top. Move it first"]);
+    expect([shrink.status, shrink.json.error.message]).toEqual([409, "Box 3 is in position Top. Move it first"]);
     expect((await call("PUT", `/locations/${rack.id}/rack-size`, { size: 8 })).status).toBe(200);
 
     // A new box straight into a free position; a taken one is refused.
@@ -150,6 +150,18 @@ describe("racks with positions (DEC-034)", () => {
     // …and can come back straight into a position.
     const back = (await call<LocationDetail>("PATCH", `/locations/${fresh.id}`, { parentId: rack.id, rackSlot: 7 })).json;
     expect(back.position).toBe("8");
+
+    // One coming in from "not in a position" onto a taken position: the rest make room below.
+    const extra = await create({ name: "Box 6", type: "gridded_box", parentId: rack.id });
+    await call("PUT", `/locations/${extra.id}/rack-slot`, { slot: 1 });
+    expect((await order(rack.id)).slice(0, 4)).toEqual([["1", "Box 10"], ["2", "Box 6"], ["Top", "Box 2"], ["4", "Box 3"]]);
+    // A full rack has no room for one more.
+    const small = await create({ name: "Small rack", type: "rack", rackSize: 2 });
+    await create({ name: "S1", type: "gridded_box", parentId: small.id, rackSlot: 0 });
+    await create({ name: "S2", type: "gridded_box", parentId: small.id, rackSlot: 1 });
+    const crowd = await create({ name: "S3", type: "gridded_box", parentId: small.id });
+    const full = await call<Err>("PUT", `/locations/${crowd.id}/rack-slot`, { slot: 0 });
+    expect([full.status, full.json.error.message]).toEqual([409, "Every position in Small rack is in use. Add one first"]);
 
     // Taking positions away leaves everything inside, not in a position.
     await call("PUT", `/locations/${rack.id}/rack-size`, { size: null });

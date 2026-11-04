@@ -125,22 +125,45 @@ check((await slotsNow()) === "1:Box 2 2:Box 3 3:Box 10", "set up: what was insid
 check((await page.getByRole("button", { name: /Position 4 is empty/ }).count()) === 1, "empty positions say so, and offer to take something");
 await page.screenshot({ path: `${shots}/p6-rack.png`, fullPage: true });
 
-// Arrange: drag Box 10 onto position 1; they swap.
+// Arrange: drag Box 10 onto position 1. While dragging, the others slide down to make room;
+// dropped, Box 10 takes 1 and the ones in between move along one (DEC-035).
 await page.getByRole("button", { name: "Arrange" }).click();
+const card = (name) => page.getByRole("list", { name: "Positions" }).getByText(name, { exact: true });
+const box2Before = (await card("Box 2").boundingBox()).y;
+const transition = await card("Box 2").evaluate((e) => getComputedStyle(e.closest("[style]")).transitionProperty);
+check(transition.includes("top"), "boxes slide between positions (transition: " + transition + ")");
 const grip = await page.getByRole("button", { name: "Move Box 10" }).boundingBox();
 const row1 = await page.getByRole("list", { name: "Positions" }).getByRole("listitem").first().boundingBox();
-await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+const gx = grip.x + grip.width / 2, gy = grip.y + grip.height / 2, ty = row1.y + row1.height / 2;
+await page.mouse.move(gx, gy);
 await page.mouse.down();
-for (let i = 1; i <= 8; i++) await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2 + ((row1.y + row1.height / 2) - (grip.y + grip.height / 2)) * (i / 8));
+for (let i = 1; i <= 10; i++) await page.mouse.move(gx, gy + (ty - gy) * (i / 10));
+await page.waitForTimeout(350);
+const box2During = (await card("Box 2").boundingBox()).y;
+check(box2During - box2Before > 40, `while dragging, Box 2 has already slid down a position (${Math.round(box2Before)} → ${Math.round(box2During)})`);
 await page.screenshot({ path: `${shots}/p7-dragging.png`, fullPage: true });
 await page.mouse.up();
 await page.waitForTimeout(600);
-check((await slotsNow()) === "1:Box 10 2:Box 3 3:Box 2", "dragged Box 10 onto 1: they swapped: " + (await slotsNow()));
-// The keyboard does the same: arrow down moves it one position.
+check((await slotsNow()) === "1:Box 10 2:Box 2 3:Box 3", "dropped on 1: Box 10 is first, Box 2 and Box 3 moved down one: " + (await slotsNow()));
+// The keyboard: arrow down moves it one position, the one there moves up.
 await page.getByRole("button", { name: "Move Box 10" }).focus();
 await page.keyboard.press("ArrowDown");
 await page.waitForTimeout(600);
-check((await slotsNow()) === "1:Box 3 2:Box 10 3:Box 2", "arrow down on the handle: one position down: " + (await slotsNow()));
+check((await slotsNow()) === "1:Box 2 2:Box 10 3:Box 3", "arrow down on the handle: one position down: " + (await slotsNow()));
+// One coming in from "Not in a position" pushes the rest down into the next empty position.
+await api("POST", "/locations", { name: "Box 9", type: "gridded_box", parentId: gridRack.id });
+await page.reload();
+await page.getByRole("button", { name: "Arrange" }).click();
+const g9 = await page.getByRole("button", { name: "Move Box 9" }).boundingBox();
+const row2 = await page.getByRole("list", { name: "Positions" }).getByRole("listitem").nth(1).boundingBox();
+await page.mouse.move(g9.x + g9.width / 2, g9.y + g9.height / 2);
+await page.mouse.down();
+for (let i = 1; i <= 12; i++) await page.mouse.move(g9.x + g9.width / 2 + ((row2.x + row2.width / 2) - (g9.x + g9.width / 2)) * (i / 12), g9.y + g9.height / 2 + ((row2.y + row2.height / 2) - (g9.y + g9.height / 2)) * (i / 12));
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${shots}/p7b-dragging-in.png`, fullPage: true });
+await page.mouse.up();
+await page.waitForTimeout(600);
+check((await slotsNow()) === "1:Box 2 2:Box 9 3:Box 10 4:Box 3", "Box 9 dropped on 2: Box 10 and Box 3 moved down into the empty 4: " + (await slotsNow()));
 // Rename position 5; make room for one more.
 await page.getByLabel("Label for position 5").fill("Top");
 await page.keyboard.press("Enter");
@@ -153,13 +176,13 @@ await page.screenshot({ path: `${shots}/p8-arrange.png`, fullPage: true });
 await page.getByRole("button", { name: "Done" }).click();
 
 // An empty position: pick a tote from elsewhere.
-await page.getByRole("button", { name: /Position 4 is empty/ }).click();
-const sheet = page.getByRole("dialog", { name: "Position 4 of Grid-Box Rack" });
+await page.getByRole("button", { name: /Position 6 is empty/ }).click();
+const sheet = page.getByRole("dialog", { name: "Position 6 of Grid-Box Rack" });
 await sheet.getByRole("button", { name: "From somewhere else" }).click();
 await sheet.getByRole("button", { name: "Pick from list" }).click();
 await sheet.getByRole("button", { name: "Choose Spare tote" }).click();
-await page.getByRole("status").filter({ hasText: "Spare tote is in position 4" }).waitFor();
-check((await slotsNow()).includes("4:Spare tote"), "a tote from elsewhere went into position 4");
+await page.getByRole("status").filter({ hasText: "Spare tote is in position 6" }).waitFor();
+check((await slotsNow()).includes("6:Spare tote"), "a tote from elsewhere went into position 6");
 // The Top position: a new box straight into it.
 await page.getByRole("button", { name: /Position Top is empty/ }).click();
 await page.getByRole("dialog", { name: "Position Top of Grid-Box Rack" }).getByRole("link", { name: "New box here" }).click();
@@ -173,7 +196,7 @@ check((await page.getByLabel("position Top").count()) >= 1, "the new box is in p
 await page.goto(`${base}/?q=heat`);
 const hit = page.getByRole("link", { name: /^Heat-set inserts/ });
 await hit.waitFor();
-check((await hit.textContent()).replace(/\u00a0/g, " ").includes("1Box 3"), "a part's path shows its box's position: " + (await hit.textContent()).replace(/\u00a0/g, " "));
+check((await hit.textContent()).replace(/\u00a0/g, " ").includes("4Box 3"), "a part's path shows its box's position: " + (await hit.textContent()).replace(/\u00a0/g, " "));
 
 await browser.close();
 server.kill();
