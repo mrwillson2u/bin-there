@@ -235,6 +235,41 @@ describe("photos", () => {
   });
 });
 
+describe("photo crops (DEC-030)", () => {
+  it("saves a square crop with its new thumbnail, under a new name, and drops the old one", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "snt-photos-"));
+    api = createApi(openDb(":memory:"), { photoDir: dir });
+    const s = await item({ name: "JST lead" });
+    const up = new FormData();
+    up.append("photo", new File([new Uint8Array([0xff, 0xd8, 1])], "p.jpg", { type: "image/jpeg" }));
+    up.append("thumb", new File([new Uint8Array([0xff, 0xd8, 2])], "t.jpg", { type: "image/jpeg" }));
+    const withPhoto = (await (await api.request(`/items/${s.id}/photos`, { method: "POST", body: up })).json()) as ItemDetail;
+    const photo = withPhoto.photos[0]!;
+    expect(photo.crop).toBeNull();
+
+    const crop = (body: Record<string, string | File>) => {
+      const f = new FormData();
+      for (const [k, v] of Object.entries(body)) f.append(k, v);
+      return api.request(`/photos/${photo.id}/crop`, { method: "PUT", body: f });
+    };
+    const thumb = () => new File([new Uint8Array([0xff, 0xd8, 3])], "t.jpg", { type: "image/jpeg" });
+    const res = await crop({ crop: JSON.stringify({ x: 0, y: 0.25, size: 1 }), thumb: thumb() });
+    expect(res.status).toBe(200);
+    const after = ((await res.json()) as ItemDetail).photos[0]!;
+    expect(after.crop).toEqual({ x: 0, y: 0.25, size: 1 });
+    expect(after.thumbUrl).not.toBe(photo.thumbUrl);
+    expect(after.url).toBe(photo.url); // the original is untouched
+    expect((await api.request(photo.thumbUrl.replace("/api", ""))).status).toBe(404);
+    expect((await api.request(after.thumbUrl.replace("/api", ""))).status).toBe(200);
+    expect(((await ok<ItemDetail>("GET", `/items/${s.id}`)).thumbUrl)).toBe(after.thumbUrl);
+
+    expect((await crop({ crop: JSON.stringify({ x: 0, y: 0, size: 2 }), thumb: thumb() })).status).toBe(400);
+    expect((await crop({ crop: "not json", thumb: thumb() })).status).toBe(400);
+    expect((await crop({ crop: JSON.stringify({ x: 0, y: 0, size: 1 }) })).status).toBe(400);
+    expect((await api.request(`/photos/999/crop`, { method: "PUT", body: (() => { const f = new FormData(); f.append("crop", JSON.stringify({ x: 0, y: 0, size: 1 })); f.append("thumb", thumb()); return f; })() })).status).toBe(404);
+  });
+});
+
 describe("needs details", () => {
   it("skips the queue when created with a name and a category", async () => {
     const cats = await ok<Category[]>("GET", "/categories");

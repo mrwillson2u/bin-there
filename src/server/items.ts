@@ -15,6 +15,7 @@ import type {
   ItemDetail,
   ItemSummary,
   LocationItem,
+  PhotoCrop,
   Place,
   ReviewEntry,
   UpdateItem,
@@ -172,7 +173,12 @@ export function getItem(db: Db, id: number): ItemDetail {
     supplierPn: item.supplierPn,
     url: item.url,
     notes: item.notes,
-    photos: photoRows.map((p) => ({ id: p.id, url: photoUrl(p.path), thumbUrl: photoUrl(p.thumbPath ?? p.path) })),
+    photos: photoRows.map((p) => ({
+      id: p.id,
+      url: photoUrl(p.path),
+      thumbUrl: photoUrl(p.thumbPath ?? p.path),
+      crop: p.cropX !== null && p.cropY !== null && p.cropSize !== null ? { x: p.cropX, y: p.cropY, size: p.cropSize } : null,
+    })),
     unitList: unitRows.map((u) => ({
       id: u.id,
       code: u.code,
@@ -557,6 +563,23 @@ export function addPhoto(db: Db, itemId: number, path: string, thumbPath: string
   db.insert(photos).values({ itemId, path, thumbPath }).run();
   db.update(items).set({ updatedAt: sql`(datetime('now'))` }).where(eq(items.id, itemId)).run();
   return getItem(db, itemId);
+}
+
+/**
+ * A new square crop for a photo (DEC-030), with the square thumbnail the phone made from it.
+ * The original is never touched. Returns the thumbnail it replaces, so the caller can delete it.
+ */
+export function requireItemPhoto(db: Db, photoId: number) {
+  const photo = db.select().from(photos).where(eq(photos.id, photoId)).get();
+  if (!photo || photo.itemId === null) throw new ApiError(404, "NOT_FOUND", `No photo ${photoId}`);
+  return photo as typeof photo & { itemId: number };
+}
+
+export function setPhotoCrop(db: Db, photoId: number, crop: PhotoCrop, thumbPath: string): { item: ItemDetail; oldThumb: string | null } {
+  const photo = requireItemPhoto(db, photoId);
+  db.update(photos).set({ cropX: crop.x, cropY: crop.y, cropSize: crop.size, thumbPath }).where(eq(photos.id, photoId)).run();
+  db.update(items).set({ updatedAt: sql`(datetime('now'))` }).where(eq(items.id, photo.itemId)).run();
+  return { item: getItem(db, photo.itemId), oldThumb: photo.thumbPath };
 }
 
 // ── Categories ───────────────────────────────────────────────────────────────

@@ -123,8 +123,9 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
   buzzes (DEC-022). Pages that want to consume a scan call `useScanHandler` and return `true`;
   the most recently mounted handler wins, and unhandled scans fall back to opening whatever was
   scanned via `/api/scan/:code`.
-- Photos are resized on the device (`lib/photo.ts`) into a photo and a thumbnail before upload;
-  the server only stores JPEGs under `DATA_DIR/photos`.
+- Photos are resized on the device (`lib/photo.ts`) into a photo and a square thumbnail before upload;
+  the server only stores JPEGs under `DATA_DIR/photos`. Each photo has a square crop (DEC-030):
+  `CroppedPhoto` draws it from the original, `CropEditor` changes it and uploads a new square thumbnail.
 - `public/sw.js` caches only the app shell and hashed assets, never `/api`, so stock data is
   always fresh.
 

@@ -70,6 +70,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | PUT | `/api/items/:id/homes` | Set designated home location(s) |
 | DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
 | POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |
+| PUT | `/api/photos/:id/crop` | Multipart `crop` (JSON `{ x, y, size }`, fractions of the original) + `thumb` (the square cut on the phone). Stores the crop, saves the thumbnail under a new name (names are cached forever) and deletes the old one; the original is untouched. Returns the item (DEC-030) |
 | GET | `/api/photos/:file` | Serve a stored photo (immutable cache) |
 | GET | `/api/stats` | `{ needsDetails, checkedOut, stale, low }` counts for the Inventory filter chips |
 

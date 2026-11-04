@@ -111,6 +111,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 | Field | Type | Notes |
 |-------|------|-------|
 | id, item_id (or location_id), path, thumb_path, created_at | | Files under `/data/photos` |
+| crop_x / crop_y / crop_size | real, nullable | The square the photo shows as (DEC-030, migration 0011): left and top as fractions of the original's width and height, side as a fraction of its shorter side. Null = centred, as big as fits. `thumb_path` is a square cut from it |
 
 ### Event (activity log, append-only)
 

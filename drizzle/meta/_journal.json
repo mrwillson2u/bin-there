@@ -78,6 +78,13 @@
       "when": 1793823916439,
       "tag": "0010_bin_take_out",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793827885942,
+      "tag": "0011_photo_crop",
+      "breakpoints": true
     }
   ]
 }

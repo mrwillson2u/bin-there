@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
@@ -34,6 +34,8 @@ import {
   listCategories,
   searchItems,
   setHomes,
+  setPhotoCrop,
+  requireItemPhoto,
   updateItem,
 } from "./items";
 import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock } from "./stock";
@@ -53,6 +55,7 @@ import {
   createLocationSchema,
   createUnitSchema,
   inventoryQuerySchema,
+  photoCropSchema,
   moveStockSchema,
   moveUnitSchema,
   checkInSchema,
@@ -174,6 +177,29 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     await writeFile(join(opts.photoDir, photo), Buffer.from(await files[0]!.arrayBuffer()));
     await writeFile(join(opts.photoDir, thumb), Buffer.from(await files[1]!.arrayBuffer()));
     return c.json(addPhoto(db, itemId, photo, thumb), 201);
+  });
+  // A new square crop for a photo (DEC-030): the crop and the square thumbnail the phone cut.
+  // Thumbnails are cached forever by name, so the new one gets a new name and the old one goes.
+  api.put("/photos/:id/crop", async (c) => {
+    const photoId = intParam(c.req.param("id"));
+    requireItemPhoto(db, photoId);
+    const body = await c.req.parseBody();
+    const thumb = body.thumb;
+    if (!(thumb instanceof File) || thumb.size > MAX_PHOTO_BYTES || !thumb.type.startsWith("image/")) {
+      throw new ApiError(400, "VALIDATION", "Expected a thumb image under 10 MB");
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(String(body.crop ?? ""));
+    } catch {
+      throw new ApiError(400, "VALIDATION", "crop: expected JSON");
+    }
+    const crop = parseBody(photoCropSchema, raw);
+    const name = `p${photoId}-${randomUUID().slice(0, 8)}-thumb.jpg`;
+    await writeFile(join(opts.photoDir, name), Buffer.from(await thumb.arrayBuffer()));
+    const { item, oldThumb } = setPhotoCrop(db, photoId, crop, name);
+    if (oldThumb && oldThumb !== name) await unlink(join(opts.photoDir, oldThumb)).catch(() => {});
+    return c.json(item);
   });
   api.get("/photos/:file", async (c) => {
     const file = c.req.param("file");

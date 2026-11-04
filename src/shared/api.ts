@@ -334,7 +334,16 @@ export type ReturnResult = {
   finished: boolean;
 };
 
-export type Photo = { id: number; url: string; thumbUrl: string };
+/**
+ * The square a photo shows as (DEC-030), as fractions of the original: `x` and `y` are the
+ * square's left and top edges as a share of the photo's width and height, `size` its side as
+ * a share of the photo's shorter side. Null = centred, as big as fits.
+ */
+export type PhotoCrop = { x: number; y: number; size: number };
+export const photoCropSchema = z
+  .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), size: z.number().min(0.1).max(1) })
+  .strict();
+export type Photo = { id: number; url: string; thumbUrl: string; crop: PhotoCrop | null };
 export type Unit = {
   id: number;
   code: string | null;

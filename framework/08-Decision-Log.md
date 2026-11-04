@@ -837,6 +837,42 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 **Consequences:** `src/web/components/ScreenErrorBoundary.tsx`, wired in `App.tsx`. The rule is noted in CLAUDE.md.
 
+### DEC-030: Photos show as squares; the original is kept and the crop can be adjusted
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | AI recommendation on Colin's question (he asked whether to crop to square, and how) |
+| **Category** | UX / Data |
+
+**Context:** Before adding many parts, Colin asked whether photos should be square: with a square guide when taking one, a crop step when importing, or an automatic crop that can be fixed later. iPhone photos are 3:4 portrait (1200 × 1600 after the on-phone resize). Every list, tile and pane already showed a square by trimming the edges (`object-cover`), but the part's own page showed the whole photo at its natural shape. So that screen changed height with every photo, which is what Colin noticed.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Square guide while taking the photo | Framed right first time | Taking a photo opens the phone's own camera, which can't draw a guide; our own camera view would lose its focus, flash and quality, and doesn't help imported photos |
+| A crop step after every photo | Always right | Slows down quick adding (J6, J9), the thing that has to stay fast |
+| **Centre crop automatically, adjust later on the part's page** | No extra step when adding; one adjustment for camera and imported photos alike; most parts are photographed in the middle | A few photos crop awkwardly until adjusted |
+
+**Decision:**
+- **The original is kept whole.** It's shrunk to 1600 px on the phone, as before.
+- **The thumbnail is square.** It's cut from the photo's centre (360 × 360) on the phone.
+- **Every photo has a crop.** The square it shows as is stored as fractions of the original (`photos.crop_x`, `crop_y`, `crop_size`). None means centred and as big as fits.
+- **The part's page shows a square.** It's at most 288 px, drawn from the full photo through the crop. Tapping it still opens the whole photo.
+- **Adjust crop.** A button on the part's page opens an editor: drag the square, zoom with the slider, **Centre** to reset, **Save crop**.
+  - The phone cuts a new square thumbnail and uploads it with the crop (`PUT /api/photos/:id/crop`).
+  - Thumbnails are cached forever by name, so the new one gets a new name and the old file is deleted.
+- **Existing photos.** They need nothing. They already display centred, and adjusting one gives it a square thumbnail.
+
+**Rationale:** Keeping the original means no choice is final. A crop that's automatic but adjustable costs nothing when adding a part and fixes the rare bad one in a few seconds.
+
+**Consequences:**
+- **Data.** Migration 0011.
+- **Code.** `lib/photo.ts` (`cropRect`, `squareJpeg`), new `CroppedPhoto.tsx` and `CropEditor.tsx`, `savePhotoCrop` in `api.ts`, and `Photo.crop` in the shared types.
+- **Checks.** New `photo-check.mjs`.
+
 ---
 
 ## Decision Index
@@ -872,6 +908,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-027 | Every place in one list; move a place by picking it; bin quick view without delete; more categories | UX | Accepted | 2026-11-04 |
 | DEC-028 | A bin can be taken out of its box and keeps its spot | UX / Data | Accepted | 2026-11-04 |
 | DEC-029 | A screen that crashes shows a message, not a black page | Architecture | Accepted | 2026-11-04 |
+| DEC-030 | Photos show as squares; the original is kept and the crop can be adjusted | UX / Data | Accepted | 2026-11-04 |
 
 ---
 

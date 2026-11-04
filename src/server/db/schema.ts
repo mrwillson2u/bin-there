@@ -128,6 +128,11 @@ export const photos = sqliteTable("photos", {
   locationId: integer("location_id").references(() => locations.id),
   path: text("path").notNull(),
   thumbPath: text("thumb_path"),
+  // The square shown everywhere (DEC-030), as fractions of the original: left and top edges of
+  // its width and height, and the side as a share of its shorter side. Null = centred, full.
+  cropX: real("crop_x"),
+  cropY: real("crop_y"),
+  cropSize: real("crop_size"),
   createdAt: timestamps.createdAt,
 });
 
