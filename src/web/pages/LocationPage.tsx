@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, LayoutGrid, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
+import { Camera, LayoutGrid, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
 import { locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType } from "../../shared/api";
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
@@ -16,10 +16,11 @@ import { useToast } from "../components/Toast";
 import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
 import { PickLocation } from "../components/PickLocation";
+import { OutBanner, TakeOutForm } from "../components/TakeOut";
 import { PinButton } from "../components/PinButton";
 import { BinChip, Breadcrumbs, Button, Card, inputClass } from "../components/ui";
 
-type Mode = "idle" | "assign" | "move";
+type Mode = "idle" | "assign" | "move" | "takeout";
 
 /** Sites and racks mostly hold other locations; everything else mostly holds parts. */
 const holdsPlaces = (t: LocationType) => t === "site" || t === "rack";
@@ -126,9 +127,11 @@ export function LocationPage() {
   const remove = useMutation({
     mutationFn: () => api<{ parentId: number | null }>(`/locations/${id}`, { method: "DELETE" }),
     onSuccess: ({ parentId }) => {
-      navigate(parentId ? `/locations/${parentId}` : "/", { replace: true });
-      qc.removeQueries({ queryKey: ["location", id] });
-      qc.invalidateQueries();
+      navigate(parentId ? `/locations/${parentId}` : "/locations", { replace: true });
+      // Refresh everything but the deleted place (its page is still closing and would ask for it),
+      // then drop it, so Back to it says it's gone instead of showing it.
+      qc.invalidateQueries({ predicate: (q) => !(q.queryKey[0] === "location" && q.queryKey[1] === id) });
+      setTimeout(() => qc.removeQueries({ queryKey: ["location", id] }), 1000);
     },
     onError: fail,
   });
@@ -154,7 +157,7 @@ export function LocationPage() {
   const showItems = loc.items.length > 0 || (!isGrid && !holdsPlaces(loc.type));
   const showInside = others.length > 0 || holdsPlaces(loc.type);
   const canAddInside = loc.type !== "bin" && loc.type !== "project";
-  const isEmpty = loc.children.length === 0 && loc.items.length === 0;
+  const isEmpty = loc.children.length === 0 && loc.items.length === 0 && loc.outHere.length === 0;
 
   const addItem = (
     <Link to={`/capture?location=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
@@ -299,6 +302,8 @@ export function LocationPage() {
         <p className="text-[13px] text-muted">{locationTypeLabels[loc.type]}</p>
       </div>
 
+      {loc.out && <OutBanner bin={loc} boxName={loc.path.at(-2)?.name ?? "its box"} />}
+
       {body}
 
       <section className="flex flex-col gap-3 border-t border-border pt-4" aria-label={`Manage ${loc.name}`}>
@@ -340,6 +345,7 @@ export function LocationPage() {
             onCancel={() => setMode("idle")}
           />
         )}
+        {mode === "takeout" && <TakeOutForm bin={loc} onDone={() => setMode("idle")} onCancel={() => setMode("idle")} />}
         {message && <p className="text-sm text-danger" role="alert">{message}</p>}
 
         {mode === "idle" && (
@@ -353,6 +359,11 @@ export function LocationPage() {
               <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
                 <Plus size={18} /> Add inside
               </Link>
+            )}
+            {loc.type === "bin" && !loc.out && (
+              <Button onClick={() => { setMessage(null); setMode("takeout"); }}>
+                <LogOut size={18} /> Take out
+              </Button>
             )}
             {loc.type !== "site" && (
               <Button onClick={() => { setMessage(null); setMode("move"); }}>

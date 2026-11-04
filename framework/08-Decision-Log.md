@@ -772,7 +772,49 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - `BinSheet` lost its delete.
 - `binLabel` returns "Empty".
 - Migration `0009_more_categories.sql`, and `STARTER_CATEGORIES` extended.
-- Still open: taking a whole bin out to the bench or a project kit. Today that's a Move, and its grid spot is lost (Q48).
+- Taking a whole bin out to the bench or a project kit was still open here (Q48); DEC-028 settled it.
+
+### DEC-028: A bin can be taken out of its box and keeps its spot
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin (Q48) |
+| **Category** | UX / Data |
+
+**Context:** Colin asked whether a whole bin could be checked out of a gridded box, say to a project kit. Moving it lost its grid spot, so putting it back meant arranging it again. He answered Q48: the spot should stay saved. He also asked that the grid show the bin as away (greyed out or textured) and say where it went. Then he added a case: if he decides to keep the bin out, he should be able to give up its spot and put a new bin there.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Move the bin into the kit, remembering its old box and spot | The kit holds it like any child | Two meanings for the grid columns; a bin with "just a note" has nowhere to be |
+| **The bin stays its box's child, marked out (to a kit, or a note)** | The grid, overlap checks and paths keep working; the saved spot is simply its slot; out-with-a-note works | The kit lists its bins through a separate field |
+
+**Decision:**
+- **Taking out.** A bin can be taken out of its box, either to a project kit (one tap on the kit's name) or with a note ("on the bench").
+  - It stays its box's child and keeps its slot, so the spot stays taken.
+  - Placing another bin there says "That spot is saved for Bin 0001, which is out. Free its spot first".
+- **The grid.** The tile is grey with diagonal stripes and says **Out** plus the kit's name or the note.
+- **The bin's views.** Its quick view and page show "Out of Grid box 1 · In Weather station · 2 h ago", linking to the kit, with **Put it back in Grid box 1**.
+- **Freeing the spot.** **Free its spot** (with a confirm) gives up the saved spot while the bin stays out. When it comes back, it waits under "Not placed".
+- **The kit.** It lists "Bins taken out to this kit", each with Put back. Return everything and Finish project put them back too. A kit can't be deleted while a bin is out to it.
+- **Parts in an out bin.** Their place line says "bin out: Weather station" in search and Inventory, and the part's page says "The bin is out: …".
+- **Put-back mode.** Scanning a bin that's out puts it back in its spot, and the put-back screen says so.
+- **Moving.** Moving an out bin to another place for good clears "out".
+- **Activity.** It logs "Bin 0001 taken out to …" and "Bin 0001 put back". There's no Undo, because each of the two actions is the other's undo, one tap away.
+
+**Rationale:**
+- A bin that comes back goes in the same place nearly every time, so the spot should wait for it.
+- Keeping the bin its box's child means none of the grid rules had to change. "Out" is three columns on top.
+
+**Consequences:**
+- **Data.** Migration 0010 adds `locations.out_at`, `out_to_id` and `out_note`.
+- **Endpoints.** New `POST /api/locations/:id/take-out` and `/put-back`.
+- **Types.** `LocationSummary.out`, `LocationDetail.outHere`, `Place.out` and `ProjectSummary.bins`.
+- **Grid rule.** `PlacedBin.outName` is used for the saved-spot message.
+- **Web.** New `TakeOut.tsx` (the form, the banner, and the put-back and free-spot actions).
 
 ---
 
@@ -807,6 +849,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-025 | A scan never changes anything without saying so; flow review fixes | UX | Accepted | 2026-11-03 |
 | DEC-026 | Home is the inventory; Locations gets its own screen; Search is results only | UX | Accepted | 2026-11-04 |
 | DEC-027 | Every place in one list; move a place by picking it; bin quick view without delete; more categories | UX | Accepted | 2026-11-04 |
+| DEC-028 | A bin can be taken out of its box and keeps its spot | UX / Data | Accepted | 2026-11-04 |
 
 ---
 

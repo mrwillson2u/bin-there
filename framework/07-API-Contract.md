@@ -37,6 +37,8 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 |--------|------|---------|
 | GET | `/api/locations?parent=` | List children (top-level if no parent) |
 | GET | `/api/locations?all=1` | Every non-deleted place with its `path`, in tree order (each place right after the one it's in); with only one site, the site itself is left out (DEC-027) |
+| POST | `/api/locations/:id/take-out` | Body `{ toLocationId?, note? }`: take a bin out of its box to a project kit or with a note (one is needed). It stays the box's child and keeps its slot; logged as `check_out` with no item. 409 if already out (DEC-028) |
+| POST | `/api/locations/:id/put-back` | Put a bin that's out back (its saved slot, or unplaced if the spot was freed with `PUT …/slot` null); logged as `check_in`. 409 if it isn't out |
 | GET | `/api/locations/:id` | Location + breadcrumb path + child locations + stock + units |
 | POST | `/api/locations` | Create (optionally with `code`) |
 | PATCH | `/api/locations/:id` | Edit; changing `parent_id` = **move container** (F9) |
@@ -109,3 +111,5 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 ## Open Questions
 
 - ~~Should `/api/putback` be a single endpoint?~~ Yes for the stock rules (tested server-side); the scan → which-item resolution lives in the client, since it's mostly UI state.
+
+**Bins out of their box (DEC-028).** Every `LocationSummary` carries `out: { at, to: {id, name} | null, note } | null`. A project kit's `LocationDetail.outHere` lists the bins out to it (with paths), `ProjectSummary.bins` counts them, and each `Place` on an item carries the same `out` when that place is a bin that's out. Returning or finishing a kit puts its bins back; a kit with bins out to it can't be deleted.

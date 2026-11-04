@@ -42,6 +42,11 @@ export const locations = sqliteTable("locations", {
   gridY: integer("grid_y"),
   // A 2×1 bin can sit either way in the grid; rotated = tall (1 wide, 2 high).
   gridRotated: integer("grid_rotated", { mode: "boolean" }).notNull().default(false),
+  // A bin taken out of its box (DEC-028): it stays the box's child and keeps its grid spot.
+  // out_at set = out; out_to_id is the project kit it went to (or null with just a note).
+  outAt: text("out_at"),
+  outToId: integer("out_to_id").references((): AnySQLiteColumn => locations.id),
+  outNote: text("out_note"),
   notes: text("notes"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   ...timestamps,

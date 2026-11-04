@@ -18,6 +18,7 @@ import { ItemTotal } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
 import { Badge, Card, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
 import { FirstSite } from "./LocationsPage";
+import { outText } from "../components/TakeOut";
 
 // Inventory (DEC-026): every part, searchable and filterable, as a list or as tiles, with pinned
 // parts on top. Filters live in the URL so Back (say, after saving a part's details) lands on the
@@ -346,7 +347,7 @@ function Places({ item, max }: { item: ItemSummary; max: number }) {
   return (
     <>
       {item.places.slice(0, max).map((p) => (
-        <PlacePath key={p.locationId} path={p.path} className="text-[13px] text-muted" />
+        <PlacePath key={p.locationId} path={p.path} className="text-[13px] text-muted" after={p.out && <span className="text-info"> · {outText(p.out)}</span>} />
       ))}
       {item.places.length > max && <span className="block text-[13px] text-muted">+{item.places.length - max} more place{item.places.length - max === 1 ? "" : "s"}</span>}
     </>
@@ -412,6 +413,7 @@ function RowText({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
           {pinned ? (
             <span className="block truncate text-[13px] text-muted">
               {place ? place.path.at(-1)?.name : i.places.length ? i.places[0]!.path.at(-1)?.name : "No location"}
+              {place?.out && <span className="text-info"> (out)</span>}
               {i.places.length > 1 && ` +${i.places.length - 1}`}
             </span>
           ) : (
@@ -473,7 +475,7 @@ function TileView({ pinned, items }: { pinned: ItemSummary[]; items: ItemSummary
 
 function Tile({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
   const place = mainPlace(i) ?? i.places[0];
-  const where = place ? (place.path.at(-1)?.name ?? "") + (i.places.length > 1 ? ` +${i.places.length - 1}` : "") : "No location";
+  const where = place ? (place.path.at(-1)?.name ?? "") + (place.out ? " (out)" : "") + (i.places.length > 1 ? ` +${i.places.length - 1}` : "") : "No location";
   return (
     <li>
       <Link to={`/items/${i.id}`} className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface active:bg-surface-2 lg:hover:bg-surface-2">

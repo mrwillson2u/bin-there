@@ -206,6 +206,11 @@ function PlaceCard({ item, place, onMove }: { item: ItemDetail; place: Place; on
         <Link to={`/locations/${place.locationId}`} className="min-w-0 flex-1">
           {place.path.length > 1 && <span className="block text-[13px] text-muted">{pathText(place.path.slice(0, -1))}</span>}
           <span className="block font-semibold">{name}</span>
+          {place.out && (
+            <span className="flex items-center gap-1 text-[13px] text-info">
+              <LogOut size={14} className="shrink-0" /> The bin is out: {place.out.to?.name ?? place.out.note}
+            </span>
+          )}
         </Link>
         <button
           onClick={() => toggleHome.mutate()}

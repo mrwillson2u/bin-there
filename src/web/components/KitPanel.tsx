@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, House, PackagePlus, ScanLine, Search, Undo2, X } from "lucide-react";
-import { levelLabels, type ItemDetail, type ItemSummary, type LocationDetail, type LocationItem, type ReturnResult, type ScanResult, type StockResult } from "../../shared/api";
+import { levelLabels, type ItemDetail, type ItemSummary, type LocationDetail, type LocationItem, type PinnedLocation, type ReturnResult, type ScanResult, type StockResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl, useStockMutation } from "./StockControl";
 import { useToast } from "./Toast";
-import { Badge, Button, Card, inputClass, itemName, pathText, PlacePath, Thumb } from "./ui";
+import { Badge, BinChip, Button, Card, inputClass, itemName, pathText, PlacePath, Thumb } from "./ui";
+import { contents } from "./LocationList";
+import { usePutBackBin } from "./TakeOut";
 
 // A project kit (J4, DEC-019): parts pulled together for one project. Each part keeps
 // its home, so "Return everything" sends it all back, and "Finish" does that and
@@ -76,7 +78,7 @@ export function KitPanel({ kit, scanActive }: { kit: LocationDetail; scanActive:
     return true;
   });
 
-  const hasStuff = kit.items.length > 0;
+  const hasStuff = kit.items.length > 0 || kit.outHere.length > 0;
 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
@@ -120,19 +122,51 @@ export function KitPanel({ kit, scanActive }: { kit: LocationDetail; scanActive:
         {pulling && <PullPanel kit={kit} fromBin={fromBin} onClose={() => { setPulling(false); setFromBin(null); }} />}
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">In the kit</h2>
-        {kit.items.length === 0 ? (
-          <p className="px-1 py-3 text-center text-muted">Nothing in it yet.</p>
-        ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-            {kit.items.map((i) => (
-              <KitRow key={i.itemId} kit={kit} item={i} onReturn={() => giveBack.mutate({ itemId: i.itemId })} busy={giveBack.isPending} />
-            ))}
-          </ul>
+      <div className="flex flex-col gap-4">
+        {kit.outHere.length > 0 && <KitBins bins={kit.outHere} />}
+        {(kit.items.length > 0 || kit.outHere.length === 0) && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">In the kit</h2>
+            {kit.items.length === 0 ? (
+              <p className="px-1 py-3 text-center text-muted">Nothing in it yet.</p>
+            ) : (
+              <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+                {kit.items.map((i) => (
+                  <KitRow key={i.itemId} kit={kit} item={i} onReturn={() => giveBack.mutate({ itemId: i.itemId })} busy={giveBack.isPending} />
+                ))}
+              </ul>
+            )}
+          </section>
         )}
-      </section>
+      </div>
     </div>
+  );
+}
+
+/** Whole bins taken out of their boxes to this kit (DEC-028); each goes back to its saved spot. */
+function KitBins({ bins }: { bins: PinnedLocation[] }) {
+  const putBack = usePutBackBin();
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Bins taken out to this kit</h2>
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+        {bins.map((b) => (
+          <li key={b.id} className="flex items-center gap-3 px-3 py-2.5">
+            <Link to={`/locations/${b.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+              {b.binSize && <BinChip size={b.binSize} />}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{b.name}</span>
+                <span className="block truncate text-[13px] text-muted">{contents(b)}</span>
+                <PlacePath path={b.path.slice(0, -1)} className="items-center text-[13px] text-muted" before={<House size={13} className="mr-1" aria-label="From" />} />
+              </span>
+            </Link>
+            <Button variant="ghost" className="shrink-0 px-2" onClick={() => putBack.mutate(b.id)} disabled={putBack.isPending} aria-label={`Put ${b.name} back`}>
+              <Undo2 size={18} /> Put back
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

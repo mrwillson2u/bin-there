@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { levelLabels, type ItemSummary, type LocationItem, type StockLevel } from "../../shared/api";
 import { Badge, itemName, PlacePath, Thumb } from "./ui";
+import { outText } from "./TakeOut";
 
 const levelTone: Record<StockLevel, "ok" | "warn" | "danger"> = { plenty: "ok", low: "warn", out: "danger" };
 
@@ -49,8 +50,11 @@ export function ItemList({ items, empty }: { items: ItemSummary[]; empty: string
                     path={p.path}
                     className="text-[13px] text-muted"
                     after={
-                      i.places.length > 1 &&
-                      ((p.qty !== null || p.units > 0 ? ` · ${(p.qty ?? 0) + p.units}` : "") + (i.tracking === "level" && p.level ? ` · ${levelLabels[p.level]}` : ""))
+                      <>
+                        {i.places.length > 1 &&
+                          (p.qty !== null || p.units > 0 ? ` · ${(p.qty ?? 0) + p.units}` : "") + (i.tracking === "level" && p.level ? ` · ${levelLabels[p.level]}` : "")}
+                        {p.out && <span className="text-info"> · {outText(p.out)}</span>}
+                      </>
                     }
                   />
                 ))

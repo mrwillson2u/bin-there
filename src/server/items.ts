@@ -3,7 +3,7 @@ import type { Db } from "./db/client";
 import { categories, events, itemHomes, items, locations, photos, pins, stock, units, type StockRow } from "./db/schema";
 import { ApiError } from "./errors";
 import { listEvents } from "./events";
-import { locationPath } from "./locations";
+import { locationPath, outOf } from "./locations";
 import { isPinned } from "./pins";
 import type {
   Category,
@@ -73,7 +73,7 @@ function placesFor(db: Db, itemId: number, tracking: string, paths: Map<number, 
   const place = (locationId: number): Place => {
     let p = byLoc.get(locationId);
     if (!p) {
-      p = { locationId, path: pathOf(locationId), hasStock: false, qty: null, level: null, units: 0, isHome: false, stale: false, lastCountedAt: null };
+      p = { locationId, path: pathOf(locationId), hasStock: false, qty: null, level: null, units: 0, isHome: false, stale: false, lastCountedAt: null, out: null };
       byLoc.set(locationId, p);
     }
     return p;
@@ -95,6 +95,15 @@ function placesFor(db: Db, itemId: number, tracking: string, paths: Map<number, 
     .all();
   for (const u of unitRows) if (u.locationId !== null) place(u.locationId).units = u.n;
   for (const h of db.select().from(itemHomes).where(eq(itemHomes.itemId, itemId)).all()) place(h.locationId).isHome = true;
+  // A bin taken out to a project kit: say where it is now (DEC-028).
+  const outRows = byLoc.size
+    ? db
+        .select({ id: locations.id, outAt: locations.outAt, outToId: locations.outToId, outNote: locations.outNote })
+        .from(locations)
+        .where(and(inArray(locations.id, [...byLoc.keys()]), isNotNull(locations.outAt)))
+        .all()
+    : [];
+  for (const r of outRows) byLoc.get(r.id)!.out = outOf(db, r);
   // Homes first, then by path.
   return [...byLoc.values()].sort(
     (a, b) => Number(b.isHome) - Number(a.isHome) || a.path.map((c) => c.name).join("/").localeCompare(b.path.map((c) => c.name).join("/")),

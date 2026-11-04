@@ -27,7 +27,13 @@ export function footprint(size: BinSize | null, rotated: boolean, grid: Grid): F
   }
 }
 
-export type PlacedBin = { id: number; binSize: BinSize | null; slot: Slot };
+export type PlacedBin = {
+  id: number;
+  binSize: BinSize | null;
+  slot: Slot;
+  /** Set when the bin is out of the box (DEC-028): its spot is saved, so the message says so. */
+  outName?: string;
+};
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -51,7 +57,9 @@ export function slotProblem(size: BinSize | null, slot: Slot, grid: Grid, others
   const me = { x: slot.x, y: slot.y, w, h };
   for (const o of others) {
     const of = footprint(o.binSize, o.slot.rotated, grid);
-    if (overlaps(me, { x: o.slot.x, y: o.slot.y, ...of })) return "Another bin is already there";
+    if (overlaps(me, { x: o.slot.x, y: o.slot.y, ...of })) {
+      return o.outName ? `That spot is saved for ${o.outName}, which is out. Free its spot first` : "Another bin is already there";
+    }
   }
   return null;
 }

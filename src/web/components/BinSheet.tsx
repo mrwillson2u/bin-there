@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, ChevronRight, Pencil, Plus, QrCode, X } from "lucide-react";
+import { Camera, ChevronRight, LogOut, Pencil, Plus, QrCode, X } from "lucide-react";
 import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSummary, ScanResult } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
@@ -10,6 +10,7 @@ import { StockControl } from "./StockControl";
 import { QtyBadge } from "./ItemList";
 import { PhotoSpot } from "./PhotoSpot";
 import { useToast } from "./Toast";
+import { OutBanner, TakeOutForm } from "./TakeOut";
 import { Badge, BinChip, Button, inputClass, itemName } from "./ui";
 
 // A bin opened from its box's grid (DEC-020, reworked in DEC-024). It leads with what's
@@ -46,12 +47,14 @@ export function BinSheet({
   const navigate = useNavigate();
   const { data: detail } = useQuery({ queryKey: ["location", bin.id], queryFn: () => api<LocationDetail>(`/locations/${bin.id}`) });
   const [adding, setAdding] = useState(false);
+  const [takingOut, setTakingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** An unused sticker scanned while the sheet is open: offered for this bin, never put on silently. */
   const [newSticker, setNewSticker] = useState<string | null>(null);
 
   useEffect(() => {
     setAdding(false);
+    setTakingOut(false);
     setError(null);
     setNewSticker(null);
   }, [bin.id]);
@@ -125,6 +128,8 @@ export function BinSheet({
         </div>
       )}
 
+      {detail?.out && <OutBanner bin={detail} boxName={box.name} />}
+
       {detail === undefined ? (
         <p className="text-muted">Loading…</p>
       ) : items.length === 0 ? (
@@ -136,12 +141,22 @@ export function BinSheet({
       )}
 
       {detail !== undefined &&
-        (items.length === 0 || adding ? (
+        (takingOut ? (
+          <TakeOutForm bin={bin} onDone={() => setTakingOut(false)} onCancel={() => setTakingOut(false)} />
+        ) : items.length === 0 || adding ? (
           <AddPart bin={bin} first={items.length === 0} onDone={() => setAdding(false)} onCancel={items.length > 0 ? () => setAdding(false) : undefined} />
         ) : (
-          <Button variant="ghost" className="self-start px-1" onClick={() => setAdding(true)}>
-            <Plus size={18} /> Add another part
-          </Button>
+          <div className="flex flex-wrap gap-x-4">
+            <Button variant="ghost" className="px-1" onClick={() => setAdding(true)}>
+              <Plus size={18} /> Add another part
+            </Button>
+            {/* Taking the whole bin to the bench or a project kit; its spot stays saved (DEC-028). */}
+            {!detail.out && (
+              <Button variant="ghost" className="px-1" onClick={() => setTakingOut(true)}>
+                <LogOut size={18} /> Take out
+              </Button>
+            )}
+          </div>
         ))}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 

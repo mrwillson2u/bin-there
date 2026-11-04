@@ -269,7 +269,7 @@ function Projects({ projects, newIn }: { projects: ProjectSummary[]; newIn: numb
               <FolderKanban size={20} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate">{p.name}</span>
-                <span className="block truncate text-[13px] text-muted">{p.items === 0 ? "Empty" : `${p.items} part${p.items === 1 ? "" : "s"} in it`}</span>
+                <span className="block truncate text-[13px] text-muted">{[p.bins > 0 && `${p.bins} bin${p.bins === 1 ? "" : "s"}`, p.items > 0 && `${p.items} part${p.items === 1 ? "" : "s"}`].filter(Boolean).join(" · ") || "Empty"}</span>
               </span>
               <ChevronRight size={18} className="text-muted" />
             </Link>

@@ -228,23 +228,97 @@ describe("migration 0009 (DEC-027)", () => {
   });
 
   it("adds the new ones to an older database, without a second copy of one you already made", () => {
+    // A database last migrated by 0008, with the original seven categories and one made by hand.
     const file = join(mkdtempSync(join(tmpdir(), "snt-cat-")), "app.db");
-    openDb(file);
-    // Make it look like it was last migrated by 0008: the new categories missing, except one made by hand.
     const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
-    const when = journal.entries.find((e) => e.tag === "0009_more_categories")!.when;
+    const upTo = journal.entries.findIndex((e) => e.tag === "0009_more_categories");
     const raw = new Database(file);
-    raw.prepare(`delete from "__drizzle_migrations" where created_at = ?`).run(when);
-    const added = STARTER_CATEGORIES.slice(7).map((c) => c.name);
-    raw.prepare(`delete from categories where name in (${added.map(() => "?").join(",")})`).run(...added);
-    raw.prepare("update categories set name = 'batteries' where name = 'Batteries'").run();
-    raw.exec(`insert into categories (name) values ('batteries')`);
+    raw.exec(`create table "__drizzle_migrations" (id integer primary key autoincrement, hash text not null, created_at numeric)`);
+    for (const e of journal.entries.slice(0, upTo)) {
+      for (const stmt of readFileSync(join("drizzle", `${e.tag}.sql`), "utf8").split("--> statement-breakpoint")) if (stmt.trim()) raw.exec(stmt);
+      raw.prepare(`insert into "__drizzle_migrations" (hash, created_at) values ('x', ?)`).run(e.when);
+    }
+    const original = STARTER_CATEGORIES.slice(0, 7).map((c) => c.name);
+    for (const n of [...original, "batteries"]) raw.prepare("insert into categories (name) values (?)").run(n);
     raw.close();
 
     openDb(file);
     const after = names(file);
     expect(after.filter((n) => n.toLowerCase() === "batteries")).toEqual(["batteries"]);
     expect(after.filter((n) => n !== "batteries").sort()).toEqual(STARTER_CATEGORIES.map((c) => c.name).filter((n) => n !== "Batteries").sort());
+  }, 20_000); // replays every migration up to 0008 on a real file, slow on a busy machine
+});
+
+describe("taking a bin out (DEC-028)", () => {
+  type Err = { error: { code: string; message: string } };
+  const setup = async () => {
+    const box = await create({ name: "Screws", type: "gridded_box" });
+    const bin = await create({ type: "bin", parentId: box.id, binSize: "1x1", slot: { x: 2, y: 1 } });
+    const kit = await create({ name: "Weather station", type: "project" });
+    const item = (await call<{ id: number }>("POST", "/items", { name: "M3 nuts", locationId: bin.id, qty: 10 })).json;
+    return { box, bin, kit, item };
+  };
+
+  it("keeps its spot, says where it went, and goes back to the same spot", async () => {
+    const { box, bin, kit, item } = await setup();
+    const out = (await call<LocationDetail>("POST", `/locations/${bin.id}/take-out`, { toLocationId: kit.id })).json;
+    expect(out.out).toMatchObject({ to: { id: kit.id, name: "Weather station" }, note: null });
+    expect(out.slot).toEqual({ x: 2, y: 1, rotated: false });
+    const boxNow = (await call<LocationDetail>("GET", `/locations/${box.id}`)).json;
+    expect(boxNow.children[0]!.out?.to?.name).toBe("Weather station");
+    // The saved spot stays taken, and says why.
+    const other = await create({ type: "bin", parentId: box.id, binSize: "1x1" });
+    const taken = await call<Err>("PUT", `/locations/${other.id}/slot`, { x: 2, y: 1 });
+    expect([taken.status, taken.json.error.message]).toEqual([409, "That spot is saved for Bin 0001, which is out. Free its spot first"]);
+    // The kit lists it, and the part says where its bin is.
+    const kitNow = (await call<LocationDetail>("GET", `/locations/${kit.id}`)).json;
+    expect(kitNow.outHere.map((b) => [b.name, b.path.at(-2)?.name])).toEqual([[bin.name, "Screws"]]);
+    expect((await call<{ bins: number }[]>("GET", "/projects")).json[0]!.bins).toBe(1);
+    const part = (await call<{ places: { out: { to: { name: string } | null } | null }[] }>("GET", `/items/${item.id}`)).json;
+    expect(part.places[0]!.out?.to?.name).toBe("Weather station");
+    // The kit can't be deleted while the bin is out to it.
+    expect((await call<Err>("DELETE", `/locations/${kit.id}`)).json.error.message).toMatch(/Put Bin 0001 back/);
+
+    const back = (await call<LocationDetail>("POST", `/locations/${bin.id}/put-back`)).json;
+    expect([back.out, back.slot]).toEqual([null, { x: 2, y: 1, rotated: false }]);
+    expect((await call("POST", `/locations/${bin.id}/put-back`)).status).toBe(409);
+    const log = (await call<{ type: string; to: string | null }[]>("GET", `/events?location=${bin.id}`)).json;
+    expect(log.slice(0, 2).map((e) => e.type)).toEqual(["check_in", "check_out"]);
+  });
+
+  it("can give up its spot while out, for a new bin; back, it waits unplaced", async () => {
+    const { box, bin } = await setup();
+    await call("POST", `/locations/${bin.id}/take-out`, { note: "keeping it at the bench" });
+    const freed = (await call<LocationDetail>("PUT", `/locations/${bin.id}/slot`, null)).json;
+    expect([freed.slot, freed.out?.note]).toEqual([null, "keeping it at the bench"]);
+    const fresh = await create({ type: "bin", parentId: box.id, binSize: "1x1", slot: { x: 2, y: 1 } });
+    expect(fresh.slot).toEqual({ x: 2, y: 1, rotated: false });
+    const back = (await call<LocationDetail>("POST", `/locations/${bin.id}/put-back`)).json;
+    expect([back.out, back.slot, back.parentId]).toEqual([null, null, box.id]);
+  });
+
+  it("takes a note instead of a kit, and refuses what doesn't make sense", async () => {
+    const { box, bin, kit } = await setup();
+    const tote = await create({ name: "Tote", type: "tote" });
+    expect((await call("POST", `/locations/${bin.id}/take-out`, {})).status).toBe(400);
+    expect((await call("POST", `/locations/${bin.id}/take-out`, { toLocationId: box.id })).status).toBe(400);
+    expect((await call("POST", `/locations/${tote.id}/take-out`, { note: "car" })).status).toBe(400);
+    const noted = (await call<LocationDetail>("POST", `/locations/${bin.id}/take-out`, { note: "on the bench" })).json;
+    expect(noted.out).toMatchObject({ to: null, note: "on the bench" });
+    expect((await call("POST", `/locations/${bin.id}/take-out`, { toLocationId: kit.id })).status).toBe(409);
+  });
+
+  it("goes back when the kit is finished, and stops being out if moved to another box", async () => {
+    const { bin, kit } = await setup();
+    await call("POST", `/locations/${bin.id}/take-out`, { toLocationId: kit.id });
+    const r = (await call<{ returned: number; finished: boolean }>("POST", `/projects/${kit.id}/return`, { finish: true })).json;
+    expect(r).toMatchObject({ returned: 1, finished: true });
+    expect((await call<LocationDetail>("GET", `/locations/${bin.id}`)).json.out).toBeNull();
+
+    const box2 = await create({ name: "Box 2", type: "gridded_box" });
+    await call("POST", `/locations/${bin.id}/take-out`, { note: "bench" });
+    const moved = (await call<LocationDetail>("PATCH", `/locations/${bin.id}`, { parentId: box2.id })).json;
+    expect([moved.out, moved.slot]).toEqual([null, null]);
   });
 });
 

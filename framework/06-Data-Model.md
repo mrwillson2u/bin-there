@@ -48,6 +48,7 @@ Category 1──* Item 1──* Stock *──1 Location ──┐ parent (self, 
 | grid_cols / grid_rows | int, nullable | For gridded boxes. Null means the Allit case, 6 × 4 (+ front strip), which is the only one so far (DEC-014) |
 | grid_x / grid_y | int, nullable | A bin's top-left cell in its parent box; null = not placed on the grid yet. `grid_y = grid_rows` is the front-strip row. Cleared when the bin moves to another box or changes size |
 | grid_rotated | boolean | A 2×1 bin standing tall (1 wide, 2 high). Migration 0007 |
+| out_at / out_to_id / out_note | text / FK → Location (a project kit) / text, all nullable | A bin taken out of its box (DEC-028, migration 0010): `out_at` set means out. The bin stays the box's child and keeps `grid_x`/`grid_y`, so its spot stays saved. Cleared by put-back, or by moving it to another place |
 | notes, created_at, updated_at | | |
 
 The put-back bin is **physical only** (DEC-009): the app doesn't track what's in it, and the old built-in location was deleted (migration 0004). `project` type is a **project kit** (DEC-019, built 2026-11-03): a temporary location parts are pulled into. It never appears in `item_homes` or as a unit's `home_location_id`, which is what lets "return everything" send things back.

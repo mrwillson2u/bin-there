@@ -7,6 +7,7 @@ import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { StockControl } from "../components/StockControl";
 import { useToast } from "../components/Toast";
+import { usePutBackBin } from "../components/TakeOut";
 import { Button, Card, inputClass, itemName, pathText, PlacePath, Thumb } from "../components/ui";
 
 type Loc = { id: number; name: string };
@@ -29,12 +30,14 @@ function homesOf(item: ItemDetail, unitId?: number): Loc[] {
 
 /**
  * Put-back mode (F6). Every scan means "this is going back":
- * a one-part bin logs +1, a mixed bin asks which part, an item's own sticker asks which bin.
+ * a one-part bin logs +1, a mixed bin asks which part, an item's own sticker asks which bin,
+ * and a bin that was taken out of its box goes back in its spot (DEC-028).
  */
 export function PutBackPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
+  const putBackBin = usePutBackBin();
   const { openCamera } = useScan();
   const [step, setStep] = useState<Step>({ kind: "ready" });
   const [count, setCount] = useState(0);
@@ -79,6 +82,11 @@ export function PutBackPage() {
         const loc = r.location;
         // An item is waiting for its bin: this scan is the bin.
         if (step.kind === "where" || step.kind === "notHome") return placeAt(step.item, loc, step.unitId);
+        // A whole bin that was taken out (DEC-028): it's the bin that's going back, into its saved spot.
+        if (loc.out) {
+          setStep({ kind: "ready" });
+          return putBackBin.mutate(loc.id);
+        }
         const stocked = loc.items.filter((i) => i.hasStock);
         if (loc.items.length === 0) setStep({ kind: "empty", location: loc });
         else if (loc.items.length === 1 && stocked.length === 1) put.mutate({ itemId: stocked[0]!.itemId, location: loc });
@@ -104,7 +112,7 @@ export function PutBackPage() {
               <ScanLine size={40} className="text-accent" />
               <p className="font-semibold">Scan whatever you're putting away</p>
               <p className="text-sm text-muted">
-                Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives.
+                Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives. A whole bin you took out goes back in its spot when you scan it.
               </p>
               <Button variant="primary" onClick={openCamera} className="min-h-14 w-full text-lg">
                 <Camera size={22} /> Scan with camera

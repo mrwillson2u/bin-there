@@ -107,9 +107,14 @@ export type LocationSummary = {
   itemCount: number;
   /** The first couple of item names, so a bin can show what's in it instead of its number (DEC-020). */
   preview: string[];
+  /** A bin taken out of its box: where it went. Its spot on the grid stays saved (DEC-028). */
+  out: BinOut | null;
 };
 
 export type Crumb = { id: number; name: string };
+
+/** Where a bin taken out of its box is: a project kit, or just a note ("on the bench"). */
+export type BinOut = { at: string; to: Crumb | null; note: string | null };
 
 export type LocationDetail = LocationSummary & {
   parentId: number | null;
@@ -120,6 +125,8 @@ export type LocationDetail = LocationSummary & {
   children: LocationSummary[];
   items: LocationItem[];
   pinned: boolean;
+  /** For a project kit: bins taken out of their boxes to this kit (they stay their box's children). */
+  outHere: PinnedLocation[];
 };
 
 export type PinnedLocation = LocationSummary & { path: Crumb[] };
@@ -203,6 +210,8 @@ export const moveUnitSchema = z.object({ toLocationId: id });
 
 export const checkOutSchema = z.object({ toLocationId: id.nullable().optional(), note: optText(200) });
 export const checkInSchema = z.object({ locationId: id.nullable().optional() });
+/** Take a bin out of its box (DEC-028): to a project kit, or with a note. */
+export const takeOutSchema = z.object({ toLocationId: id.nullable().optional(), note: optText(200) });
 
 export const putBackSchema = z.object({ itemId: id, locationId: id, unitId: id.optional(), qty: z.number().int().min(1).max(100_000).optional() });
 export type PutBack = z.infer<typeof putBackSchema>;
@@ -237,6 +246,8 @@ export type Place = {
   isHome: boolean;
   stale: boolean;
   lastCountedAt: string | null;
+  /** This place is a bin that's been taken out of its box, and where it is (DEC-028). */
+  out: BinOut | null;
 };
 
 export type ItemSummary = {
@@ -308,7 +319,7 @@ export type Inventory = {
 // ── Project kits (J4, DEC-019) ───────────────────────────────────────────────
 
 /** An active project kit: a `project` location, wherever it sits in the tree. */
-export type ProjectSummary = { id: number; name: string; path: Crumb[]; items: number; updatedAt: string };
+export type ProjectSummary = { id: number; name: string; path: Crumb[]; items: number; /** Bins taken out to this kit (DEC-028). */ bins: number; updatedAt: string };
 
 /** Return one item (`itemId`) or everything in a kit to its home; `finish` also deletes the kit if that empties it. */
 export const returnProjectSchema = z.object({ itemId: z.number().int().positive().optional(), finish: z.boolean().optional() });

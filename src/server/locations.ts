@@ -4,7 +4,7 @@ import { events, itemHomes, items, locations, pins, stock, units } from "./db/sc
 import { ApiError } from "./errors";
 import { locationItems } from "./items";
 import { isPinned } from "./pins";
-import type { BinSize, CreateLocation, Crumb, LocationDetail, LocationSummary, PinnedLocation, UpdateLocation } from "../shared/api";
+import type { BinOut, BinSize, CreateLocation, Crumb, LocationDetail, LocationSummary, PinnedLocation, UpdateLocation } from "../shared/api";
 import { DEFAULT_GRID, slotProblem, type Grid, type PlacedBin, type Slot } from "../shared/grid";
 
 // Written out in full: an interpolated column renders unqualified and would bind to the inner `c`.
@@ -19,10 +19,21 @@ const summaryColumns = {
   gridX: locations.gridX,
   gridY: locations.gridY,
   gridRotated: locations.gridRotated,
+  outAt: locations.outAt,
+  outToId: locations.outToId,
+  outNote: locations.outNote,
   childCount,
 };
 
 type SummaryRow = { gridX: number | null; gridY: number | null; gridRotated: boolean };
+type OutRow = { outAt: string | null; outToId: number | null; outNote: string | null };
+
+/** Where a bin that's been taken out is (DEC-028), or null when it's in its box. */
+export function outOf(db: Db, row: OutRow): BinOut | null {
+  if (row.outAt === null) return null;
+  const to = row.outToId === null ? undefined : db.select({ id: locations.id, name: locations.name }).from(locations).where(eq(locations.id, row.outToId)).get();
+  return { at: row.outAt, to: to ?? null, note: row.outNote };
+}
 
 function slotOf(row: SummaryRow): Slot | null {
   return row.gridX !== null && row.gridY !== null ? { x: row.gridX, y: row.gridY, rotated: row.gridRotated } : null;
@@ -45,9 +56,12 @@ function contents(db: Db, locationId: number): string[] {
     .map((r) => r.name);
 }
 
-function toSummary(db: Db, { gridX, gridY, gridRotated, ...row }: SummaryRow & Omit<LocationSummary, "slot" | "itemCount" | "preview">): LocationSummary {
+function toSummary(
+  db: Db,
+  { gridX, gridY, gridRotated, outAt, outToId, outNote, ...row }: SummaryRow & OutRow & Omit<LocationSummary, "slot" | "itemCount" | "preview" | "out">,
+): LocationSummary {
   const names = contents(db, row.id);
-  return { ...row, slot: slotOf({ gridX, gridY, gridRotated }), itemCount: names.length, preview: names.slice(0, 2) };
+  return { ...row, slot: slotOf({ gridX, gridY, gridRotated }), itemCount: names.length, preview: names.slice(0, 2), out: outOf(db, { outAt, outToId, outNote }) };
 }
 
 export function listLocations(db: Db, parentId: number | null): LocationSummary[] {
@@ -141,6 +155,14 @@ export function getLocation(db: Db, id: number): LocationDetail {
     children,
     items: here,
     pinned: isPinned(db, "location", loc.id),
+    out: outOf(db, loc),
+    outHere:
+      loc.type === "project"
+        ? listLocationsByIds(
+            db,
+            db.select({ id: locations.id }).from(locations).where(and(eq(locations.outToId, loc.id), eq(locations.archived, false))).orderBy(locations.outAt).all().map((r) => r.id),
+          )
+        : [],
   };
 }
 
@@ -186,7 +208,7 @@ function checkSlot(db: Db, parentId: number | null, binId: number | null, binSiz
   if (!parent?.grid) throw new ApiError(400, "VALIDATION", "This bin isn't in a gridded box");
   const others: PlacedBin[] = parent.children
     .filter((c): c is LocationSummary & { slot: Slot } => c.id !== binId && c.type === "bin" && c.slot !== null)
-    .map((c) => ({ id: c.id, binSize: c.binSize, slot: c.slot }));
+    .map((c) => ({ id: c.id, binSize: c.binSize, slot: c.slot, outName: c.out ? c.name : undefined }));
   const problem = slotProblem(binSize, slot, parent.grid, others);
   if (problem) throw new ApiError(409, "CONFLICT", problem);
 }
@@ -236,9 +258,11 @@ export function updateLocation(db: Db, id: number, input: UpdateLocation): Locat
     (input.type !== undefined && input.type !== before.type) ||
     (input.binSize !== undefined && input.binSize !== before.binSize);
   const clearSlot = leavesSlot ? { gridX: null, gridY: null, gridRotated: false } : {};
+  // Moved somewhere else for good: it's no longer out of its old box.
+  const clearOut = input.parentId !== undefined && input.parentId !== before.parentId ? { outAt: null, outToId: null, outNote: null } : {};
   db.transaction((tx) => {
     tx.update(locations)
-      .set({ ...input, ...clearSlot, updatedAt: sql`(datetime('now'))` })
+      .set({ ...input, ...clearSlot, ...clearOut, updatedAt: sql`(datetime('now'))` })
       .where(eq(locations.id, id))
       .run();
     if (input.parentId !== undefined && input.parentId !== before.parentId) {
@@ -255,6 +279,7 @@ export function archiveLocation(db: Db, id: number): { parentId: number | null }
   const loc = getLocation(db, id);
   if (loc.children.length > 0) throw new ApiError(400, "VALIDATION", "Move or delete what's inside it first");
   if (loc.items.length > 0) throw new ApiError(400, "VALIDATION", "Move its items somewhere else first");
+  if (loc.outHere.length > 0) throw new ApiError(400, "VALIDATION", `Put ${loc.outHere[0]!.name} back in its box first`);
   db.transaction((tx) => {
     tx.update(locations).set({ archived: true, code: null, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
     tx.delete(itemHomes).where(eq(itemHomes.locationId, id)).run();
@@ -266,6 +291,43 @@ export function archiveLocation(db: Db, id: number): { parentId: number | null }
 }
 
 /** Put a bin in a slot of its gridded box (or take it off the grid with null). Not logged: it's layout, not stock. */
+/**
+ * Take a bin out of its box (DEC-028), to a project kit or with a note. It stays the box's
+ * child and keeps its grid spot, so putting it back returns it to the same place.
+ */
+export function takeOutBin(db: Db, id: number, input: { toLocationId?: number | null; note?: string | null }): LocationDetail {
+  const bin = getLocation(db, id);
+  if (bin.type !== "bin") throw new ApiError(400, "VALIDATION", "Only bins can be taken out");
+  if (bin.out) throw new ApiError(409, "CONFLICT", `${bin.name} is already out`);
+  const note = input.note?.trim() || null;
+  const to = input.toLocationId ?? null;
+  if (to === null && !note) throw new ApiError(400, "VALIDATION", "Pick the project kit it's going to, or add a note");
+  if (to !== null) {
+    const kit = db.select({ type: locations.type, archived: locations.archived }).from(locations).where(eq(locations.id, to)).get();
+    if (!kit || kit.archived || kit.type !== "project") throw new ApiError(400, "VALIDATION", "A bin can be taken out to a project kit");
+  }
+  db.transaction((tx) => {
+    tx.update(locations)
+      .set({ outAt: sql`(datetime('now'))`, outToId: to, outNote: note, updatedAt: sql`(datetime('now'))` })
+      .where(eq(locations.id, id))
+      .run();
+    tx.insert(events).values({ type: "check_out", locationId: id, fromLocationId: bin.parentId, toLocationId: to }).run();
+  });
+  return getLocation(db, id);
+}
+
+/** Put a bin that was taken out back in its box, in its saved spot. */
+export function putBackBin(db: Db, id: number): LocationDetail {
+  const bin = db.select().from(locations).where(eq(locations.id, id)).get();
+  if (!bin || bin.archived) throw new ApiError(404, "NOT_FOUND", `No location ${id}`);
+  if (bin.outAt === null) throw new ApiError(409, "CONFLICT", `${bin.name} isn't out`);
+  db.transaction((tx) => {
+    tx.update(locations).set({ outAt: null, outToId: null, outNote: null, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
+    tx.insert(events).values({ type: "check_in", locationId: id, fromLocationId: bin.outToId, toLocationId: bin.parentId }).run();
+  });
+  return getLocation(db, id);
+}
+
 export function placeBin(db: Db, id: number, slot: Slot | null): LocationDetail {
   const bin = getLocation(db, id);
   if (bin.type !== "bin") throw new ApiError(400, "VALIDATION", "Only bins go on the grid");

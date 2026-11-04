@@ -2,7 +2,7 @@ import { and, desc, eq, ne, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { itemHomes, items, locations, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
-import { archiveLocation, getLocation, locationPath } from "./locations";
+import { archiveLocation, getLocation, locationPath, putBackBin } from "./locations";
 import { checkInUnit, moveStock, moveUnit } from "./stock";
 import type { ProjectSummary, ReturnResult } from "../shared/api";
 
@@ -20,6 +20,7 @@ export function listProjects(db: Db): ProjectSummary[] {
   return rows.map((r) => ({
     ...r,
     path: locationPath(db, r.id),
+    bins: db.select({ n: sql<number>`count(*)` }).from(locations).where(and(eq(locations.outToId, r.id), eq(locations.archived, false))).get()!.n,
     items: db
       .select({ n: sql<number>`count(distinct item_id)` })
       .from(
@@ -84,6 +85,14 @@ export function returnFromProject(db: Db, id: number, opts: { itemId?: number; f
     if (u.status === "checked_out") checkInUnit(db, u.id, { locationId: home });
     else moveUnit(db, u.id, home);
     result.returned++;
+  }
+
+  // Bins taken out to the kit go back into their boxes, in their saved spots (DEC-028).
+  if (!only) {
+    for (const b of db.select({ id: locations.id }).from(locations).where(and(eq(locations.outToId, id), eq(locations.archived, false))).all()) {
+      putBackBin(db, b.id);
+      result.returned++;
+    }
   }
 
   if (opts.finish && !only) {

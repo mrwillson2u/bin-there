@@ -71,6 +71,13 @@
       "when": 1793823141186,
       "tag": "0009_more_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793823916439,
+      "tag": "0010_bin_take_out",
+      "breakpoints": true
     }
   ]
 }

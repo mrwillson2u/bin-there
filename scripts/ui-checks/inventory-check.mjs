@@ -176,7 +176,7 @@ check((await page.getByRole("link", { name: /Electrical tape/ }).count()) === 0,
 
 // 10. Locations: the old home, with pinned places on top.
 await page.getByRole("link", { name: "Locations" }).click();
-await page.getByRole("heading", { name: "Garage" }).waitFor();
+await page.getByRole("heading", { name: "Garage", exact: true }).waitFor();
 check((await page.getByRole("link", { name: /^Rack A/ }).count()) === 1, "Locations lists the garage's places");
 check((await page.getByRole("link", { name: /^Grid box 1/ }).count()) === 1 && (await page.getByText("Pinned", { exact: true }).count()) === 1, "pinned box on top of Locations");
 await page.screenshot({ path: `${shots}/i5-locations.png` });

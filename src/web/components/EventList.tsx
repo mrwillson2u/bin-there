@@ -20,8 +20,11 @@ function describe(e: EventView): string {
     case "move":
       return `Moved${e.delta ? ` ${e.delta}` : ""} ${e.from ? `from ${e.from} ` : ""}to ${e.to ?? "top level"}`;
     case "check_out":
+      // No item: a whole bin taken out of its box (DEC-028).
+      if (!e.itemId) return `${e.location ?? "A bin"} taken out${e.to ? ` to ${e.to}` : ""}`;
       return `Checked out${e.to ? ` to ${e.to}` : ""}`;
     case "check_in":
+      if (!e.itemId) return `${e.location ?? "A bin"} put back`;
       return `Checked back in${e.to ? ` to ${e.to}` : ""}`;
     case "assign_code":
       return "Sticker assigned";
