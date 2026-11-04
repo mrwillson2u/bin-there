@@ -210,5 +210,31 @@ await desk.getByRole("link", { name: /Electrical tape/ }).waitFor();
 check((await desk.getByRole("main").getByRole("listitem").count()) === 1, "focused search: only the hit");
 await desk.screenshot({ path: `${shots}/i8-desk-search.png` });
 
+// 13. Newer browsers' scroll methods return a Promise. Leaving any screen must not crash on it
+// (it used to: a black page after leaving Inventory). Every tab, both ways, from the sidebar.
+const future = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+await future.addInitScript(() => {
+  for (const m of ["scrollTo", "scrollBy", "scroll", "scrollIntoView"]) {
+    const o = Element.prototype[m];
+    Element.prototype[m] = function (...a) { o.apply(this, a); return Promise.resolve(); };
+    const w = window[m];
+    if (w) window[m] = function (...a) { w.apply(this, a); return Promise.resolve(); };
+  }
+});
+const futureErrors = [];
+future.on("pageerror", (e) => futureErrors.push(e.message));
+await future.goto(`${base}/`);
+await future.getByRole("heading", { name: "Inventory" }).waitFor();
+await future.getByLabel("Category").selectOption(String(fasteners.id)); // a filter on, so the chip row effect runs
+await future.waitForTimeout(400);
+const sidebar = future.locator("nav").filter({ hasText: "Bin There" });
+for (const tab of ["Locations", "Inventory", "Search", "Inventory", "Put-back", "Inventory", "Activity", "Locations"]) {
+  await sidebar.getByRole("link", { name: tab }).click();
+  await future.waitForTimeout(500);
+  if (tab === "Locations") { await future.getByRole("button", { name: "All places" }).click(); await future.getByRole("group", { name: "Type" }).getByRole("button").first().click(); await future.waitForTimeout(300); }
+}
+const crashed = (await future.getByText("This screen hit a problem").count()) > 0 || (await future.evaluate(() => (document.getElementById("root")?.innerText ?? "").trim() === ""));
+check(!crashed && futureErrors.length === 0, `with Promise-returning scroll methods, every tab opens and closes cleanly${futureErrors.length ? ": " + futureErrors.join(" | ") : ""}`);
+
 await browser.close();
 server.kill();

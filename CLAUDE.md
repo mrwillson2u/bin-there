@@ -101,7 +101,9 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
 
 - React 19, React Router, TanStack Query, Tailwind v4. `api.ts` is a thin `fetch` wrapper that
   throws `RequestError`; pages use `useQuery`/`useMutation` and invalidate queries after writes.
-- `App.tsx` holds the routes and the shell (bottom bar on phones, sidebar at `lg`).
+- `App.tsx` holds the routes and the shell (bottom bar on phones, sidebar at `lg`). Each screen sits
+  inside `ScreenErrorBoundary` (DEC-029). Write effects with a block body: an effect must return
+  nothing or a clean-up function, and newer browsers' `scrollTo` returns a Promise.
 - Home (`/`) is `InventoryPage.tsx` (DEC-026): every part from `GET /api/inventory` via
   `useInfiniteQuery` (key `["items", "inventory", …]`, so any `["items"]` invalidation refreshes it),
   filters kept in the URL, list or tile view in `localStorage`, pinned parts on top with − / +.

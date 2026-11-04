@@ -817,6 +817,26 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - **Grid rule.** `PlacedBin.outName` is used for the saved-spot message.
 - **Web.** New `TakeOut.tsx` (the form, the banner, and the put-back and free-spot actions).
 
+### DEC-029: A screen that crashes shows a message, not a black page
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | AI (bug fix; Colin reported the bug) |
+| **Category** | Architecture |
+
+**Context:** On desktop, clicking from Inventory to any other tab turned the whole page black until a reload. The cause was the chip-row reset added in DEC-027, `useEffect(() => chips.current?.scrollTo(...))`. That returned whatever `scrollTo` returns. Newer browsers return a Promise there, and React called the Promise as the effect's clean-up when Inventory closed. It crashed, and with nothing to catch the error, the whole app unmounted. The test browser (Chrome 145) still returns nothing, so the checks missed it.
+
+**Decision:**
+- **The bug.** Both effects (Inventory, and All places on Locations) now use a block body and return nothing. A search for other effects returning a value found only real clean-up functions.
+- **Safety net.** A `ScreenErrorBoundary` sits around each screen, just inside the shell. If a screen ever fails, while drawing or while closing, it says "This screen hit a problem", shows the error and offers Reload. The navigation stays, and the message clears when another screen opens.
+- **Regression check.** `inventory-check.mjs` now runs a desktop pass where every scroll method returns a Promise, the way newer browsers do, and opens and closes every tab.
+
+**Rationale:** An effect must return nothing or a clean-up function, so writing it with braces makes that impossible to get wrong. A black page with no way back is the worst way to fail. A message with Reload is the least that should happen.
+
+**Consequences:** `src/web/components/ScreenErrorBoundary.tsx`, wired in `App.tsx`. The rule is noted in CLAUDE.md.
+
 ---
 
 ## Decision Index
@@ -851,6 +871,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-026 | Home is the inventory; Locations gets its own screen; Search is results only | UX | Accepted | 2026-11-04 |
 | DEC-027 | Every place in one list; move a place by picking it; bin quick view without delete; more categories | UX | Accepted | 2026-11-04 |
 | DEC-028 | A bin can be taken out of its box and keeps its spot | UX / Data | Accepted | 2026-11-04 |
+| DEC-029 | A screen that crashes shows a message, not a black page | Architecture | Accepted | 2026-11-04 |
 
 ---
 

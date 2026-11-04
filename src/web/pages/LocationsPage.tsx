@@ -134,7 +134,11 @@ function AllPlaces() {
   const { data } = useQuery({ queryKey: ["locations", "all"], queryFn: () => api<PinnedLocation[]>("/locations?all=1") });
   // The chip that's on moves to the front; bring the row back to the start so it's in sight.
   const chips = useRef<HTMLDivElement>(null);
-  useEffect(() => chips.current?.scrollTo({ left: 0 }), [type]);
+  // Braces matter: newer browsers' scrollTo returns a Promise, and an effect must return
+  // nothing or a clean-up function (returning the Promise crashed the screen on the way out).
+  useEffect(() => {
+    chips.current?.scrollTo({ left: 0 });
+  }, [type]);
   const edit = (key: string, value: string | null) => {
     const p = new URLSearchParams(window.location.search);
     if (value) p.set(key, value);

@@ -104,7 +104,11 @@ export function InventoryPage() {
   // Filters that are on move to the front of the chip row; bring it back to the start so they're in sight.
   const chips = useRef<HTMLDivElement>(null);
   const onKey = ["needs", "low", "out", "stale", "cat", "kind"].map((k) => params.get(k) ?? "").join("|");
-  useEffect(() => chips.current?.scrollTo({ left: 0 }), [onKey]);
+  // Braces matter: newer browsers' scrollTo returns a Promise, and an effect must return
+  // nothing or a clean-up function (returning the Promise crashed the screen on the way out).
+  useEffect(() => {
+    chips.current?.scrollTo({ left: 0 });
+  }, [onKey]);
 
   if (sites && sites.length === 0) return <FirstSite />;
 

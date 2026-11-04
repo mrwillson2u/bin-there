@@ -18,6 +18,7 @@ import { PutBackPage } from "./pages/PutBackPage";
 import { CheckedOutPage } from "./pages/CheckedOutPage";
 import { ReviewPage } from "./pages/ReviewPage";
 import { ToastProvider } from "./components/Toast";
+import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 
 export function App() {
   const navigate = useNavigate();
@@ -83,7 +84,10 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
     <div ref={shellRef} className="flex min-h-dvh flex-col lg:pl-56">
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))] lg:max-w-6xl lg:px-8 lg:pb-10 lg:pt-6">
         {scanError && <p className="mb-4 rounded-xl bg-danger/15 px-4 py-3 text-sm text-danger" role="alert">{scanError}</p>}
-        <div key={location.pathname}>{children}</div>
+        {/* Above the per-screen remount, so it also catches a screen that fails while closing. */}
+        <ScreenErrorBoundary resetKey={location.pathname}>
+          <div key={location.pathname}>{children}</div>
+        </ScreenErrorBoundary>
       </main>
 
       {/* Phone: bottom bar with the big scan button in thumb reach. */}
