@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guideRect, lensName, pickCamera } from "./camera";
+import { boundsOf, frameToView, guideRect, lensName, pickCamera, pickTarget, visibleRect } from "./camera";
 
 const iphone = [
   { deviceId: "f", label: "Front Camera" },
@@ -44,5 +44,30 @@ describe("guideRect", () => {
   it("never leaves the frame", () => {
     const r = guideRect({ w: 200, h: 100 }, { w: 1000, h: 1000 }, 1, 1);
     expect(r).toEqual({ x: 0, y: 0, w: 200, h: 100 });
+  });
+});
+
+describe("frame to view", () => {
+  it("maps the frame's middle to the view's middle, and the visible part edge to edge", () => {
+    const video = { w: 1920, h: 1080 };
+    const view = { w: 360, h: 300 };
+    expect(frameToView({ x: 960, y: 540 }, video, view)).toEqual({ x: 180, y: 150 });
+    const v = visibleRect(video, view);
+    expect(v.h).toBe(1080);
+    expect(v.w).toBe(1296);
+    expect(frameToView({ x: v.x, y: v.y }, video, view)).toEqual({ x: 0, y: 0 });
+    expect(boundsOf([{ x: 3, y: 9 }, { x: 7, y: 1 }, { x: 5, y: 5 }])).toEqual({ x: 3, y: 1, w: 4, h: 8 });
+  });
+});
+
+describe("pickTarget", () => {
+  const view = { w: 300, h: 300 };
+  const at = (text: string, x: number, y: number) => ({ text, box: { x: x - 10, y: y - 10, w: 20, h: 20 } });
+  it("takes the sticker nearest the aim mark", () => {
+    expect(pickTarget([at("LEFT", 40, 150), at("MID", 160, 140), at("RIGHT", 280, 150)], view)?.text).toBe("MID");
+  });
+  it("ignores a sticker whose middle is off-screen, and is null with nothing seen", () => {
+    expect(pickTarget([at("OFF", -5, 150)], view)).toBeNull();
+    expect(pickTarget([], view)).toBeNull();
   });
 });

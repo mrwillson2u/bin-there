@@ -510,7 +510,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-03 |
-| **Status** | Accepted |
+| **Status** | Accepted (bin numbering superseded by DEC-023) |
 | **Deciders** | Colin |
 | **Category** | UX |
 
@@ -535,7 +535,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-03 |
-| **Status** | Accepted |
+| **Status** | Accepted (decoder and lens); labelling run superseded by DEC-022 |
 | **Deciders** | Colin |
 | **Category** | UX |
 
@@ -558,6 +558,58 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 **Rationale:** Decoding at the sensor's resolution, from one lens that doesn't switch, fixes the two things that made scanning feel bad; the labelling run removes the per-bin navigation. Keeping the decoder in the app keeps the garage-only, no-internet setup intact.
 
 **Consequences:** `@zxing/browser` removed, `zxing-wasm` added; `src/web/scan/camera.ts` (lens choice, guide crop; unit-tested), `decode.ts`, `CameraScanner.tsx` rewritten with `continuous`, `title`, `hint`, `extra`; `ScanProvider.openCamera(options)` and `closeCamera()`; `LabelBins.tsx`. Headless check feeds Chromium a video of a small QR code through a fake camera, so the real decoder is exercised.
+
+### DEC-022: Stickers: tap a bin, aim, tap Scan
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** The labelling run from DEC-021 kept the camera open and assigned every code it read to the next bin in order. In use that was easy to get wrong: one sticker read out of turn shifted every bin after it, and with codes too small to read by eye there was no quick way to find where it went off track.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Keep the automatic run, add a confirm step | Fewer taps | Still an order to fall out of |
+| Open and close the full-screen camera per bin | Simple | A camera start (and on some phones a permission prompt) for every bin |
+| **One Stickers screen: camera preview above the grid; nothing happens until you tap a bin and then tap Scan** | You choose the bin and the moment; the camera starts once | One more tap per bin than the automatic run |
+
+**Decision:** **Stickers** on a gridded box opens a screen with a live camera preview above the box's grid. The preview draws brackets round every QR code it sees and green brackets round the one nearest the white aim mark, with that code written large underneath and whose it is ("not used yet", "on Bin 0005", "on Bin 0003 ✓"). Nothing is assigned until you tap a bin (solid outline) and tap the Scan button, whose label says exactly what it will do: "Put BIN0007 on Bin 0003", "Move BIN0007 here from Bin 0005" (amber), or why it can't. After a scan the bin is unchosen, so each bin is a deliberate tap. The bin whose sticker the camera is pointed at gets a dashed outline, so a box can be checked just by pointing at its stickers, and a wrong one fixed with a move. The last change has Undo. Tiles show each bin's ID and the end of its sticker code. A hardware-scanner trigger on a chosen bin assigns straight away (the trigger is already deliberate). Every scan the app takes beeps (on/off switch, remembered) and buzzes: Android through the vibration API, iPhone through the iOS 18 switch-control haptic. A refused scan gives a low double tone. Elsewhere, any camera scan that writes a sticker (bin sheet, a location's Assign sticker) waits for a Scan tap; camera lookups still take the first code seen.
+
+**Rationale:** Choosing the bin first, then the moment, removes the order the automatic run depended on. Showing what the camera sees, and whose sticker it is, before anything is written turns checking a box into pointing at it.
+
+**Consequences:** `POST /api/locations/:id/code` takes `move: true` to take a sticker off another location (never off an item). New `CameraView.tsx` (preview, brackets, aim), `feedback.ts` (beep, buzz), `StickersView.tsx`; `CameraScanner` takes `tap`; `LabelBins.tsx` and the camera's continuous mode removed. The iPhone haptic relies on a Safari behaviour, not a documented API.
+
+---
+
+### DEC-023: Bin IDs are global and fixed-width (Bin 0001)
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-03 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** DEC-020 numbered bins within their box, so two boxes each had a Bin 1. Bins are modular: a bin moves from one box to another and should stay the same bin. And plain numbers 1, 2, 3 read as positions, as if the bins had to stay in order.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Use the sticker code as the bin's name | One identifier | The stickers carry random 12-character codes, hard to read or say |
+| Global numbers, unpadded (Bin 12) | Unique | Still read as an order; sort wrongly (Bin 10 before Bin 2) |
+| **Global, fixed-width IDs (Bin 0012)** | Unique across the garage; read as IDs; sort correctly | None worth noting below 10,000 bins |
+
+**Decision:** An unnamed bin gets the next ID in the whole system, four digits: Bin 0001, Bin 0002, and so on. IDs aren't reused after a delete. A bin keeps its ID when moved to another box. On the grid a tile shows just the digits ("0012"); everywhere else the full "Bin 0012". Bins given their own name keep it. Migration 0008 renames existing automatic names ("Bin <number>") to IDs in the order the bins were created.
+
+**Rationale:** The ID is only a differentiator; where a bin sits and what's in it are what matter, and the tile shows those. Fixed width makes it look like a label rather than a count.
+
+**Consequences:** `nextBinName` is global and padded; `drizzle/0008_bin_numbers_unique.sql`. On the live data: Grid box 1's bins become Bin 0001 to 0010 and Grid box 2's Bin 0011 to 0025 (dry-run on a copy, stickers unchanged).
 
 ---
 
@@ -584,8 +636,10 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | DEC-017 | Deletions purged for good after 30 days, history included | Product | Accepted | 2026-11-03 |
 | DEC-018 | Light mode is a per-device setting, default dark | UX | Accepted | 2026-11-03 |
 | DEC-019 | Project kits are locations that are never a home | Product | Accepted | 2026-11-03 |
-| DEC-020 | Bins are numbered, show their contents, and are dragged in from a palette | UX | Accepted | 2026-11-03 |
-| DEC-021 | Camera scanning: our own decoder, one steady lens, and a labelling run | UX | Accepted | 2026-11-03 |
+| DEC-020 | Bins are numbered, show their contents, and are dragged in from a palette | UX | Accepted (numbering superseded by DEC-023) | 2026-11-03 |
+| DEC-021 | Camera scanning: our own decoder, one steady lens, and a labelling run | UX | Accepted (run superseded by DEC-022) | 2026-11-03 |
+| DEC-022 | Stickers: tap a bin, aim, tap Scan | UX | Accepted | 2026-11-03 |
+| DEC-023 | Bin IDs are global and fixed-width (Bin 0001) | Product | Accepted | 2026-11-03 |
 
 ---
 

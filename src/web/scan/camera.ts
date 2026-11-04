@@ -51,3 +51,50 @@ export function guideRect(video: Size, view: Size, fraction = 0.6, margin = 0.2)
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+export type Point = { x: number; y: number };
+/** A code the camera can see right now, with its outline in view pixels. */
+export type Seen = { text: string; box: Rect };
+
+/** The part of the frame the view actually shows (the video is drawn with object-fit: cover). */
+export function visibleRect(video: Size, view: Size): Rect {
+  const scale = Math.max(view.w / video.w, view.h / video.h);
+  const w = Math.min(video.w, view.w / scale);
+  const h = Math.min(video.h, view.h / scale);
+  return { x: Math.round((video.w - w) / 2), y: Math.round((video.h - h) / 2), w: Math.round(w), h: Math.round(h) };
+}
+
+/** A point in the frame to the same point in the view (object-fit: cover). */
+export function frameToView(p: Point, video: Size, view: Size): Point {
+  const scale = Math.max(view.w / video.w, view.h / video.h);
+  return { x: (p.x - video.w / 2) * scale + view.w / 2, y: (p.y - video.h / 2) * scale + view.h / 2 };
+}
+
+export function boundsOf(points: Point[]): Rect {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+/**
+ * The code to act on: the one nearest the middle of the view, where the aim mark is.
+ * A code whose middle is off-screen doesn't count, so a neighbouring bin's sticker
+ * half in view is never the one scanned.
+ */
+export function pickTarget(seen: Seen[], view: Size): Seen | null {
+  let best: Seen | null = null;
+  let bestD = Infinity;
+  for (const s of seen) {
+    const cx = s.box.x + s.box.w / 2;
+    const cy = s.box.y + s.box.h / 2;
+    if (cx < 0 || cy < 0 || cx > view.w || cy > view.h) continue;
+    const d = Math.hypot(cx - view.w / 2, cy - view.h / 2);
+    if (d < bestD) {
+      bestD = d;
+      best = s;
+    }
+  }
+  return best;
+}

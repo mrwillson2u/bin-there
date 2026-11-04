@@ -176,6 +176,19 @@ describe("migrations", () => {
   });
 });
 
+describe("migration 0008 (DEC-023)", () => {
+  it("gives automatic bin names fixed-width IDs in creation order and leaves other names alone", () => {
+    const raw = new Database(":memory:");
+    raw.exec(`create table locations (id integer primary key, type text, name text)`);
+    const add = raw.prepare("insert into locations (type, name) values (?, ?)");
+    for (const [t, n] of [["bin", "Bin 1"], ["bin", "Bin 2"], ["bin", "Small screws"], ["bin", "Bin 1"], ["bin", "Bin 3 spare"], ["tote", "Bin 9"], ["bin", "Bin 2"], ["bin", "Bin"], ["bin", "Bin 0002"]]) add.run(t, n);
+    raw.exec(readFileSync(join("drizzle", "0008_bin_numbers_unique.sql"), "utf8"));
+    expect(raw.prepare("select name from locations order by id").all().map((r) => (r as { name: string }).name)).toEqual([
+      "Bin 0001", "Bin 0002", "Small screws", "Bin 0003", "Bin 3 spare", "Bin 9", "Bin 0004", "Bin", "Bin 0005",
+    ]);
+  });
+});
+
 describe("gridded box layout", () => {
   const box = () => create({ name: "Screws", type: "gridded_box" });
   const bin = (parentId: number, name: string, binSize: string) => create({ name, type: "bin", parentId, binSize });
@@ -230,13 +243,13 @@ describe("gridded box layout", () => {
     expect((await place(notInBox.id, { x: 0, y: 0 })).status).toBe(400);
   });
 
-  it("numbers unnamed bins within their box and can drop one straight into a slot (DEC-020)", async () => {
+  it("numbers unnamed bins across the whole system and can drop one straight into a slot (DEC-020, DEC-023)", async () => {
     const b = await box();
     const first = await create({ type: "bin", parentId: b.id, binSize: "1x1", slot: { x: 0, y: 0 } });
-    expect(first.name).toBe("Bin 1");
+    expect(first.name).toBe("Bin 0001");
     expect(first.slot).toEqual({ x: 0, y: 0, rotated: false });
     const tall = await create({ type: "bin", parentId: b.id, binSize: "2x1", slot: { x: 1, y: 0, rotated: true } });
-    expect(tall.name).toBe("Bin 2");
+    expect(tall.name).toBe("Bin 0002");
     expect(tall.slot).toEqual({ x: 1, y: 0, rotated: true });
     // A slot that's taken: nothing is created.
     const clash = await call<{ error: { message: string } }>("POST", "/locations", { type: "bin", parentId: b.id, binSize: "1x1", slot: { x: 0, y: 0 } });
@@ -245,11 +258,33 @@ describe("gridded box layout", () => {
     // Numbers aren't reused after a delete, and a named bin doesn't take a number.
     await call("DELETE", `/locations/${tall.id}`);
     await create({ type: "bin", parentId: b.id, binSize: "1x1", name: "Odd screws" });
-    expect((await create({ type: "bin", parentId: b.id, binSize: "1x1" })).name).toBe("Bin 3");
-    // Another box starts from 1 again.
-    expect((await create({ type: "bin", parentId: (await box()).id, binSize: "1x1" })).name).toBe("Bin 1");
+    expect((await create({ type: "bin", parentId: b.id, binSize: "1x1" })).name).toBe("Bin 0003");
+    // Another box carries on from the same count, so a bin can move between boxes and stay unique.
+    const other = await box();
+    const four = await create({ type: "bin", parentId: other.id, binSize: "1x1" });
+    expect(four.name).toBe("Bin 0004");
+    expect((await call<LocationDetail>("PATCH", `/locations/${four.id}`, { parentId: b.id })).json.name).toBe("Bin 0004");
+    expect((await create({ type: "bin", parentId: other.id, binSize: "1x1" })).name).toBe("Bin 0005");
     // Everything else still needs a name.
     expect((await call("POST", "/locations", { type: "tote", parentId: site.id })).status).toBe(400);
+  });
+
+  it("moves a sticker from one bin to another only when asked, and never off an item (DEC-022)", async () => {
+    const b = await box();
+    const one = await create({ type: "bin", parentId: b.id, binSize: "1x1", code: "BIN0001" });
+    const two = await create({ type: "bin", parentId: b.id, binSize: "1x1" });
+    expect((await call("POST", `/locations/${two.id}/code`, { code: "BIN0001" })).status).toBe(409);
+    const moved = await call<LocationDetail>("POST", `/locations/${two.id}/code`, { code: "BIN0001", move: true });
+    expect(moved.status).toBe(200);
+    expect(moved.json.code).toBe("BIN0001");
+    expect((await call<LocationDetail>("GET", `/locations/${one.id}`)).json.code).toBeNull();
+    // Moving onto the bin that already has it is a no-op, not an error.
+    expect((await call("POST", `/locations/${two.id}/code`, { code: "BIN0001", move: true })).status).toBe(200);
+    // Clearing a sticker (what Undo does).
+    expect((await call<LocationDetail>("PATCH", `/locations/${two.id}`, { code: null })).json.code).toBeNull();
+    // An item's sticker stays put.
+    await call("POST", "/items", { name: "PSU", locationId: one.id, code: "PSU0001" });
+    expect((await call("POST", `/locations/${two.id}/code`, { code: "PSU0001", move: true })).status).toBe(409);
   });
 
   it("tells each bin's contents so the grid can show them", async () => {

@@ -88,7 +88,11 @@ export type CreateLocation = z.infer<typeof createLocationSchema>;
 export const updateLocationSchema = createLocationSchema.omit({ slot: true }).partial();
 export type UpdateLocation = z.infer<typeof updateLocationSchema>;
 
-export const assignCodeSchema = z.object({ code: codeSchema });
+export const assignCodeSchema = z.object({
+  code: codeSchema,
+  /** If another location has this sticker, take it off that one (fixing a mix-up, DEC-022). Never takes one off an item. */
+  move: z.boolean().optional(),
+});
 
 export type LocationSummary = {
   id: number;

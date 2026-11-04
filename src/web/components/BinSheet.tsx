@@ -168,7 +168,7 @@ export function BinSheet({
           </span>
           <button
             type="button"
-            onClick={() => openCamera({ title: `Sticker for ${bin.name}` })}
+            onClick={() => openCamera({ tap: true, title: `Sticker for ${bin.name}` })}
             className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border px-2.5 text-accent"
           >
             <Camera size={16} /> {bin.code ? "Replace" : "Scan with camera"}

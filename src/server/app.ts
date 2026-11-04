@@ -107,8 +107,8 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   });
   api.delete("/locations/:id", (c) => c.json(archiveLocation(db, intParam(c.req.param("id")))));
   api.post("/locations/:id/code", async (c) => {
-    const { code } = parseBody(assignCodeSchema, await c.req.json());
-    return c.json(assignLocationCode(db, intParam(c.req.param("id")), code));
+    const { code, move } = parseBody(assignCodeSchema, await c.req.json());
+    return c.json(assignLocationCode(db, intParam(c.req.param("id")), code, { move }));
   });
   api.put("/locations/:id/slot", async (c) => {
     const slot = parseBody(placeBinSchema, await c.req.json());

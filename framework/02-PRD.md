@@ -182,3 +182,4 @@ Bin There is a self-hosted, mobile-first web app for my garage workshop inventor
 | 2026-11-03 | AI | Post-ship: project kits built (DEC-019) |
 | 2026-11-03 | AI | Post-ship: filling a gridded box made low-friction: palette, numbered bins, contents on tiles, bin sheet (DEC-020) |
 | 2026-11-03 | AI | Post-ship: camera scanner rebuilt (zxing-wasm / BarcodeDetector, plain back lens, full-resolution guide crop) and a Stickers run to label a box of bins (DEC-021) |
+| 2026-11-03 | AI | Post-ship: Stickers reworked to tap a bin, aim, tap Scan, with brackets, beep and buzz, move-and-undo for mix-ups (DEC-022); bin IDs global and fixed-width, Bin 0001 (DEC-023) |

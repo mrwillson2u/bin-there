@@ -1,6 +1,7 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { normalizeCode } from "../../shared/api";
 import { ScanDetector, type Scan } from "./detector";
+import { primeFeedback } from "./feedback";
 // The barcode decoder is large; only download it when the camera is first opened.
 const CameraScanner = lazy(() => import("./CameraScanner").then((m) => ({ default: m.CameraScanner })));
 
@@ -9,12 +10,10 @@ export type ScanHandler = (code: string) => boolean | void;
 
 /** How the camera should behave for whoever opened it. */
 export type CameraOptions = {
-  /** Stay open and keep reading after each code (labelling bins one after another). */
-  continuous?: boolean;
+  /** Wait for a tap on Scan instead of taking the first code seen (use when the scan writes something). */
+  tap?: boolean;
   title?: string;
   hint?: string;
-  /** Extra controls in the camera's top bar. */
-  extra?: ReactNode;
 };
 
 type ScanContextValue = {
@@ -121,7 +120,10 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
     };
   }, [submit]);
 
-  const openCamera = useCallback((options: CameraOptions | { nativeEvent: unknown } = {}) => setCamera("nativeEvent" in options ? {} : options), []);
+  const openCamera = useCallback((options: CameraOptions | { nativeEvent: unknown } = {}) => {
+    primeFeedback(); // this runs in the tap that opened the camera, so the beep is allowed later
+    setCamera("nativeEvent" in options ? {} : options);
+  }, []);
   const closeCamera = useCallback(() => setCamera(null), []);
   const value = { submit, openCamera, closeCamera, cameraOpen: camera !== null, register, lastScan };
 
@@ -131,12 +133,11 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
       {camera && (
         <Suspense fallback={<div className="fixed inset-0 z-50 bg-black" />}>
           <CameraScanner
-            continuous={camera.continuous}
+            tap={camera.tap}
             title={camera.title}
             hint={camera.hint}
-            extra={camera.extra}
             onResult={(code) => {
-              if (!camera.continuous) setCamera(null);
+              setCamera(null);
               submit(code);
             }}
             onClose={closeCamera}

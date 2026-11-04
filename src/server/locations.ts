@@ -145,13 +145,16 @@ function assertParentOk(db: Db, id: number | undefined, parentId: number | null 
 }
 
 /**
- * "Bin N" with the next number in this box (DEC-020). Archived bins keep their number
- * so an old log line never points at a different bin.
+ * "Bin 0042": the next ID in the whole system (DEC-023), so a bin keeps a unique name
+ * when it moves to another box. Fixed width so it reads as an ID and sorts right.
+ * Archived bins keep theirs, so an old log line never points at a different bin.
  */
-function nextBinName(db: Db, parentId: number): string {
-  const names = db.select({ name: locations.name }).from(locations).where(eq(locations.parentId, parentId)).all();
-  const used = names.map((r) => /^Bin (\d+)$/.exec(r.name)?.[1]).filter((n): n is string => n !== undefined).map(Number);
-  return `Bin ${Math.max(0, ...used) + 1}`;
+function nextBinName(db: Db): string {
+  const row = db.get<{ n: number | null }>(sql`
+    select max(cast(substr(name, 5) as integer)) as n from locations
+    where type = 'bin' and name glob 'Bin [0-9]*' and name not glob 'Bin *[^0-9]*'
+  `);
+  return `Bin ${String((row?.n ?? 0) + 1).padStart(4, "0")}`;
 }
 
 /** Where a bin may go: on its gridded box's grid, not on top of another bin. The slot's values, or a 400/409. */
@@ -174,7 +177,7 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
   const slot = isBin && input.slot ? { x: input.slot.x, y: input.slot.y, rotated: input.slot.rotated ?? false } : null;
   const binSize = isBin ? (input.binSize ?? null) : null;
   if (slot) checkSlot(db, input.parentId ?? null, null, binSize, slot);
-  const name = input.name ?? nextBinName(db, input.parentId!);
+  const name = input.name ?? nextBinName(db);
   const id = db.transaction((tx) => {
     const row = tx
       .insert(locations)
@@ -256,12 +259,20 @@ export function placeBin(db: Db, id: number, slot: Slot | null): LocationDetail 
   return getLocation(db, id);
 }
 
-export function assignLocationCode(db: Db, id: number, code: string): LocationDetail {
+export function assignLocationCode(db: Db, id: number, code: string, opts: { move?: boolean } = {}): LocationDetail {
   getLocation(db, id);
-  assertCodeFree(db, code, id);
+  const holder = db.select({ id: locations.id }).from(locations).where(eq(locations.code, code)).get();
+  const moving = opts.move && holder && holder.id !== id ? holder.id : null;
+  if (moving === null) assertCodeFree(db, code, id);
+  else if (db.select({ id: units.id }).from(units).where(eq(units.code, code)).get()) {
+    throw new ApiError(409, "CONFLICT", `Sticker ${code} is already assigned`);
+  }
   db.transaction((tx) => {
+    if (moving !== null) {
+      tx.update(locations).set({ code: null, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, moving)).run();
+    }
     tx.update(locations).set({ code, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, id)).run();
-    tx.insert(events).values({ type: "assign_code", locationId: id }).run();
+    tx.insert(events).values({ type: "assign_code", locationId: id, fromLocationId: moving }).run();
   });
   return getLocation(db, id);
 }

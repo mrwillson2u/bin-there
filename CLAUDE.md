@@ -95,7 +95,7 @@ as `units`: individually stickered things with their own location, home, and che
 All zod request schemas and all response types live here and are imported by both server and web.
 Change an API shape here first; the server handlers and React pages both typecheck against it.
 `src/shared/grid.ts` holds the gridded-box layout rules (bin footprints, fit/overlap checks, snap);
-the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create) and `BoxGrid.tsx` uses them while dragging. A bin's name is optional (auto "Bin N" within its box, DEC-020); `BinSheet.tsx` is the sheet opened by tapping a bin on the grid.
+the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create) and `BoxGrid.tsx` uses them while dragging. A bin's name is optional (auto "Bin 0042", the next global ID, DEC-023); `BinSheet.tsx` is the sheet opened by tapping a bin on the grid, and `StickersView.tsx` is the Stickers screen (DEC-022).
 
 ### Web (`src/web/`)
 
@@ -109,8 +109,10 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
   field so they can be removed. The camera scanner is lazy-loaded and feeds the same `submit(code)`: `decode.ts` uses
   the browser's `BarcodeDetector` when it supports QR, else `zxing-wasm` (its `.wasm` is bundled via
   `?url`, no CDN); `camera.ts` (pure, unit-tested) picks the plain back lens and the guide crop.
-  `openCamera(options)` takes `continuous` (stay open between reads), `title`, `hint`, `extra`;
-  `LabelBins.tsx` uses that to sticker a box of bins in one run (DEC-021). Pages that want to consume a scan call `useScanHandler` and return `true`;
+  `CameraView.tsx` is the live preview that brackets what it sees and reports the code nearest
+  the aim mark; it never acts by itself. `openCamera(options)` takes `tap` (wait for the Scan
+  button; use it whenever the scan writes something), `title`, `hint`. `feedback.ts` beeps and
+  buzzes (DEC-022). Pages that want to consume a scan call `useScanHandler` and return `true`;
   the most recently mounted handler wins, and unhandled scans fall back to opening whatever was
   scanned via `/api/scan/:code`.
 - Photos are resized on the device (`lib/photo.ts`) into a photo and a thumbnail before upload;

@@ -25,7 +25,7 @@
 
 ## Handoff (current state; keep this updated at the end of each session)
 
-*Last updated 2026-11-03, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), the four backlog quick wins (DEC-015 to DEC-018), project kits (DEC-019), the quick box-filling flow (DEC-020), and the camera scanner rebuild with the Stickers labelling run (DEC-021).*
+*Last updated 2026-11-03, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), the four backlog quick wins (DEC-015 to DEC-018), project kits (DEC-019), the quick box-filling flow (DEC-020), the camera scanner rebuild (DEC-021), the tap-to-scan Stickers screen (DEC-022), and global fixed-width bin IDs (DEC-023).*
 
 ### Where things run
 
@@ -54,11 +54,11 @@ Tailscale Serve config persists across reboots; it was set once with `sudo tails
 
 ### Developing
 
-`npm install`, then `npm test` (Vitest, 81 tests) and `npm run build`. For a throwaway copy: `PORT=3001 DATA_DIR=/tmp/bt-test npm start`. Schema changes: edit `src/server/db/schema.ts`, run `npm run db:generate`, and check the migration against an old-shaped database (see the migration test in `src/server/app.test.ts`). Code map: `README.md`.
+`npm install`, then `npm test` (Vitest, 86 tests) and `npm run build`. For a throwaway copy: `PORT=3001 DATA_DIR=/tmp/bt-test npm start`. Schema changes: edit `src/server/db/schema.ts`, run `npm run db:generate`, and check the migration against an old-shaped database (see the migration test in `src/server/app.test.ts`). Code map: `README.md`.
 
 ### What's built
 
-PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, delete/archive (DEC-013, 2026-11-03), the grid view of gridded boxes with drag-and-drop bin placement (DEC-014, 2026-11-03), the staleness review list, low-stock list, nightly purge of old deletions, and light mode (DEC-015 to DEC-018, 2026-11-03), project kits (DEC-019, 2026-11-03), quick filling of a gridded box: palette of new bins, numbered bins with contents on the tile, a bin sheet for adding parts (DEC-020, 2026-11-03), a rebuilt camera scanner (zxing-wasm or the browser's BarcodeDetector, plain back lens, full-resolution guide crop, lens button) and a Stickers run that labels a box of bins one scan after another with the camera left open (DEC-021, 2026-11-03), a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
+PRD F1–F8 (the SPV) plus F10 check out/in, F11 pins, F12 sites, F13 find-it in put-back, delete/archive (DEC-013, 2026-11-03), the grid view of gridded boxes with drag-and-drop bin placement (DEC-014, 2026-11-03), the staleness review list, low-stock list, nightly purge of old deletions, and light mode (DEC-015 to DEC-018, 2026-11-03), project kits (DEC-019, 2026-11-03), quick filling of a gridded box: palette of new bins, contents on the tile, a bin sheet for adding parts (DEC-020, 2026-11-03), a rebuilt camera scanner (zxing-wasm or the browser's BarcodeDetector, plain back lens, lens button; DEC-021), a Stickers screen with a camera preview above the grid where you tap a bin, aim, and tap Scan, with brackets round what the camera sees, beep and buzz, move-a-sticker and Undo (DEC-022), and global fixed-width bin IDs, Bin 0001 (DEC-023, migration 0008), a desktop/Pi layout (sidebar + two columns at ≥1024 px), and home-screen install (PWA). Scanner: a HW0006 Pro programmed with a Ctrl+B prefix (verified); its `&END!` suffix is stripped. iPhone camera scanning verified over HTTPS.
 
 ### Shipped 2026-11-03
 

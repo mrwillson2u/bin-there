@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { QrCode, RotateCw } from "lucide-react";
+import { RotateCw } from "lucide-react";
 import { binSizeLabels, type BinSize, type LocationDetail, type LocationSummary } from "../../shared/api";
 import { DEFAULT_GRID, STRIP_HEIGHT, footprint, snapSlot, type Grid, type PlacedBin, type Slot } from "../../shared/grid";
 import { binColors, itemName } from "./ui";
@@ -44,9 +44,12 @@ const palette: { size: BinSize; rotated: boolean; label: string; short: string }
   { size: "front_strip", rotated: false, label: "Front strip", short: "Front strip" },
 ];
 
-/** What a bin tile says: its first item (and how many more), or its number when empty. */
+/** On the grid every tile is a bin, so "Bin 0042" shows as just "0042"; other names as they are. */
+export const tileName = (name: string) => /^Bin (\d+)$/.exec(name)?.[1] ?? name;
+
+/** What a bin tile says: its first item (and how many more), or its ID when empty. */
 export function binLabel(b: Pick<Bin, "name" | "preview" | "itemCount">): string {
-  if (b.itemCount === 0 || !b.preview[0]) return b.name;
+  if (b.itemCount === 0 || !b.preview[0]) return tileName(b.name);
   const more = b.itemCount - 1;
   return more > 0 ? `${itemName(b.preview[0])} +${more}` : itemName(b.preview[0]);
 }
@@ -58,7 +61,9 @@ export function BoxGrid({
   onCreate,
   onOpen,
   onProblem,
-  highlightId = null,
+  stickers = false,
+  selectedId = null,
+  seenId = null,
 }: {
   box: LocationDetail;
   arranging: boolean;
@@ -68,8 +73,12 @@ export function BoxGrid({
   /** A bin was tapped outside arrange mode. */
   onOpen: (bin: Bin) => void;
   onProblem: (message: string) => void;
-  /** The bin being labelled: outlined, and every bin shows whether it has a sticker. */
-  highlightId?: number | null;
+  /** Sticker mode (DEC-022): tiles show their name and sticker code instead of their contents. */
+  stickers?: boolean;
+  /** The bin chosen to get a sticker: solid outline. */
+  selectedId?: number | null;
+  /** The bin whose sticker the camera (or scanner) is looking at: dashed outline. */
+  seenId?: number | null;
 }) {
   const grid: Grid = box.grid ?? DEFAULT_GRID;
   const bins = box.children.filter((c) => c.type === "bin");
@@ -203,6 +212,15 @@ export function BoxGrid({
     arranging ? { onPointerDown: start(bin, rotated), onDragStart: (e: DragEvent) => e.preventDefault(), draggable: false } : {};
 
   const dragFp = drag ? footprint(drag.bin.binSize, drag.rotated, grid) : null;
+  const ring = (id: number) =>
+    id === selectedId
+      ? `z-10 rounded-lg outline outline-[3px] ${id === seenId ? "outline-ok" : "outline-accent"}`
+      : id === seenId
+        ? "z-10 rounded-lg outline-dashed outline-[3px] outline-warn"
+        : "";
+  // Screen readers get the full name ("Bin 0042"), plus the contents when the tile shows them.
+  const ariaName = (b: Bin, label: string) =>
+    stickers ? `${b.name}, ${b.code ? `sticker ${b.code}` : "no sticker"}` : label === tileName(b.name) ? b.name : `${label}, ${b.name}`;
   const pxSize = (size: BinSize, rotated: boolean, px = cellPx) => {
     const fp = footprint(size, rotated, grid);
     const strip = size === "front_strip";
@@ -265,23 +283,21 @@ export function BoxGrid({
           const style = { ...rect(b.slot, b.binSize), padding: 2 };
           const lifted = drag?.bin.id === b.id;
           const label = binLabel(b);
-          const labelling = highlightId !== null;
           return (
-            <div key={b.id} className={`absolute ${b.id === highlightId ? "z-10 rounded-lg outline outline-3 outline-accent" : ""}`} style={style}>
-              {labelling && b.code && <QrCode size={12} className="pointer-events-none absolute right-1 top-1 z-10 opacity-80" aria-label="has a sticker" />}
+            <div key={b.id} className={`absolute ${ring(b.id)}`} style={style} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined}>
               {arranging ? (
                 <div
                   {...handlers(b)}
                   className={`relative h-full w-full cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`}
                   role="button"
-                  aria-label={`${label}, ${binSizeLabels[b.binSize ?? "other"]} at column ${b.slot.x + 1} row ${b.slot.y + 1}${b.binSize === "2x1" ? ", tap to turn" : ""}`}
+                  aria-label={`${ariaName(b, label)}, ${binSizeLabels[b.binSize ?? "other"]} at column ${b.slot.x + 1} row ${b.slot.y + 1}${b.binSize === "2x1" ? ", tap to turn" : ""}`}
                 >
                   <span className="line-clamp-2">{label}</span>
                   {b.binSize === "2x1" && <RotateCw size={12} className="absolute right-0.5 top-0.5 opacity-60" aria-hidden />}
                 </div>
               ) : (
-                <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize)} active:opacity-80`} aria-label={`${label}, ${b.name}${labelling ? (b.code ? `, sticker ${b.code}` : ", no sticker") : ""}`}>
-                  <span className="line-clamp-2">{label}</span>
+                <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize)} active:opacity-80`} aria-label={ariaName(b, label)}>
+                  {stickers ? <StickerLabel bin={b} /> : <span className="line-clamp-2">{label}</span>}
                 </button>
               )}
             </div>
@@ -302,13 +318,15 @@ export function BoxGrid({
               const lifted = drag?.bin.id === b.id;
               const label = binLabel(b);
               return arranging ? (
-                <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${label}, not placed`}>
+                <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${ariaName(b, label)}, not placed`}>
                   <span className="line-clamp-2">{label}</span>
                 </div>
               ) : (
-                <button key={b.id} type="button" onClick={() => onOpen(b)} style={style} className={binClass(b.binSize)} aria-label={`${label}, ${b.name}`}>
-                  <span className="line-clamp-2">{label}</span>
-                </button>
+                <div key={b.id} className={`relative rounded-md ${ring(b.id)}`} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined}>
+                  <button type="button" onClick={() => onOpen(b)} style={style} className={binClass(b.binSize)} aria-label={ariaName(b, label)}>
+                    {stickers ? <StickerLabel bin={b} /> : <span className="line-clamp-2">{label}</span>}
+                  </button>
+                </div>
               );
             })}
             {arranging && tray.length === 0 && <span className="self-center px-2 text-[13px] text-muted">Every bin is on the grid.</span>}
@@ -331,5 +349,17 @@ export function BoxGrid({
         </div>
       )}
     </div>
+  );
+}
+
+/** The last few characters of a sticker code: the part that differs from bin to bin. */
+export const codeTail = (code: string) => (code.length > 5 ? `…${code.slice(-4)}` : code);
+
+function StickerLabel({ bin }: { bin: Bin }) {
+  return (
+    <span className="flex flex-col items-center leading-tight">
+      <span className="line-clamp-1">{tileName(bin.name)}</span>
+      <span className={`font-mono text-[11px] ${bin.code ? "" : "opacity-60"}`}>{bin.code ? codeTail(bin.code) : "no sticker"}</span>
+    </span>
   );
 }

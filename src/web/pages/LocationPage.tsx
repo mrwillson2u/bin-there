@@ -9,7 +9,8 @@ import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { LocationList } from "../components/LocationList";
 import { BoxGrid } from "../components/BoxGrid";
 import { BinSheet } from "../components/BinSheet";
-import { LabelBins } from "../components/LabelBins";
+import { StickersView } from "../components/StickersView";
+import { primeFeedback } from "../scan/feedback";
 import { useToast } from "../components/Toast";
 import { KitPanel } from "../components/KitPanel";
 import { LocationItemList } from "../components/ItemList";
@@ -31,9 +32,8 @@ export function LocationPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [arranging, setArranging] = useState(false);
   const [openBin, setOpenBin] = useState<LocationSummary | null>(null);
-  // Labelling: which bin the next sticker goes on (null = not labelling).
+  // Sticker mode: the full-screen camera + grid for labelling bins (DEC-022).
   const [labelling, setLabelling] = useState(false);
-  const [labelId, setLabelId] = useState<number | null>(null);
   const toast = useToast();
 
   const done = (msg: string) => {
@@ -154,7 +154,7 @@ export function LocationPage() {
             {mode === "assign" ? "Scan the sticker for this location" : "Scan where this is going"}
           </p>
           <div className="flex gap-2">
-            <Button variant="primary" onClick={openCamera}>Use camera</Button>
+            <Button variant="primary" onClick={() => openCamera(mode === "assign" ? { tap: true, title: `Sticker for ${loc.name}` } : {})}>Use camera</Button>
             <Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>
           </div>
         </Card>
@@ -215,10 +215,10 @@ export function LocationPage() {
                 {!arranging && loc.children.some((c) => c.type === "bin") && (
                   <button
                     type="button"
-                    onClick={() => { setMessage(null); setOpenBin(null); setLabelId(null); setLabelling((l) => !l); }}
-                    className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${labelling ? "font-semibold text-accent" : "text-accent"}`}
+                    onClick={() => { primeFeedback(); setMessage(null); setOpenBin(null); setLabelling(true); }}
+                    className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent"
                   >
-                    <QrCode size={18} /> {labelling ? "Done" : "Stickers"}
+                    <QrCode size={18} /> Stickers
                   </button>
                 )}
                 {!labelling && (
@@ -232,15 +232,14 @@ export function LocationPage() {
                 )}
               </div>
             </div>
-            {labelling && <LabelBins box={loc} currentId={labelId} onCurrent={setLabelId} onExit={() => { setLabelling(false); setLabelId(null); }} />}
+            {labelling && <StickersView box={loc} onExit={() => setLabelling(false)} />}
             <BoxGrid
               box={loc}
               arranging={arranging}
               onPlace={(bin, slot) => { setMessage(null); place.mutate({ bin, slot }); }}
               onCreate={(binSize, slot) => { setMessage(null); addBin.mutate({ binSize, slot }); }}
-              onOpen={(bin) => (labelling ? setLabelId(bin.id) : setOpenBin(bin))}
+              onOpen={setOpenBin}
               onProblem={setMessage}
-              highlightId={labelling ? (labelId ?? -1) : null}
             />
             {!arranging && !labelling && loc.children.some((c) => c.type === "bin") && (
               <p className="text-[13px] text-muted">Tap a bin to see what's in it or add a part.</p>

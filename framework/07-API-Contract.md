@@ -39,9 +39,9 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 | GET | `/api/locations/:id` | Location + breadcrumb path + child locations + stock + units |
 | POST | `/api/locations` | Create (optionally with `code`) |
 | PATCH | `/api/locations/:id` | Edit; changing `parent_id` = **move container** (F9) |
-| POST | `/api/locations/:id/code` | Assign a sticker code |
+| POST | `/api/locations/:id/code` | Assign a sticker code: `{ code, move? }`. 409 if another location or an item has it, unless `move: true` and it's on another location, which takes it off that one (DEC-022). `PATCH /api/locations/:id` with `code: null` removes a sticker |
 | DELETE | `/api/locations/:id` | Soft delete an **empty** location (400 if it holds anything); frees its sticker; returns `{ parentId }` (DEC-013) |
-| | | `POST /api/locations`: `name` is optional for a `bin` (it becomes "Bin N", next number in its box) and required for everything else; a bin may be created straight into a slot with `slot: { x, y, rotated? }` (409 and nothing created if it doesn't fit). Every `LocationSummary` carries `itemCount` and `preview` (first two item names) so a grid tile can show what's in a bin (DEC-020) |
+| | | `POST /api/locations`: `name` is optional for a `bin` (it becomes the next global ID, "Bin 0042", DEC-023) and required for everything else; a bin may be created straight into a slot with `slot: { x, y, rotated? }` (409 and nothing created if it doesn't fit). Every `LocationSummary` carries `itemCount` and `preview` (first two item names) so a grid tile can show what's in a bin (DEC-020) |
 | PUT | `/api/locations/:id/slot` | Place a bin on its gridded box's grid: body `{ x, y, rotated? }` (top-left cell; `y = rows` is the front-strip row) or `null` to take it off. 400 if not a bin in a gridded box; 409 if it overlaps, overhangs, or is the wrong row for a strip (DEC-014) |
 
 ### Project kits (DEC-019)
