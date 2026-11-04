@@ -92,6 +92,13 @@
       "when": 1793829260145,
       "tag": "0012_photo_main",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793831091273,
+      "tag": "0013_location_position",
+      "breakpoints": true
     }
   ]
 }

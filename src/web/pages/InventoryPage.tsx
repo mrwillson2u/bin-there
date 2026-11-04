@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpDown, Camera, ChevronRight, Copy, ImageOff, LayoutGrid, List, PencilLine, Pin, Search, X } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Copy, ImageOff, LayoutGrid, List, PencilLine, Pin, Plus, Search, X } from "lucide-react";
 import {
   inventorySortLabels,
   itemKindLabels,
@@ -135,7 +135,7 @@ export function InventoryPage() {
       <div className="flex items-center gap-3">
         <h1 className="flex-1 text-xl font-semibold">Inventory</h1>
         <Link to="/capture" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
-          <Camera size={18} /> Add item
+          <Plus size={18} /> Add item
         </Link>
       </div>
 

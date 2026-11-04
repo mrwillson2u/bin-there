@@ -4,7 +4,7 @@ import { events, itemHomes, items, locations, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
 import { indexItem } from "./items";
 import { locationPath } from "./locations";
-import type { EventView } from "../shared/api";
+import { crumbLabel, type EventView } from "../shared/api";
 
 export function listEvents(db: Db, opts: { itemId?: number; locationId?: number; limit?: number }): EventView[] {
   const conds = [ne(events.type, "undo")];
@@ -26,7 +26,7 @@ export function listEvents(db: Db, opts: { itemId?: number; locationId?: number;
   const names = new Map<number, string>();
   const pathName = (id: number | null) => {
     if (id === null) return null;
-    if (!names.has(id)) names.set(id, locationPath(db, id).map((c) => c.name).join(" › "));
+    if (!names.has(id)) names.set(id, locationPath(db, id).map(crumbLabel).join(" › "));
     return names.get(id)!;
   };
 

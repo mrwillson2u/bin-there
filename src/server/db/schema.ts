@@ -47,6 +47,8 @@ export const locations = sqliteTable("locations", {
   outAt: text("out_at"),
   outToId: integer("out_to_id").references((): AnySQLiteColumn => locations.id),
   outNote: text("out_note"),
+  // Where it sits in the place it's in, as marked there: "3", "A2", "Top" (DEC-033). Unique among siblings.
+  position: text("position"),
   notes: text("notes"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   ...timestamps,

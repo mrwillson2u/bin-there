@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { ChevronRight, FolderKanban, Pin, Plus, Search, SunMoon, Warehouse, X } from "lucide-react";
-import { locationTypes, type LocationDetail, type LocationSummary, type LocationType, type PinnedLocation, type Pins, type ProjectSummary } from "../../shared/api";
+import { crumbLabel, locationTypes, type LocationDetail, type LocationSummary, type LocationType, type PinnedLocation, type Pins, type ProjectSummary } from "../../shared/api";
 import { getTheme, setTheme, themeLabels, themes, type Theme } from "../theme";
 import { api } from "../api";
 import { contents, LocationList, LocationIcon } from "../components/LocationList";
 import { LocationItemList } from "../components/ItemList";
-import { BinChip, Button, inputClass, PlacePath } from "../components/ui";
+import { BinChip, Button, inputClass, PlacePath, PositionTag } from "../components/ui";
 
 const typePlurals: Record<LocationType, string> = {
   site: "Sites",
@@ -153,7 +153,7 @@ function AllPlaces() {
   const shown = data.filter((l) => {
     if (type && l.type !== type) return false;
     if (words.length === 0) return true;
-    const hay = [...l.path.map((c) => c.name), ...l.preview].join(" ").toLowerCase();
+    const hay = [...l.path.map(crumbLabel), ...l.preview].join(" ").toLowerCase();
     return words.every((w) => hay.includes(w));
   });
 
@@ -215,7 +215,10 @@ function AllPlaces() {
               <Link to={`/locations/${l.id}`} className="flex min-h-14 items-center gap-3 px-4 py-2.5 active:bg-surface-2">
                 {l.type === "bin" && l.binSize ? <BinChip size={l.binSize} /> : <LocationIcon type={l.type} />}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate">{l.name}</span>
+                  <span className="flex items-center gap-1.5">
+                    {l.position && <PositionTag position={l.position} big />}
+                    <span className="truncate">{l.name}</span>
+                  </span>
                   <span className={`block truncate text-[13px] ${contents(l) === "Empty" ? "text-muted italic" : "text-muted"}`}>{contents(l)}</span>
                   {l.path.length > 1 && <PlacePath path={l.path.slice(0, -1)} className="text-[13px] text-muted" />}
                 </span>

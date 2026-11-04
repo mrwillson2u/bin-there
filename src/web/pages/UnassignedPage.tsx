@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router-dom";
-import { Camera, MapPin, QrCode } from "lucide-react";
+import { MapPin, Plus, QrCode } from "lucide-react";
 import { Card } from "../components/ui";
 
 export function UnassignedPage() {
@@ -16,7 +16,7 @@ export function UnassignedPage() {
         to={`/capture?code=${encodeURIComponent(code)}`}
         className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-accent text-lg font-semibold text-accent-fg"
       >
-        <Camera size={22} /> An item (quick capture)
+        <Plus size={22} /> An item (quick capture)
       </Link>
       <Link
         to={`/locations/new?code=${encodeURIComponent(code)}`}

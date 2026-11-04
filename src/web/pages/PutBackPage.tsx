@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Archive, Camera, ChevronRight, House, ScanLine, Search, X } from "lucide-react";
+import { AlertTriangle, Archive, ChevronRight, House, Plus, ScanLine, Search, X } from "lucide-react";
 import type { ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../../shared/api";
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
@@ -115,7 +115,7 @@ export function PutBackPage() {
                 Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives. A whole bin you took out goes back in its spot when you scan it.
               </p>
               <Button variant="primary" onClick={openCamera} className="min-h-14 w-full text-lg">
-                <Camera size={22} /> Scan with camera
+                <ScanLine size={22} /> Scan with camera
               </Button>
             </Card>
           )}
@@ -189,7 +189,7 @@ export function PutBackPage() {
             <Card className="flex flex-col gap-3 p-4">
               <p className="font-semibold">Nothing recorded in {step.location.name} yet.</p>
               <Link to={`/capture?location=${step.location.id}`} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
-                <Camera size={20} /> Quick capture into {step.location.name}
+                <Plus size={20} /> Quick capture into {step.location.name}
               </Link>
               <Button variant="ghost" onClick={() => setStep({ kind: "ready" })} className="self-start">Cancel</Button>
             </Card>
@@ -223,7 +223,7 @@ function Placed({ itemId, location, onNext }: { itemId: number; location: Loc; o
         <StockControl itemId={item.id} locationId={location.id} placeName={location.name} tracking={item.tracking} qty={place.qty} level={place.level} stale={place.stale} />
       )}
       <Button variant="primary" onClick={onNext} className="min-h-14 text-lg">
-        <Camera size={22} /> Scan the next one
+        <ScanLine size={22} /> Scan the next one
       </Button>
     </Card>
   );

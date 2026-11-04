@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Warehouse, Box, ChevronRight, Grid3x3, Layers, Package, Square } from "lucide-react";
 import { locationTypeLabels, type LocationSummary, type LocationType } from "../../shared/api";
-import { BinChip, itemName } from "./ui";
+import { BinChip, itemName, PositionTag } from "./ui";
 
 const icons: Record<LocationType, typeof Box> = {
   site: Warehouse,
@@ -42,7 +42,10 @@ export function LocationList({ locations, empty }: { locations: LocationSummary[
             <Link to={`/locations/${l.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3 active:bg-surface-2">
               {l.type === "bin" && l.binSize ? <BinChip size={l.binSize} /> : <Icon size={20} className="text-muted" />}
               <span className="min-w-0 flex-1">
-                <span className="block truncate">{l.name}</span>
+                <span className="flex items-center gap-1.5">
+                  {l.position && <PositionTag position={l.position} big />}
+                  <span className="truncate">{l.name}</span>
+                </span>
                 <span className="block truncate text-[13px] text-muted">{[locationTypeLabels[l.type], contents(l)].filter(Boolean).join(" · ")}</span>
               </span>
               <ChevronRight size={18} className="text-muted" />

@@ -104,6 +104,40 @@ describe("locations", () => {
   });
 });
 
+describe("positions in a rack (DEC-033)", () => {
+  type Err = { error: { message: string } };
+  it("orders a rack's places by position, numbers as numbers, and keeps each position once", async () => {
+    const rack = await create({ name: "Grid-Box Rack", type: "rack" });
+    const a = await create({ name: "Screws", type: "gridded_box", parentId: rack.id, position: "10" });
+    const b = await create({ name: "Nuts", type: "gridded_box", parentId: rack.id, position: "2" });
+    const c = await create({ name: "Loose", type: "tote", parentId: rack.id });
+    const order = async () => (await call<LocationDetail>("GET", `/locations/${rack.id}`)).json.children.map((x) => [x.position, x.name]);
+    expect(await order()).toEqual([["2", "Nuts"], ["10", "Screws"], [null, "Loose"]]);
+
+    const dup = await call<Err>("PATCH", `/locations/${c.id}`, { position: "2" });
+    expect([dup.status, dup.json.error.message]).toEqual([409, "Position 2 is already Nuts"]);
+    expect((await call("PATCH", `/locations/${c.id}`, { position: "  " })).status).toBe(200); // blank = none
+
+    // Swap two numbers in one go.
+    const swapped = (await call<LocationDetail>("PUT", `/locations/${rack.id}/positions`, { positions: [{ id: a.id, position: "2" }, { id: b.id, position: "10" }] })).json;
+    expect(swapped.children.map((x) => [x.position, x.name])).toEqual([["2", "Screws"], ["10", "Nuts"], [null, "Loose"]]);
+    const clash = await call<Err>("PUT", `/locations/${rack.id}/positions`, { positions: [{ id: c.id, position: "2" }] });
+    expect([clash.status, clash.json.error.message]).toEqual([409, "Screws and Loose are both at 2"]);
+    expect((await call("PUT", `/locations/${rack.id}/positions`, { positions: [{ id: site.id, position: "1" }] })).status).toBe(400);
+
+    // Paths and the activity log carry it; moving away clears it.
+    const bin = await create({ type: "bin", parentId: a.id });
+    expect((await call<LocationDetail>("GET", `/locations/${bin.id}`)).json.path.map((x) => [x.name, x.position])).toEqual([
+      ["Garage", null], ["Grid-Box Rack", null], ["Screws", "2"], ["Bin 0001", null],
+    ]);
+    const events = (await call<{ location: string | null }[]>("GET", `/events?location=${bin.id}`)).json;
+    expect(events[0]!.location).toBe("Garage › Grid-Box Rack › 2 · Screws › Bin 0001");
+    const moved = (await call<LocationDetail>("PATCH", `/locations/${a.id}`, { parentId: site.id })).json;
+    expect(moved.position).toBeNull();
+    expect((await call<LocationDetail>("GET", `/locations/${a.id}`)).json.parentType).toBe("site");
+  });
+});
+
 describe("stickers and scanning", () => {
   it("resolves an assigned sticker to its location", async () => {
     const tote = await create({ name: "Tote 4", type: "tote", code: "SNT-0001" });

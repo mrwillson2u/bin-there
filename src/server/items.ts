@@ -5,6 +5,7 @@ import { ApiError } from "./errors";
 import { listEvents } from "./events";
 import { locationPath, outOf } from "./locations";
 import { isPinned } from "./pins";
+import { crumbLabel } from "../shared/api";
 import type {
   Category,
   CheckedOutUnit,
@@ -107,7 +108,7 @@ function placesFor(db: Db, itemId: number, tracking: string, paths: Map<number, 
   for (const r of outRows) byLoc.get(r.id)!.out = outOf(db, r);
   // Homes first, then by path.
   return [...byLoc.values()].sort(
-    (a, b) => Number(b.isHome) - Number(a.isHome) || a.path.map((c) => c.name).join("/").localeCompare(b.path.map((c) => c.name).join("/")),
+    (a, b) => Number(b.isHome) - Number(a.isHome) || a.path.map(crumbLabel).join("/").localeCompare(b.path.map(crumbLabel).join("/"), undefined, { numeric: true }),
   );
 }
 

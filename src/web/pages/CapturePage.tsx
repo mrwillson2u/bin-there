@@ -7,7 +7,7 @@ import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { PickLocation } from "../components/PickLocation";
-import { Button, Card, Field, inputClass } from "../components/ui";
+import { Button, Card, Field, inputClass, pathText } from "../components/ui";
 
 /**
  * Quick capture (F5): sticker → photo → save, details later.
@@ -130,7 +130,7 @@ export function CapturePage() {
         <Row icon={<MapPin size={18} />} label="Going in">
           {location ? (
             <button onClick={() => setPicking(true)} className="min-h-11 text-right text-sm">
-              {location.path.map((c) => c.name).join(" › ")}
+              {pathText(location.path)}
             </button>
           ) : (
             <button onClick={() => setPicking(true)} className="min-h-11 text-sm text-accent">Scan bin or pick</button>

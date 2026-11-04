@@ -16,6 +16,7 @@ import {
   listLocations,
   placeBin,
   putBackBin,
+  setPositions,
   takeOutBin,
   updateLocation,
 } from "./locations";
@@ -65,6 +66,7 @@ import {
   putBackSchema,
   recountSchema,
   setHomesSchema,
+  setPositionsSchema,
   takeOutSchema,
   updateItemSchema,
   updateLocationSchema,
@@ -109,6 +111,10 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     return c.json(listLocations(db, parent ? Number(parent) : null));
   });
   api.get("/locations/:id", (c) => c.json(getLocation(db, intParam(c.req.param("id")))));
+  api.put("/locations/:id/positions", async (c) => {
+    const input = parseBody(setPositionsSchema, await c.req.json());
+    return c.json(setPositions(db, intParam(c.req.param("id")), input.positions));
+  });
   api.post("/locations/:id/take-out", async (c) => {
     const input = parseBody(takeOutSchema, await c.req.json().catch(() => ({})));
     return c.json(takeOutBin(db, intParam(c.req.param("id")), input));

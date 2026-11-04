@@ -37,6 +37,7 @@ Codes: `VALIDATION` (400), `NOT_FOUND` (404), `CONFLICT` (409, e.g. code already
 |--------|------|---------|
 | GET | `/api/locations?parent=` | List children (top-level if no parent) |
 | GET | `/api/locations?all=1` | Every non-deleted place with its `path`, in tree order (each place right after the one it's in); with only one site, the site itself is left out (DEC-027) |
+| PUT | `/api/locations/:id/positions` | Body `{ positions: [{ id, position }] }`: set the positions of places inside this one at once (blank = none). 409 if two would share one, 400 if an id isn't inside it. Returns the place (DEC-033). One place's position can also be set with `PATCH /api/locations/:id` `{ position }` |
 | POST | `/api/locations/:id/take-out` | Body `{ toLocationId?, note? }`: take a bin out of its box to a project kit or with a note (one is needed). It stays the box's child and keeps its slot; logged as `check_out` with no item. 409 if already out (DEC-028) |
 | POST | `/api/locations/:id/put-back` | Put a bin that's out back (its saved slot, or unplaced if the spot was freed with `PUT …/slot` null); logged as `check_in`. 409 if it isn't out |
 | GET | `/api/locations/:id` | Location + breadcrumb path + child locations + stock + units |
@@ -116,3 +117,5 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 - ~~Should `/api/putback` be a single endpoint?~~ Yes for the stock rules (tested server-side); the scan → which-item resolution lives in the client, since it's mostly UI state.
 
 **Bins out of their box (DEC-028).** Every `LocationSummary` carries `out: { at, to: {id, name} | null, note } | null`. A project kit's `LocationDetail.outHere` lists the bins out to it (with paths), `ProjectSummary.bins` counts them, and each `Place` on an item carries the same `out` when that place is a bin that's out. Returning or finishing a kit puts its bins back; a kit with bins out to it can't be deleted.
+
+**Positions (DEC-033).** Every `Crumb` in a path and every `LocationSummary` carries `position` (or null). Children and the All places list come in position order (numbers as numbers), then by name. Activity text writes a step with a position as "3 · Grid box 1".

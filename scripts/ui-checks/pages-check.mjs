@@ -1,5 +1,6 @@
 // Other location pages after DEC-024: a rack (holds places) and a tote (holds parts).
 // DEC-027: every place in one list with a type filter, and moving a place without a sticker.
+// DEC-033: positions in a rack, set all at once or one by one, shown in lists and paths.
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 // Safety: never point this at the real data. It runs its own server on port 3001
@@ -104,6 +105,42 @@ await page.getByRole("button", { name: /^Rack B/ }).click();
 await page.getByRole("button", { name: "Choose Rack B" }).waitFor();
 await page.screenshot({ path: `${shots}/p5-inside-rack-b.png`, fullPage: true });
 check(true, "inside Rack B: 'Choose Rack B' at the top");
+
+// Positions in a rack (DEC-033).
+const gridRack = await api("POST", "/locations", { name: "Grid-Box Rack", type: "rack", parentId: site.id });
+const boxes = [];
+for (const n of ["Box A", "Box B", "Box C"]) boxes.push(await api("POST", "/locations", { name: n, type: "gridded_box", parentId: gridRack.id }));
+const deepBin = await api("POST", "/locations", { type: "bin", parentId: boxes[2].id, binSize: "1x1", slot: { x: 0, y: 0 } });
+await api("POST", "/items", { name: "Heat-set inserts", locationId: deepBin.id, qty: 30 });
+await page.goto(`${base}/locations/${gridRack.id}`);
+await page.getByRole("button", { name: "Positions" }).click();
+await page.getByRole("button", { name: "Fill 1, 2, 3…" }).click();
+await page.getByLabel("Position of Box A").fill("10");
+await page.getByLabel("Position of Box B").fill("10");
+check(await page.getByRole("button", { name: "Save positions" }).isDisabled() && (await page.getByText("Two places have the same position.").count()) === 1, "two at the same position: caught before saving");
+await page.getByLabel("Position of Box B").fill("2");
+await page.screenshot({ path: `${shots}/p6-positions.png`, fullPage: true });
+await page.getByRole("button", { name: "Save positions" }).click();
+await page.getByRole("status").filter({ hasText: "Positions saved" }).waitFor();
+await page.getByRole("button", { name: "Positions" }).waitFor();
+const rackRows = (await page.getByRole("region", { name: /./ }).count(), await page.locator("main ul").first().getByRole("listitem").allTextContents());
+check(rackRows[0].startsWith("2") && rackRows[0].includes("Box B") && rackRows[1].startsWith("3") && rackRows[2].startsWith("10") && rackRows[2].includes("Box A"), "the rack lists them by position, 2 and 3 before 10: " + rackRows.join(" | "));
+await page.screenshot({ path: `${shots}/p7-rack-ordered.png`, fullPage: true });
+// One box's own page: the tag on its title, and the position next to the name when editing.
+await page.goto(`${base}/locations/${boxes[0].id}`);
+await page.getByRole("heading", { name: "Box A" }).waitFor();
+check((await page.getByLabel("position 10").count()) >= 1, "Box A's page shows position 10");
+await page.getByRole("button", { name: "Rename Box A" }).click();
+await page.getByLabel("Position in Grid-Box Rack").fill("4");
+await page.getByRole("button", { name: "Save", exact: true }).click();
+await page.getByRole("status").filter({ hasText: "Saved" }).waitFor();
+check((await api("GET", `/locations/${boxes[0].id}`)).position === "4", "position changed from the box's page");
+// Search shows the slot in the path.
+await page.goto(`${base}/?q=heat`);
+const hit = page.getByRole("link", { name: /^Heat-set inserts/ });
+await hit.waitFor();
+check((await hit.textContent()).replace(/\u00a0/g, " ").includes("3Box C"), "a part's path shows its box's position: " + (await hit.textContent()).replace(/\u00a0/g, " "));
+await page.screenshot({ path: `${shots}/p8-search-path.png` });
 
 await browser.close();
 server.kill();

@@ -5,7 +5,7 @@ import type { Crumb, LocationDetail, LocationSummary, ScanResult } from "../../s
 import { api } from "../api";
 import { useScan, useScanHandler } from "../scan/ScanProvider";
 import { contents } from "./LocationList";
-import { BinChip, Button, Card } from "./ui";
+import { BinChip, Button, Card, PositionTag } from "./ui";
 
 /**
  * "Where is it going?" Scan a location's sticker (scanner or camera), or browse to it.
@@ -122,9 +122,12 @@ function Browser({ onPick, near, exclude }: { onPick: (loc: { id: number; name: 
             <button onClick={() => open(l.id)} className="flex min-h-12 min-w-0 flex-1 items-center gap-2 py-1.5 pl-4 pr-2 text-left active:bg-surface-2">
               {l.binSize && <BinChip size={l.binSize} />}
               <span className="min-w-0 flex-1">
-                <span className="block truncate">
-                  {l.name}
-                  {l.id === hereId && <span className="text-muted"> (here now)</span>}
+                <span className="flex items-center gap-1.5">
+                  {l.position && <PositionTag position={l.position} big />}
+                  <span className="truncate">
+                    {l.name}
+                    {l.id === hereId && <span className="text-muted"> (here now)</span>}
+                  </span>
                 </span>
                 <span className="block truncate text-[13px] text-muted">{contents(l)}</span>
               </span>

@@ -936,6 +936,41 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - `InventoryPage` gained `PinToggle`, and its list and pinned rows were restructured (pin column instead of the arrow).
 - The story walk's move step (J3a) now taps Choose and still costs 3 taps.
 
+### DEC-033: Places have positions (rack slots); "add" means a plus, not a camera
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin |
+| **Category** | UX / Data |
+
+**Context:**
+- **Positions.** Colin's racks have numbered positions marked on them, and that number is how he tells which box is which. The app listed a rack's contents A to Z by name, with no way to record or order by position. Plain text sorting also put "10" before "2".
+- **Icons.** "Add item" (and "Add item here", "Add a loose item", "An item (quick capture)", "Quick capture into…") used a camera icon, though adding a part doesn't need a photo. "Scan with camera" in put-back used a camera where the rest of the app uses the scan icon.
+
+**Decision:**
+- **A position on each place.** A short label such as "3", "A2" or "Top" (`locations.position`, migration 0013) says where it sits in the place it's in.
+  - It's unique among its siblings, ignoring case.
+  - It's cleared when the place moves to another parent.
+  - Sites and bins on a box's grid don't have one; bins have grid slots instead.
+- **Order.** Everywhere places are listed, those with a position come first, by position, with numbers read as numbers (2 before 10). The rest follow by name, also number-aware. One rule (`comparePlaces` in `src/shared/api.ts`) serves the server and the screens.
+- **Shown everywhere.** A small tag with the position sits before the name in place lists, the place picker, All places, breadcrumbs and one-line paths.
+  - Search results read "Grid-Box Rack › [3] Grid box 1 › Bin 0026", so the slot number is what you see first.
+  - As plain text (the activity log), a step reads "3 · Grid box 1".
+- **Setting them.**
+  - **All at once.** **Positions** on a place's "Inside" list gives one box per place, with **Fill 1, 2, 3…** to start from. Two places at the same position are flagged before saving. It saves atomically (`PUT /api/locations/:id/positions`), so numbers can be swapped.
+  - **One at a time.** The rename pencil on a place's page now edits its position next to its name.
+- **Icons.** Adding a part uses a plus. Scanning uses the scan icon. The camera stays only where a photo is taken.
+
+**Rationale:**
+- The position marked on the rack is how Colin finds a box, so it should be how the app orders and shows boxes.
+- A separate field from the name means moving boxes around the rack doesn't mean renaming them.
+
+**Consequences:**
+- **Types.** `Crumb.position` and `LocationSummary.position`. `LocationDetail.parentType` tells screens whether a position makes sense there.
+- **New pieces.** `PositionTag` in `ui.tsx`, `crumbLabel` for plain text, and `PositionsEditor` in `LocationPage.tsx`.
+
 ---
 
 ## Decision Index
@@ -974,6 +1009,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-030 | Photos show as squares; the original is kept and the crop can be adjusted | UX / Data | Accepted | 2026-11-04 |
 | DEC-031 | The part's page leads with its name; photos have a main one, a strip and a viewer | UX / Data | Accepted | 2026-11-04 |
 | DEC-032 | Picking a place: tap a row to look inside, Choose to pick it; pin from Inventory | UX | Accepted | 2026-11-04 |
+| DEC-033 | Places have positions (rack slots); "add" means a plus, not a camera | UX / Data | Accepted | 2026-11-04 |
 
 ---
 

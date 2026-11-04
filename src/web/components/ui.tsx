@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, ImageOff } from "lucide-react";
-import { binSizeLabels, type BinSize, type Crumb, type LocationSummary } from "../../shared/api";
+import { binSizeLabels, crumbLabel, type BinSize, type Crumb, type LocationSummary } from "../../shared/api";
 import { api } from "../api";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -46,7 +46,10 @@ export function Breadcrumbs({ path }: { path: Crumb[] }) {
       {path.slice(0, -1).map((c, i) => (
         <span key={c.id} className="flex items-center gap-1">
           {i > 0 && <ChevronRight size={14} />}
-          <Link to={`/locations/${c.id}`} className="hover:text-text">{c.name}</Link>
+          <Link to={`/locations/${c.id}`} className="inline-flex items-center hover:text-text">
+            {c.position && <PositionTag position={c.position} />}
+            {c.name}
+          </Link>
         </span>
       ))}
     </nav>
@@ -93,7 +96,19 @@ export function Badge({ tone = "muted", children }: { tone?: keyof typeof badgeT
 }
 
 export const itemName = (name: string) => name || "Unnamed item";
-export const pathText = (path: Crumb[]) => path.map((c) => c.name).join(" › ");
+export const pathText = (path: Crumb[]) => path.map(crumbLabel).join(" › ");
+
+/** A place's position in what it's in, like the number marked on a rack slot (DEC-033). */
+export function PositionTag({ position, big }: { position: string; big?: boolean }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center rounded-md border border-border font-mono font-semibold tabular-nums text-text ${big ? "h-7 min-w-7 px-1.5 text-sm" : "mr-1 h-[1.3em] min-w-[1.3em] px-1 text-[0.85em] leading-none"}`}
+      aria-label={`position ${position}`}
+    >
+      {position}
+    </span>
+  );
+}
 
 /**
  * A location path on one line. With only one site, its name is left off (it's the same
@@ -111,6 +126,7 @@ export function PlacePath({ path: full, before, after, className = "" }: { path:
         // it's only cut if it alone is wider than the line.
         <span key={c.id} className={i === path.length - 1 ? "max-w-full shrink-0 truncate" : "min-w-[3.5ch] shrink truncate"}>
           {i > 0 && "\u00a0›\u00a0"}
+          {c.position && <PositionTag position={c.position} />}
           {c.name}
         </span>
       ))}

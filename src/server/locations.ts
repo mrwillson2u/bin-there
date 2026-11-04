@@ -4,7 +4,7 @@ import { events, itemHomes, items, locations, pins, stock, units } from "./db/sc
 import { ApiError } from "./errors";
 import { locationItems } from "./items";
 import { isPinned } from "./pins";
-import type { BinOut, BinSize, CreateLocation, Crumb, LocationDetail, LocationSummary, PinnedLocation, UpdateLocation } from "../shared/api";
+import { comparePlaces, type BinOut, type BinSize, type CreateLocation, type Crumb, type LocationDetail, type LocationSummary, type PinnedLocation, type UpdateLocation } from "../shared/api";
 import { DEFAULT_GRID, slotProblem, type Grid, type PlacedBin, type Slot } from "../shared/grid";
 
 // Written out in full: an interpolated column renders unqualified and would bind to the inner `c`.
@@ -22,6 +22,7 @@ const summaryColumns = {
   outAt: locations.outAt,
   outToId: locations.outToId,
   outNote: locations.outNote,
+  position: locations.position,
   childCount,
 };
 
@@ -74,9 +75,9 @@ export function listLocations(db: Db, parentId: number | null): LocationSummary[
         parentId === null ? isNull(locations.parentId) : eq(locations.parentId, parentId),
       ),
     )
-    .orderBy(locations.name)
     .all()
-    .map((r) => toSummary(db, r));
+    .map((r) => toSummary(db, r))
+    .sort(comparePlaces);
 }
 
 /**
@@ -84,22 +85,28 @@ export function listLocations(db: Db, parentId: number | null): LocationSummary[
  * after the one it's in. With only one site, the site itself is left out.
  */
 export function listAllLocations(db: Db): PinnedLocation[] {
-  const tree = db.select({ id: locations.id, name: locations.name, parentId: locations.parentId }).from(locations).all();
+  const tree = db.select({ id: locations.id, name: locations.name, position: locations.position, parentId: locations.parentId }).from(locations).all();
   const byId = new Map(tree.map((r) => [r.id, r]));
   const pathOf = (id: number): Crumb[] => {
     const out: Crumb[] = [];
     for (let cur = byId.get(id); cur && out.length < 50; cur = cur.parentId === null ? undefined : byId.get(cur.parentId)) {
-      out.unshift({ id: cur.id, name: cur.name });
+      out.unshift({ id: cur.id, name: cur.name, position: cur.position });
     }
     return out;
   };
   const rows = db.select(summaryColumns).from(locations).where(eq(locations.archived, false)).all();
   const oneSite = rows.filter((r) => r.type === "site").length === 1;
-  const key = (p: Crumb[]) => p.map((c) => c.name.toLowerCase()).join("\u0000");
+  // Tree order: compare step by step, each step in the order places sit (DEC-033).
+  const byPath = (a: Crumb[], b: Crumb[]) => {
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      if (a[i]!.id !== b[i]!.id) return comparePlaces(a[i]!, b[i]!) || a[i]!.id - b[i]!.id;
+    }
+    return a.length - b.length;
+  };
   return rows
     .filter((r) => !(oneSite && r.type === "site"))
     .map((r) => ({ ...toSummary(db, r), path: pathOf(r.id) }))
-    .sort((a, b) => (key(a.path) < key(b.path) ? -1 : key(a.path) > key(b.path) ? 1 : a.id - b.id));
+    .sort((a, b) => byPath(a.path, b.path));
 }
 
 /** Summaries with breadcrumb paths, in the order given (skipping archived or missing ones). */
@@ -121,16 +128,16 @@ function gridOf(loc: { type: string; gridCols: number | null; gridRows: number |
 
 /** Ancestors from the top level down to (and including) the location. */
 export function locationPath(db: Db, id: number): Crumb[] {
-  const rows = db.all<Crumb & { depth: number }>(sql`
-    with recursive chain(id, name, parent_id, depth) as (
-      select id, name, parent_id, 0 from locations where id = ${id}
+  const rows = db.all<{ id: number; name: string; position: string | null; depth: number }>(sql`
+    with recursive chain(id, name, position, parent_id, depth) as (
+      select id, name, position, parent_id, 0 from locations where id = ${id}
       union all
-      select l.id, l.name, l.parent_id, chain.depth + 1
+      select l.id, l.name, l.position, l.parent_id, chain.depth + 1
       from locations l join chain on l.id = chain.parent_id
     )
-    select id, name, depth from chain order by depth desc
+    select id, name, position, depth from chain order by depth desc
   `);
-  return rows.map(({ id, name }) => ({ id, name }));
+  return rows.map(({ id, name, position }) => ({ id, name, position }));
 }
 
 export function getLocation(db: Db, id: number): LocationDetail {
@@ -145,7 +152,9 @@ export function getLocation(db: Db, id: number): LocationDetail {
     code: loc.code,
     binSize: loc.binSize,
     slot: slotOf(loc),
+    position: loc.position,
     parentId: loc.parentId,
+    parentType: loc.parentId === null ? null : (db.select({ type: locations.type }).from(locations).where(eq(locations.id, loc.parentId)).get()?.type ?? null),
     notes: loc.notes,
     grid: gridOf(loc),
     childCount: children.length,
@@ -213,6 +222,42 @@ function checkSlot(db: Db, parentId: number | null, binId: number | null, binSiz
   if (problem) throw new ApiError(409, "CONFLICT", problem);
 }
 
+/** A position is unique among the places in the same parent (DEC-033), ignoring case. */
+function assertPositionFree(db: Db, parentId: number, position: string, selfId: number | undefined) {
+  const taken = db
+    .select({ id: locations.id, name: locations.name })
+    .from(locations)
+    .where(and(eq(locations.parentId, parentId), eq(locations.archived, false), sql`lower(${locations.position}) = lower(${position})`))
+    .all()
+    .find((r) => r.id !== selfId);
+  if (taken) throw new ApiError(409, "CONFLICT", `Position ${position} is already ${taken.name}`);
+}
+
+/**
+ * Set the positions of the places inside one (DEC-033), all at once, so numbers can be swapped.
+ * Places not listed keep theirs; the result must still have each position once.
+ */
+export function setPositions(db: Db, parentId: number, list: { id: number; position: string | null }[]): LocationDetail {
+  const parent = getLocation(db, parentId);
+  const children = new Map(parent.children.map((c) => [c.id, c]));
+  const next = new Map(parent.children.map((c) => [c.id, c.position]));
+  for (const p of list) {
+    if (!children.has(p.id)) throw new ApiError(400, "VALIDATION", `${p.id} isn't in ${parent.name}`);
+    next.set(p.id, p.position);
+  }
+  const seen = new Map<string, number>();
+  for (const [id, pos] of next) {
+    if (!pos) continue;
+    const other = seen.get(pos.toLowerCase());
+    if (other !== undefined) throw new ApiError(409, "CONFLICT", `${children.get(other)!.name} and ${children.get(id)!.name} are both at ${pos}`);
+    seen.set(pos.toLowerCase(), id);
+  }
+  db.transaction((tx) => {
+    for (const p of list) tx.update(locations).set({ position: p.position, updatedAt: sql`(datetime('now'))` }).where(eq(locations.id, p.id)).run();
+  });
+  return getLocation(db, parentId);
+}
+
 export function createLocation(db: Db, input: CreateLocation): LocationDetail {
   if (input.code) assertCodeFree(db, input.code);
   assertPlacement(input.type, input.parentId);
@@ -222,6 +267,8 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
   const slot = isBin && input.slot ? { x: input.slot.x, y: input.slot.y, rotated: input.slot.rotated ?? false } : null;
   const binSize = isBin ? (input.binSize ?? null) : null;
   if (slot) checkSlot(db, input.parentId ?? null, null, binSize, slot);
+  const position = input.parentId ? (input.position ?? null) : null;
+  if (position) assertPositionFree(db, input.parentId!, position, undefined);
   const name = input.name ?? nextBinName(db);
   const id = db.transaction((tx) => {
     const row = tx
@@ -236,6 +283,7 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
         gridX: slot?.x ?? null,
         gridY: slot?.y ?? null,
         gridRotated: slot?.rotated ?? false,
+        position,
       })
       .returning({ id: locations.id })
       .get();
@@ -259,10 +307,15 @@ export function updateLocation(db: Db, id: number, input: UpdateLocation): Locat
     (input.binSize !== undefined && input.binSize !== before.binSize);
   const clearSlot = leavesSlot ? { gridX: null, gridY: null, gridRotated: false } : {};
   // Moved somewhere else for good: it's no longer out of its old box.
-  const clearOut = input.parentId !== undefined && input.parentId !== before.parentId ? { outAt: null, outToId: null, outNote: null } : {};
+  const moving = input.parentId !== undefined && input.parentId !== before.parentId;
+  const clearOut = moving ? { outAt: null, outToId: null, outNote: null } : {};
+  // A position only means something in the place it was given in (DEC-033).
+  const parentAfter = input.parentId !== undefined ? input.parentId : before.parentId;
+  if (input.position && parentAfter !== null) assertPositionFree(db, parentAfter, input.position, id);
+  const position = input.position !== undefined ? { position: parentAfter === null ? null : input.position } : moving ? { position: null } : {};
   db.transaction((tx) => {
     tx.update(locations)
-      .set({ ...input, ...clearSlot, ...clearOut, updatedAt: sql`(datetime('now'))` })
+      .set({ ...input, ...clearSlot, ...clearOut, ...position, updatedAt: sql`(datetime('now'))` })
       .where(eq(locations.id, id))
       .run();
     if (input.parentId !== undefined && input.parentId !== before.parentId) {
