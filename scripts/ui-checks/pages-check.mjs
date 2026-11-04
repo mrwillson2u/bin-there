@@ -79,24 +79,31 @@ await page.getByRole("button", { name: "Move" }).click();
 await page.getByRole("button", { name: "Pick from list" }).click();
 const picker = page.getByRole("list").filter({ hasText: "Rack B" });
 await picker.waitFor();
-const here = await page.getByRole("button", { name: /Rack A \(here now\)/ }).isDisabled();
-check(here, "the picker opens beside the tote, with Rack A marked 'here now'");
+await page.getByRole("button", { name: /Rack A \(here now\)/ }).waitFor();
+check((await page.getByRole("button", { name: "Choose Rack A" }).count()) === 0 && (await page.getByRole("button", { name: "Choose Rack B" }).count()) === 1, "the picker opens beside the tote: Rack A 'here now' without Choose, Rack B with Choose");
+check((await page.getByText("Tap a place to look inside it.").count()) === 1, "it says that tapping a place looks inside");
 await page.screenshot({ path: `${shots}/p4-move-pick.png`, fullPage: true });
-await page.getByRole("button", { name: /^Rack B/ }).click();
+// Tapping the place it's in now opens it, rather than doing nothing.
+await page.getByRole("button", { name: /Rack A \(here now\)/ }).click();
+await page.getByText("Inside Rack A (here now)").waitFor();
+check((await page.getByRole("button", { name: /^Choose Rack A/ }).count()) === 0, "inside where it is now: no Choose for it");
+await page.getByRole("button", { name: "Up one level" }).click();
+await page.getByRole("button", { name: "Choose Rack B" }).click();
 await page.getByRole("status").filter({ hasText: "Moved to Rack B" }).waitFor();
 check((await api("GET", `/locations/${tote.id}`)).path.map((c) => c.name).join(" › ") === "Garage › Rack B › Yellow tote", "tote moved into Rack B");
 // A box can't be picked as its own destination.
 await page.goto(`${base}/locations/${box.id}`);
 await page.getByRole("button", { name: "Move" }).click();
 await page.getByRole("button", { name: "Pick from list" }).click();
-await page.getByRole("button", { name: /Rack A \(here now\)/ }).waitFor();
-await page.getByRole("button", { name: "Open Rack A" }).waitFor({ state: "detached", timeout: 1000 }).catch(() => {});
-const openRackA = page.getByRole("button", { name: "Open Rack A" });
-if (await openRackA.count()) {
-  await openRackA.click();
-  await page.getByRole("button", { name: /Put in Rack A/ }).waitFor();
-}
-check((await page.getByRole("button", { name: /^Grid box 1/ }).count()) === 0, "the box being moved isn't in the list");
+await page.getByRole("button", { name: /Rack A \(here now\)/ }).click();
+await page.getByText("Inside Rack A (here now)").waitFor();
+check((await page.getByRole("listitem").filter({ hasText: "Grid box 1" }).count()) === 0 && (await page.getByRole("listitem").count()) > 0, "the box being moved isn't in the list");
+// Going inside another place offers "Choose <it>" at the top.
+await page.getByRole("button", { name: "Up one level" }).click();
+await page.getByRole("button", { name: /^Rack B/ }).click();
+await page.getByRole("button", { name: "Choose Rack B" }).waitFor();
+await page.screenshot({ path: `${shots}/p5-inside-rack-b.png`, fullPage: true });
+check(true, "inside Rack B: 'Choose Rack B' at the top");
 
 await browser.close();
 server.kill();

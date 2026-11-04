@@ -904,6 +904,38 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - **Types.** `Photo.main`. Photos come main first, and thumbnails follow the main photo.
 - **Web.** New `PartPhotos.tsx`, replacing the header photo code in `ItemPage.tsx`. Messages now sit above every overlay.
 
+### DEC-032: Picking a place: tap a row to look inside, Choose to pick it; pin from Inventory
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-04 |
+| **Status** | Accepted |
+| **Deciders** | Colin (feedback while moving a grid box, and on pinning) |
+| **Category** | UX |
+
+**Context:**
+- **The place picker.** Each row in "Pick from list" did two things. Tapping the row picked it, and a small "3 >" on its edge opened it. The place something was already in was greyed out, so tapping it did nothing. Moving Grid box 1, Colin kept tapping "Garage (here now)" to get inside it, and nothing said the "3 >" was the way in.
+- **Pinning.** A part could only be pinned or unpinned on its own page, not from Inventory, where pinned parts are shown.
+
+**Decision:**
+- **Picker rows** (every "Pick from list": moving a part, a unit or a place, check-out, a new place's parent, quick capture):
+  - Tapping a row goes inside it, shown by a chevron.
+  - A separate **Choose** button on each row picks it. A line says "Tap a place to look inside it."
+  - The place it's in now says "(here now)" and has no Choose, but it still opens.
+- **Inside a place.** "‹ back" sits above "Inside Rack B" and **Choose Rack B**, in the same outlined style as the row buttons.
+- **Where the picker starts.** In the place that holds the thing, so its neighbours are one tap away. Something sitting right in a site starts inside that site. With one site and nothing to go by, it starts inside the site.
+- **Pinning from Inventory.**
+  - Every list row ends in a pin button: filled yellow when pinned, a faint outline when not. It replaces the row's arrow; the row still opens the part.
+  - On tiles, the pin button sits on the photo's corner.
+  - A pinned row on a phone puts its − / + on its own line, so the row keeps room for the full location and the pin button.
+
+**Rationale:** One row, one gesture. A row's main tap now always does the same thing (go in), and picking is a visible, labelled button. Pins act on the list, so the list should be where they're set.
+
+**Consequences:**
+- `PickLocation`'s browser was rewritten.
+- `InventoryPage` gained `PinToggle`, and its list and pinned rows were restructured (pin column instead of the arrow).
+- The story walk's move step (J3a) now taps Choose and still costs 3 taps.
+
 ---
 
 ## Decision Index
@@ -941,6 +973,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-029 | A screen that crashes shows a message, not a black page | Architecture | Accepted | 2026-11-04 |
 | DEC-030 | Photos show as squares; the original is kept and the crop can be adjusted | UX / Data | Accepted | 2026-11-04 |
 | DEC-031 | The part's page leads with its name; photos have a main one, a strip and a viewer | UX / Data | Accepted | 2026-11-04 |
+| DEC-032 | Picking a place: tap a row to look inside, Choose to pick it; pin from Inventory | UX | Accepted | 2026-11-04 |
 
 ---
 

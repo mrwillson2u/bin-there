@@ -86,6 +86,17 @@ await rows().first().getByRole("button", { name: "Add one" }).click();
 await page.getByRole("status").filter({ hasText: "Added 1" }).waitFor();
 check((await rows().first().getByRole("button", { name: /^101\./ }).count()) === 1, "pinned count went to 101 in place");
 
+// 2b. Pin and unpin right from the list (DEC-032).
+await page.getByRole("button", { name: "Pin M3 hex nuts", exact: true }).click();
+await page.getByRole("status").filter({ hasText: "Pinned M3 hex nuts to the top" }).waitFor();
+await page.getByRole("button", { name: "Unpin M3 hex nuts" }).waitFor();
+check((await rows().first().textContent()).includes("M3 hex nuts") && (await rows().first().getByRole("button", { name: "Use one" }).count()) === 1, "pinned from the list: it's on top, with its − / +");
+await page.screenshot({ path: `${shots}/i1b-pinned-from-list.png` });
+await page.getByRole("button", { name: "Unpin M3 hex nuts" }).click();
+await page.getByRole("status").filter({ hasText: "Unpinned M3 hex nuts" }).waitFor();
+await page.getByRole("button", { name: "Pin M3 hex nuts", exact: true }).waitFor();
+check((await rows().first().textContent()).includes("Zip ties"), "unpinned: back in the list, Zip ties on top again");
+
 // 3. Paging: scroll to the end loads the rest.
 const before = await rows().count();
 await page.mouse.wheel(0, 20000); await page.waitForTimeout(600);
@@ -158,6 +169,7 @@ await page.waitForTimeout(400);
 check((await page.getByRole("button", { name: "Tile view" }).getAttribute("aria-pressed")) === "true", "tile view remembered");
 const tile = await rows().first().textContent();
 check(tile.includes("Zip ties") && tile.includes("Yellow tote"), "first tile: pinned Zip ties, where it is: " + tile);
+check((await rows().first().getByRole("button", { name: "Unpin Zip ties" }).count()) === 1 && (await rows().nth(1).getByRole("button", { name: /^Pin / }).count()) === 1, "tiles have the pin button on the photo");
 const img = await rows().first().locator("img").boundingBox();
 check(img && img.width > 150, `tile photo is big (${Math.round(img?.width ?? 0)} px wide)`);
 await page.getByRole("button", { name: "List view" }).click();
@@ -177,6 +189,7 @@ check((await page.getByRole("link", { name: /Electrical tape/ }).count()) === 0,
 // 10. Locations: the old home, with pinned places on top.
 await page.getByRole("link", { name: "Locations" }).click();
 await page.getByRole("heading", { name: "Garage", exact: true }).waitFor();
+await page.getByRole("link", { name: /^Rack A/ }).waitFor(); // the list loads just after the heading
 check((await page.getByRole("link", { name: /^Rack A/ }).count()) === 1, "Locations lists the garage's places");
 check((await page.getByRole("link", { name: /^Grid box 1/ }).count()) === 1 && (await page.getByText("Pinned", { exact: true }).count()) === 1, "pinned box on top of Locations");
 await page.screenshot({ path: `${shots}/i5-locations.png` });

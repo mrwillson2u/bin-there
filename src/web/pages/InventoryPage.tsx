@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpDown, Camera, ChevronRight, Copy, ImageOff, LayoutGrid, List, PencilLine, Pin, Search, X } from "lucide-react";
 import {
   inventorySortLabels,
@@ -11,11 +11,13 @@ import {
   type Inventory,
   type ItemSummary,
   type LocationSummary,
+  type Pins,
   type Stats,
 } from "../../shared/api";
 import { api } from "../api";
 import { ItemTotal } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
+import { useToast } from "../components/Toast";
 import { Badge, Card, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
 import { FirstSite } from "./LocationsPage";
 import { outText } from "../components/TakeOut";
@@ -373,15 +375,15 @@ function ListView({ pinned, items }: { pinned: ItemSummary[]; items: ItemSummary
         <span className="w-40 shrink-0">Category</span>
         <span className="min-w-0 flex-[2]">Where</span>
         <span className="w-40 shrink-0 text-right">Count</span>
-        <span className="w-[18px] shrink-0" />
+        <span className="w-11 shrink-0" />
       </div>
       <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         {pinned.map((i) => (
           <PinnedRow key={i.id} item={i} />
         ))}
         {items.map((i) => (
-          <li key={i.id}>
-            <Link to={`/items/${i.id}`} className="flex min-h-16 items-center gap-3 px-3 py-2.5 active:bg-surface-2 lg:hover:bg-surface-2">
+          <li key={i.id} className="flex items-center pr-1 active:bg-surface-2 lg:hover:bg-surface-2">
+            <Link to={`/items/${i.id}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-3">
               <Thumb url={i.thumbUrl} />
               <RowText item={i} />
               <span className={catCol}>{i.categoryName ?? ""}</span>
@@ -391,8 +393,8 @@ function ListView({ pinned, items }: { pinned: ItemSummary[]; items: ItemSummary
               <span className={countCol}>
                 <ItemTotal item={i} />
               </span>
-              <ChevronRight size={18} className="shrink-0 text-muted" />
             </Link>
+            <PinToggle item={i} pinned={false} />
           </li>
         ))}
       </ul>
@@ -400,29 +402,19 @@ function ListView({ pinned, items }: { pinned: ItemSummary[]; items: ItemSummary
   );
 }
 
-function RowText({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
-  const place = pinned ? mainPlace(i) : undefined;
+function RowText({ item: i }: { item: ItemSummary }) {
   return (
     <span className={nameCol}>
       <span className="flex items-center gap-1.5">
-        {pinned && <Pin size={14} className="shrink-0 text-warn" aria-label="Pinned" />}
         <span className={`truncate ${i.name ? "" : "italic text-muted"}`}>{itemName(i.name)}</span>
         {/* Phone: a pencil, like the one on the "Needs details" filter, so the place keeps the room. */}
         {i.needsDetails && <PencilLine size={14} className="shrink-0 text-warn lg:hidden" aria-label="Needs details" />}
       </span>
-      {/* Phone: where it is (wide screens have a column for that). A pinned row only has room for the bin. */}
+      {/* Phone: where it is (wide screens have a column for that). */}
       <span className="flex min-w-0 items-center gap-1.5 lg:hidden">
         {i.checkedOut > 0 && <Badge tone="info">{i.checkedOut} out</Badge>}
         <span className="min-w-0 flex-1">
-          {pinned ? (
-            <span className="block truncate text-[13px] text-muted">
-              {place ? place.path.at(-1)?.name : i.places.length ? i.places[0]!.path.at(-1)?.name : "No location"}
-              {place?.out && <span className="text-info"> (out)</span>}
-              {i.places.length > 1 && ` +${i.places.length - 1}`}
-            </span>
-          ) : (
-            <Places item={i} max={i.checkedOut > 0 ? 1 : 2} />
-          )}
+          <Places item={i} max={i.checkedOut > 0 ? 1 : 2} />
         </span>
       </span>
       {(i.needsDetails || i.checkedOut > 0) && (
@@ -434,32 +426,69 @@ function RowText({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
   );
 }
 
-/** A pinned part keeps its − / + right in the list, for the place you take it from. */
+/**
+ * Pin or unpin a part right from the list (DEC-032). Pinned parts sit on top with their − / +.
+ * On a tile it sits on the photo's corner.
+ */
+function PinToggle({ item, pinned, onPhoto }: { item: ItemSummary; pinned: boolean; onPhoto?: boolean }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const name = itemName(item.name);
+  const toggle = useMutation({
+    mutationFn: () => api<Pins>(`/pins/item/${item.id}`, { method: pinned ? "DELETE" : "PUT" }),
+    onSuccess: (pins) => {
+      qc.setQueryData(["pins"], pins);
+      qc.invalidateQueries({ queryKey: ["items"] });
+      qc.invalidateQueries({ queryKey: ["item", item.id] });
+      toast.show({ message: pinned ? `Unpinned ${name}` : `Pinned ${name} to the top` });
+    },
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
+  });
+  const look = onPhoto
+    ? `h-9 w-9 rounded-full ${pinned ? "bg-black/65 text-warn" : "bg-black/35 text-white/85"}`
+    : `h-11 w-11 rounded-xl ${pinned ? "text-warn" : "text-muted/50 hover:text-text"}`;
+  return (
+    <button
+      type="button"
+      onClick={() => toggle.mutate()}
+      disabled={toggle.isPending}
+      aria-pressed={pinned}
+      aria-label={`${pinned ? "Unpin" : "Pin"} ${name}`}
+      title={pinned ? "Unpin" : "Pin to the top"}
+      className={`flex shrink-0 items-center justify-center disabled:opacity-50 ${look}`}
+    >
+      <Pin size={onPhoto ? 16 : 18} className={pinned ? "fill-current" : ""} />
+    </button>
+  );
+}
+
+/**
+ * A pinned part keeps its − / + right in the list, for the place you take it from. On a phone the
+ * control has its own line, so the row keeps room for where it is and the pin button.
+ */
 function PinnedRow({ item }: { item: ItemSummary }) {
   const place = mainPlace(item);
   const placeName = place?.path.at(-1)?.name ?? "";
-  const control = (compact: boolean) =>
-    place ? (
-      <StockControl compact={compact} itemId={item.id} locationId={place.locationId} placeName={placeName} tracking={item.tracking} qty={place.qty} level={place.level} />
-    ) : (
-      <ItemTotal item={item} />
-    );
-  const level = place && item.tracking === "level";
+  const control = place ? (
+    <StockControl compact itemId={item.id} locationId={place.locationId} placeName={placeName} tracking={item.tracking} qty={place.qty} level={place.level} />
+  ) : (
+    <ItemTotal item={item} />
+  );
   return (
-    <li className="flex flex-col gap-2 px-3 py-2.5">
-      <div className="flex items-center gap-3">
+    <li className="flex flex-col gap-2 py-2.5 pr-1 pl-3">
+      <div className="flex items-center">
         <Link to={`/items/${item.id}`} className="flex min-h-11 min-w-0 flex-1 items-center gap-3">
           <Thumb url={item.thumbUrl} />
-          <RowText item={item} pinned />
+          <RowText item={item} />
           <span className={catCol}>{item.categoryName ?? ""}</span>
           <span className={whereCol}>
             <Places item={item} max={2} />
           </span>
         </Link>
-        <span className={`${countCol} ${level ? "hidden lg:flex" : ""}`}>{control(true)}</span>
-        <span className="hidden w-[18px] shrink-0 lg:block" />
+        <span className={`${countCol} ml-3 hidden lg:flex`}>{control}</span>
+        <PinToggle item={item} pinned />
       </div>
-      {level && <div className="lg:hidden">{control(true)}</div>}
+      <div className="pl-[60px] pr-2 lg:hidden">{control}</div>
     </li>
   );
 }
@@ -481,7 +510,7 @@ function Tile({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
   const place = mainPlace(i) ?? i.places[0];
   const where = place ? (place.path.at(-1)?.name ?? "") + (place.out ? " (out)" : "") + (i.places.length > 1 ? ` +${i.places.length - 1}` : "") : "No location";
   return (
-    <li>
+    <li className="relative">
       <Link to={`/items/${i.id}`} className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface active:bg-surface-2 lg:hover:bg-surface-2">
         <span className="relative block aspect-square bg-surface-2">
           {i.thumbUrl ? (
@@ -489,11 +518,6 @@ function Tile({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
           ) : (
             <span className="flex h-full items-center justify-center text-muted">
               <ImageOff size={32} />
-            </span>
-          )}
-          {pinned && (
-            <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-surface/90 text-warn">
-              <Pin size={14} aria-label="Pinned" />
             </span>
           )}
           {(i.needsDetails || i.checkedOut > 0) && (
@@ -512,6 +536,9 @@ function Tile({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
           {i.categoryName && <span className="truncate text-xs text-muted">{i.categoryName}</span>}
         </span>
       </Link>
+      <span className="absolute left-2 top-2">
+        <PinToggle item={i} pinned={!!pinned} onPhoto />
+      </span>
     </li>
   );
 }

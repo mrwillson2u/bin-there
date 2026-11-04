@@ -106,7 +106,8 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
   nothing or a clean-up function, and newer browsers' `scrollTo` returns a Promise.
 - Home (`/`) is `InventoryPage.tsx` (DEC-026): every part from `GET /api/inventory` via
   `useInfiniteQuery` (key `["items", "inventory", …]`, so any `["items"]` invalidation refreshes it),
-  filters kept in the URL, list or tile view in `localStorage`, pinned parts on top with − / +.
+  filters kept in the URL, list or tile view in `localStorage`, pinned parts on top with − / +, and a
+  pin button on every row and tile (DEC-032).
   `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits, and an
   All places list (`GET /api/locations?all=1`) with type chips (DEC-027).
   `SearchPage.tsx` lists only matches.

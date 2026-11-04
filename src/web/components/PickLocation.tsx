@@ -68,46 +68,71 @@ export function PickLocation({
   );
 }
 
+/**
+ * Browse to the place (DEC-032): tapping a row goes inside it; its Choose button picks it.
+ * Inside a place, "Choose <it>" at the top picks the place you're in. Where the thing is now
+ * can be opened but not chosen.
+ */
+const chooseClass = "inline-flex min-h-10 shrink-0 items-center rounded-lg border border-accent/60 px-3 text-sm font-medium text-accent active:bg-accent/15";
+
 function Browser({ onPick, near, exclude }: { onPick: (loc: { id: number; name: string }) => void; near?: Crumb[]; exclude?: number }) {
   const [at, setAt] = useState<LocationDetail | null>(null);
   const { data: top } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations") });
   const open = (id: number) => api<LocationDetail>(`/locations/${id}`).then(setAt);
   const list = (at ? at.children : (top ?? [])).filter((l) => l.id !== exclude);
   const hereId = near?.at(-1)?.id ?? null;
-  const startId = near && near.length >= 2 ? near[near.length - 2]!.id : null;
+  // Start beside where it is now: in the place that holds it, so its neighbours are one tap away.
+  // Something sitting right in a site starts inside that site; with one site and nothing to go by, start there.
+  const startId = near?.length ? near[Math.max(0, near.length - 2)]!.id : top?.length === 1 ? top[0]!.id : null;
   useEffect(() => {
     if (startId !== null) void open(startId);
   }, [startId]);
+  const canChoose = (id: number) => id !== hereId && id !== exclude;
 
   return (
     <div className="flex flex-col gap-2">
       {at && (
-        <div className="flex items-center gap-2">
+        <>
           <button
             onClick={() => (at.parentId ? open(at.parentId) : setAt(null))}
-            className="flex min-h-11 items-center gap-1 text-muted"
+            className="flex min-h-10 items-center gap-1 self-start text-sm text-muted"
             aria-label="Up one level"
           >
             <ChevronLeft size={18} /> {at.path.length > 1 ? at.path[at.path.length - 2]!.name : "All sites"}
           </button>
-          <span className="flex-1" />
-          <Button variant="primary" onClick={() => onPick(at)}>Put in {at.name}</Button>
-        </div>
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 flex-1 truncate">
+              <span className="text-muted">Inside </span>
+              <span className="font-semibold">{at.name}</span>
+              {at.id === hereId && <span className="text-muted"> (here now)</span>}
+            </p>
+            {canChoose(at.id) && (
+              <button onClick={() => onPick(at)} className={`${chooseClass} max-w-[55%]`}>
+                <span className="truncate">Choose {at.name}</span>
+              </button>
+            )}
+          </div>
+        </>
       )}
-      <ul className="max-h-72 divide-y divide-border overflow-y-auto rounded-xl border border-border">
+      {list.length > 0 && <p className="text-[13px] text-muted">Tap a place to look inside it.</p>}
+      <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-xl border border-border">
         {list.length === 0 && <li className="px-4 py-3 text-sm text-muted">Nothing inside.</li>}
         {list.map((l) => (
           <li key={l.id} className="flex items-center">
-            <button onClick={() => onPick(l)} disabled={l.id === hereId} className="flex min-h-12 min-w-0 flex-1 items-center gap-2 px-4 py-1.5 text-left disabled:opacity-60">
+            <button onClick={() => open(l.id)} className="flex min-h-12 min-w-0 flex-1 items-center gap-2 py-1.5 pl-4 pr-2 text-left active:bg-surface-2">
               {l.binSize && <BinChip size={l.binSize} />}
               <span className="min-w-0 flex-1">
-                <span className="block truncate">{l.name}{l.id === hereId && <span className="text-muted"> (here now)</span>}</span>
+                <span className="block truncate">
+                  {l.name}
+                  {l.id === hereId && <span className="text-muted"> (here now)</span>}
+                </span>
                 <span className="block truncate text-[13px] text-muted">{contents(l)}</span>
               </span>
+              <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden />
             </button>
-            {l.childCount > 0 && (
-              <button onClick={() => open(l.id)} className="flex min-h-12 items-center px-4 text-muted" aria-label={`Open ${l.name}`}>
-                {l.childCount} <ChevronRight size={18} />
+            {canChoose(l.id) && (
+              <button onClick={() => onPick(l)} aria-label={`Choose ${l.name}`} className={`mr-2 ${chooseClass}`}>
+                Choose
               </button>
             )}
           </li>

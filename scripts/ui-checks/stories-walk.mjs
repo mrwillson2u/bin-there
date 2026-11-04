@@ -153,10 +153,10 @@ await story("J3a", "Move a part to a different bin, picking from the list", "/",
   await tap(page.getByRole("button", { name: "Pick from list" }));
   const here = page.getByRole("button", { name: /Bin 0002 \(here now\)/ });
   await here.waitFor();
-  note(`list opens in the part's own box, its bin marked 'here now' and not pickable: ${await here.isDisabled()}`);
-  note(`rows say what's inside: "${await page.getByRole("button", { name: /Bin 0001/ }).first().textContent()}"`);
+  note(`list opens in the part's own box, its bin marked 'here now' and not choosable: ${(await page.getByRole("button", { name: "Choose Bin 0002" }).count()) === 0}`);
+  note(`rows say what's inside: "${await page.getByRole("button", { name: /^(?!Choose).*Bin 0001/ }).first().textContent()}"`);
   await snap("J3a-browse");
-  await tap(page.getByRole("button", { name: /Bin 0004/ }).first());
+  await tap(page.getByRole("button", { name: "Choose Bin 0004" }));
   await toast("Moved to Bin 0004");
 });
 
