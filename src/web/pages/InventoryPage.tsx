@@ -304,7 +304,14 @@ function StatusNote({ filter }: { filter: "needs" | "low" | "out" | "stale" }) {
   const link = "inline-flex min-h-9 shrink-0 items-center gap-1 text-accent";
   return (
     <p className="flex flex-wrap items-center gap-x-3 text-[13px] text-muted">
-      {filter === "needs" && <span>Added quickly. Open one to fill in what it is.</span>}
+      {filter === "needs" && (
+        <>
+          <span>Added quickly, still missing a name or a category.</span>
+          <Link to="/needs-details" className={link}>
+            Fill them in on one page <ChevronRight size={14} />
+          </Link>
+        </>
+      )}
       {filter === "low" && (
         <>
           <span>Marked low or out, or at or below the warning count set on the part.</span>

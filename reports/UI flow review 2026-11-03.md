@@ -55,7 +55,7 @@ Counts are after the fixes below. A "tap" includes pressing Enter to submit.
    were on the list. The yellow badge sits on every row, cutting names short ("Electrical t…").
    One option: a part with a name counts as done, and only photo-only parts need details.
    Another: keep the rule, but drop the badge from lists.
-2. **"Save and next" when working through the list.** Today each part costs a tap into the part,
+2. **Done 2026-11-05 (DEC-037): the Fill in details page** lists every part on one page, each row filled in where it is. Original note: **"Save and next" when working through the list.** Today each part costs a tap into the part,
    a tap on "Needs details", the form, Save, and Back. A button that saves and opens the next
    part would make J14 a couch job.
 3. **Move a part from the bin pane.** Putting a part in the wrong bin is the likeliest slip while

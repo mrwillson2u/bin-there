@@ -65,11 +65,12 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | GET | `/api/inventory?q=&cat=&kind=&needs=1&low=1&out=1&stale=1&sort=&offset=&limit=` | The Inventory screen (DEC-026). Every filter narrows: `cat` is a category id or `none`; `kind` is `consumable`/`returnable`; `needs`, `low` (as `/items/low`), `out` (a unit checked out), `stale` (as `/review`). `sort` is `name` (default; unnamed last), `recent` or `added`; with `q` and no `sort`, best match. Returns `{ pinned, items, total, next }`: pinned parts that pass the filters (first page only, newest pin first), then a page of the rest (`limit` default 60, max 200), `total` counting both, `next` the next offset or null |
 | GET | `/api/items?q=&needs=1` | Search (FTS) with total qty + every location path; without `q`, recently changed. Used by the Search page, put-back and project kits |
 | GET | `/api/items/recently-used?days=30` | Items with a non-undone "use" in the last N days, most recent first (put-back suggestions) |
+| GET | `/api/items/needs-details` | Every part on the Needs details list, oldest first, as full `ItemDetail`s, for the Fill in details page (DEC-037) |
 | GET | `/api/items/low` | The shopping list: level items low/out anywhere, exact items at zero or at/below their `lowThreshold`; worst first (DEC-016) |
 | GET | `/api/review` | Stale exact counts (`ReviewEntry[]`: item, location path, qty, last counted, changes since), in walking order by location (DEC-015) |
 | GET | `/api/items/:id` | Item + stock by location + units + homes + recent events |
 | POST | `/api/items` | Create. Used by quick capture: everything optional (`name`, `code` → returnable unit, `locationId`, `qty`/`level`, `categoryId`). Needs details unless it has a name **and** a category (DEC-007) |
-| PATCH | `/api/items/:id` | Edit details (clears `needs_details` when complete); includes `lowThreshold` (null = no warning) |
+| PATCH | `/api/items/:id` | Edit details, any subset of fields; includes `lowThreshold` (null = no warning). Afterwards the part needs details unless it has a name and a category (DEC-007, DEC-037); sending `needsDetails: true` keeps it on the list anyway. Switching `tracking` converts the stock |
 | PUT | `/api/items/:id/homes` | Set designated home location(s) |
 | DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
 | POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |

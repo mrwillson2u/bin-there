@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, X } from "lucide-react";
 import {
@@ -10,14 +10,27 @@ import {
   type Category,
   type ItemDetail,
   type ItemKind,
+  type Place,
+  type StockLevel,
+  type StockResult,
   type TrackingMode,
   type UpdateItem,
 } from "../../shared/api";
 import { api } from "../api";
+import { CategoryPicker, useCreateCategory } from "../components/CategoryPicker";
+import { LevelButtons } from "../components/StockControl";
 import { useToast } from "../components/Toast";
-import { Button, Field, inputClass, itemName, Thumb } from "../components/ui";
+import { Button, Field, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
 
-const NEW_CATEGORY = -1;
+/** An amount as the form holds it: a typed count ("" = not counted) or a level. */
+type Amount = string;
+
+/** What the server does to a place's stock when the item switches how it's counted (items.ts). */
+function convertAmount(v: Amount, to: TrackingMode): Amount {
+  if (to === "level") return v === "0" ? "out" : "plenty";
+  return v === "out" ? "0" : "";
+}
+const amountOf = (p: Place, tracking: TrackingMode): Amount => (tracking === "level" ? (p.level ?? "plenty") : (p.qty?.toString() ?? ""));
 
 export function ItemEditPage() {
   const id = Number(useParams().id);
@@ -27,13 +40,27 @@ export function ItemEditPage() {
   return <ItemForm item={item} categories={categories} />;
 }
 
-function ItemForm({ item, categories }: { item: ItemDetail; categories: Category[] }) {
+/**
+ * The part's details form. On its own page it goes back when done; inside the Needs details
+ * page's popup (DEC-037) it calls onClose instead.
+ */
+export function ItemForm({
+  item,
+  categories,
+  onClose,
+  onDeleted,
+}: {
+  item: ItemDetail;
+  categories: Category[];
+  onClose?: () => void;
+  onDeleted?: () => void;
+}) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
+  const createCategory = useCreateCategory();
   const [name, setName] = useState(item.name);
   const [categoryId, setCategoryId] = useState<number | null>(item.categoryId);
-  const [newCategory, setNewCategory] = useState("");
   const [kind, setKind] = useState<ItemKind>(item.kind);
   const [tracking, setTracking] = useState<TrackingMode>(item.tracking);
   const [touched, setTouched] = useState({ kind: false, tracking: false });
@@ -45,6 +72,27 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
   const [notes, setNotes] = useState(item.notes ?? "");
   const [lowThreshold, setLowThreshold] = useState(item.lowThreshold?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
+  // How much is in each place (bulk stock only; stickered units count themselves).
+  const stocked = item.places.filter((p) => p.hasStock);
+  const [amounts, setAmounts] = useState<Record<number, Amount>>(() => Object.fromEntries(stocked.map((p) => [p.locationId, amountOf(p, item.tracking)])));
+  const [changed, setChanged] = useState<number[]>([]);
+  const setAmount = (locationId: number, v: Amount) => {
+    setAmounts((a) => ({ ...a, [locationId]: v }));
+    setChanged((c) => (c.includes(locationId) ? c : [...c, locationId]));
+  };
+  // Switching how it's counted shows what the stock will become; amounts typed here convert the same way.
+  const switchTracking = (to: TrackingMode) => {
+    if (to === tracking) return;
+    setAmounts(
+      Object.fromEntries(
+        stocked.map((p) => {
+          const v = changed.includes(p.locationId) ? convertAmount(amounts[p.locationId] ?? "", to) : to === item.tracking ? amountOf(p, to) : convertAmount(amountOf(p, item.tracking), to);
+          return [p.locationId, v];
+        }),
+      ),
+    );
+    setTracking(to);
+  };
 
   const category = categories.find((c) => c.id === categoryId);
 
@@ -54,7 +102,7 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
   useEffect(() => {
     if (!category || categoryId === initialCategory.current) return;
     if (!touched.kind) setKind(category.defaultKind);
-    if (!touched.tracking) setTracking(category.defaultTracking);
+    if (!touched.tracking) switchTracking(category.defaultTracking);
   }, [categoryId]);
 
   // Category fields first (in order), then any extra fields.
@@ -66,14 +114,9 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
 
   const save = useMutation({
     mutationFn: async () => {
-      let catId = categoryId === NEW_CATEGORY ? null : categoryId;
-      if (categoryId === NEW_CATEGORY && newCategory.trim()) {
-        const created = await api<Category>("/categories", { method: "POST", body: { name: newCategory.trim(), defaultKind: kind, defaultTracking: tracking } });
-        catId = created.id;
-      }
       const body: UpdateItem = {
         name: name.trim(),
-        categoryId: catId,
+        categoryId,
         kind,
         tracking,
         attributes: Object.fromEntries(attrs.filter(([k, v]) => k.trim() && v.trim()).map(([k, v]) => [k.trim(), v.trim()])),
@@ -84,16 +127,27 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
         notes: notes.trim() || null,
         lowThreshold: tracking === "exact" && lowThreshold.trim() ? Number(lowThreshold) : null,
       };
-      return api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body });
+      let saved = await api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body });
+      // Then the amounts that were changed here, each a recount (in the log, undoable from Activity).
+      for (const p of stocked) {
+        if (!changed.includes(p.locationId)) continue;
+        const v = amounts[p.locationId] ?? "";
+        const now = saved.places.find((x) => x.locationId === p.locationId);
+        if (tracking === "exact") {
+          if (v === "" || Number(v) === now?.qty) continue;
+          saved = (await api<StockResult>("/stock/recount", { method: "POST", body: { itemId: item.id, locationId: p.locationId, qty: Number(v) } })).item;
+        } else {
+          if (v === now?.level) continue;
+          saved = (await api<StockResult>("/stock/recount", { method: "POST", body: { itemId: item.id, locationId: p.locationId, level: v as StockLevel } })).item;
+        }
+      }
+      return saved;
     },
     onSuccess: (d) => {
       qc.setQueryData(["item", d.id], d);
-      qc.invalidateQueries({ queryKey: ["items"] });
-      qc.invalidateQueries({ queryKey: ["categories"] });
-      qc.invalidateQueries({ queryKey: ["stats"] });
-      qc.invalidateQueries({ queryKey: ["location"] });
-      qc.invalidateQueries({ queryKey: ["pins"] });
+      for (const key of ["items", "categories", "stats", "location", "pins", "events", "review", "low"]) qc.invalidateQueries({ queryKey: [key] });
       toast.show({ message: `Saved ${itemName(d.name)}` });
+      if (onClose) return onClose();
       // Back to wherever the form was opened from (the part, a bin, the needs-details list),
       // so Back afterwards doesn't land on the same part again. Opened directly: show the part.
       if ((window.history.state as { idx?: number } | null)?.idx) navigate(-1);
@@ -106,7 +160,8 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
   const remove = useMutation({
     mutationFn: () => api<{ eventId: number }>(`/items/${item.id}`, { method: "DELETE" }),
     onSuccess: (r) => {
-      navigate("/", { replace: true });
+      if (onDeleted) onDeleted();
+      else navigate("/", { replace: true });
       // Drop the deleted item's own query rather than refetching it (it would 404 now).
       qc.removeQueries({ queryKey: ["item", item.id] });
       qc.invalidateQueries();
@@ -119,7 +174,8 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
   };
 
   const priceOk = price.trim() === "" || (Number.isFinite(Number(price)) && Number(price) >= 0);
-  const canSave = name.trim().length > 0 && priceOk && (categoryId !== NEW_CATEGORY || newCategory.trim().length > 0);
+  const canSave = name.trim().length > 0 && priceOk;
+  const cancel = () => (onClose ? onClose() : navigate(-1));
 
   return (
     <form
@@ -131,31 +187,34 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
     >
       <div className="flex items-center gap-3">
         <Thumb url={item.thumbUrl} size={64} />
-        <h1 className="text-xl font-semibold">{item.needsDetails ? "Fill in details" : "Edit item"}</h1>
+        <h1 className="min-w-0 flex-1 text-xl font-semibold">{item.needsDetails ? "Fill in details" : "Edit item"}</h1>
+        {onClose && (
+          <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center text-muted" aria-label="Close">
+            <X size={22} />
+          </button>
+        )}
       </div>
+      {onClose && (
+        <Link to={`/items/${item.id}`} className="-mt-2 self-start text-sm text-accent">
+          Open the part's page (photos, places, history)
+        </Link>
+      )}
 
       <Field label="Name">
         <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="e.g. M3 × 10 socket cap screw" autoFocus={!item.name} />
       </Field>
 
-      <Field label="Category">
-        <select
-          value={categoryId ?? ""}
-          onChange={(e) => setCategoryId(e.target.value === "" ? null : Number(e.target.value))}
-          className={inputClass}
-        >
-          <option value="">None</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-          <option value={NEW_CATEGORY}>New category…</option>
-        </select>
-      </Field>
-      {categoryId === NEW_CATEGORY && (
-        <Field label="New category name">
-          <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className={inputClass} autoFocus />
-        </Field>
-      )}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[13px] text-muted">Category</span>
+        <CategoryPicker
+          categories={categories}
+          value={categoryId}
+          onChange={(c) => setCategoryId(c?.id ?? null)}
+          onCreate={(n) => createCategory(n, { defaultKind: kind, defaultTracking: tracking })}
+          allowNone
+        />
+        {!categoryId && <span className="text-[13px] text-warn">Without a category it stays on the Needs details list.</span>}
+      </div>
 
       <Segmented
         label="Type"
@@ -168,29 +227,33 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
         hint={kind === "returnable" ? "Comes back after use (tools, modules, power supplies)" : "Used up (screws, parts, glue)"}
       />
       <Segmented
-        label="Count"
+        label="Keep track by"
         value={tracking}
         options={trackingModes.map((t) => [t, trackingLabels[t]])}
         onChange={(v) => {
-          setTracking(v);
+          switchTracking(v);
           setTouched((t) => ({ ...t, tracking: true }));
         }}
-        hint={tracking !== item.tracking ? "Existing stock will be converted when you save" : undefined}
+        hint={tracking !== item.tracking ? "What's there now converts when you save (shown below)" : undefined}
       />
 
-      {tracking === "exact" && (
-        <Field label="Low-stock warning (leave blank for none)">
+      <Amounts item={item} stocked={stocked} tracking={tracking} amounts={amounts} onChange={setAmount} />
+
+      {tracking === "exact" ? (
+        <Field label="Warn me when it's down to">
           <input
             inputMode="numeric"
             pattern="[0-9]*"
             value={lowThreshold}
             onChange={(e) => setLowThreshold(e.target.value.replace(/\D/g, ""))}
             className={`${inputClass} w-40`}
-            placeholder="e.g. 20"
-            aria-label="Low-stock warning: on the shopping list when the total is at or below this"
+            placeholder="No warning"
+            aria-label="Warn me when it's down to: on the shopping list when the total is at or below this"
           />
-          <span className="text-[13px] text-muted">Goes on the shopping list when the total is at or below this.</span>
+          <span className="text-[13px] text-muted">It goes on the shopping list when the total is at or below this. Leave it blank for no warning.</span>
         </Field>
+      ) : (
+        <p className="text-[13px] text-muted">No warning number needed: marking it Low or Out puts it on the shopping list.</p>
       )}
 
       {category && category.fieldDefs.length > 0 && (
@@ -257,12 +320,62 @@ function ItemForm({ item, categories }: { item: ItemDetail; categories: Category
         <Button type="submit" variant="primary" disabled={!canSave || save.isPending} className="flex-1">
           {save.isPending ? "Saving…" : "Save"}
         </Button>
-        <Button type="button" onClick={() => navigate(-1)}>Cancel</Button>
+        <Button type="button" onClick={cancel}>Cancel</Button>
       </div>
       <Button type="button" variant="danger" onClick={confirmRemove} disabled={remove.isPending} className="mt-6 self-start">
         <Trash2 size={18} /> Delete item
       </Button>
     </form>
+  );
+}
+
+/** How much is in each place, set from the form and saved with it. */
+function Amounts({
+  item,
+  stocked,
+  tracking,
+  amounts,
+  onChange,
+}: {
+  item: ItemDetail;
+  stocked: Place[];
+  tracking: TrackingMode;
+  amounts: Record<number, Amount>;
+  onChange: (locationId: number, v: Amount) => void;
+}) {
+  const unitsOnly = item.places.filter((p) => !p.hasStock && p.units > 0);
+  return (
+    <section className="flex flex-col gap-2" aria-label="How many">
+      <span className="text-[13px] text-muted">{tracking === "exact" ? "How many" : "How much is there"}</span>
+      {item.places.length === 0 && <p className="text-[13px] text-muted">Not in a place yet. Add it to one from the part's page.</p>}
+      {stocked.map((p) =>
+        tracking === "exact" ? (
+          <label key={p.locationId} className="flex items-center gap-3">
+            <PlacePath path={p.path} className="flex-1 text-sm" />
+            <input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={amounts[p.locationId] ?? ""}
+              onChange={(e) => onChange(p.locationId, e.target.value.replace(/\D/g, ""))}
+              className={`${inputClass} w-28 text-center font-mono`}
+              placeholder="Not counted"
+              aria-label={`How many in ${p.path.at(-1)?.name ?? "this place"}`}
+            />
+          </label>
+        ) : (
+          <div key={p.locationId} className="flex flex-col gap-1.5">
+            <PlacePath path={p.path} className="text-sm" />
+            <LevelButtons value={(amounts[p.locationId] ?? "plenty") as StockLevel} onPick={(l) => onChange(p.locationId, l)} compact label={`How much in ${p.path.at(-1)?.name ?? "this place"}`} />
+          </div>
+        ),
+      )}
+      {unitsOnly.map((p) => (
+        <div key={p.locationId} className="flex items-center gap-3 text-sm">
+          <PlacePath path={p.path} className="flex-1" />
+          <span className="text-muted">{p.units} stickered</span>
+        </div>
+      ))}
+    </section>
   );
 }
 

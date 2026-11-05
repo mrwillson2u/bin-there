@@ -142,6 +142,7 @@ function summaries(db: Db, rows: (typeof items.$inferSelect)[]): ItemSummary[] {
       kind: r.kind,
       tracking: r.tracking,
       needsDetails: r.needsDetails,
+      categoryId: r.categoryId,
       categoryName: r.categoryId ? (catNames.get(r.categoryId) ?? null) : null,
       thumbUrl: thumbMap.get(r.id) ?? null,
       // Units out with no location (e.g. "lent to Sam") still count.
@@ -167,7 +168,6 @@ export function getItem(db: Db, id: number): ItemDetail {
     .all();
   return {
     ...summary!,
-    categoryId: item.categoryId,
     fieldDefs: cat?.fieldDefs ?? [],
     attributes: Object.fromEntries(Object.entries(item.attributes).map(([k, v]) => [k, String(v)])),
     price: item.price,
@@ -401,6 +401,20 @@ export function listLow(db: Db): ItemSummary[] {
     .map(({ i }) => i);
 }
 
+/**
+ * Every part on the Needs details list, in the order they were added, in full: the page that
+ * works through them (DEC-037) edits each one in place, the same as the part's own page.
+ */
+export function listNeedsDetails(db: Db): ItemDetail[] {
+  return db
+    .select({ id: items.id })
+    .from(items)
+    .where(and(eq(items.needsDetails, true), eq(items.archived, false)))
+    .orderBy(asc(items.createdAt), asc(items.id))
+    .all()
+    .map((r) => getItem(db, r.id));
+}
+
 export function countNeedsDetails(db: Db): number {
   return db
     .select({ n: sql<number>`count(*)` })
@@ -501,12 +515,15 @@ export function updateItem(db: Db, id: number, input: UpdateItem): ItemDetail {
     if (!cat) throw new ApiError(400, "VALIDATION", `Category ${input.categoryId} does not exist`);
   }
   const { needsDetails, attributes, ...rest } = input;
+  // A part comes off the Needs details list once it has a name and a category (DEC-007, Q47).
+  const name = input.name ?? before.name;
+  const categoryId = input.categoryId !== undefined ? input.categoryId : before.categoryId;
   db.transaction(() => {
     db.update(items)
       .set({
         ...rest,
         ...(attributes ? { attributes: Object.fromEntries(Object.entries(attributes).filter(([, v]) => v !== "")) } : {}),
-        needsDetails: needsDetails ?? false,
+        needsDetails: needsDetails ?? !(name && categoryId),
         updatedAt: sql`(datetime('now'))`,
       })
       .where(eq(items.id, id))

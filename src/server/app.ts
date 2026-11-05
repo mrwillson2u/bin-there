@@ -29,6 +29,7 @@ import {
   listCheckedOut,
   listInventory,
   listLow,
+  listNeedsDetails,
   listStale,
   recentlyUsed,
   createCategory,
@@ -156,6 +157,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.get("/inventory", (c) => c.json(listInventory(db, parseBody(inventoryQuerySchema, c.req.query()))));
   api.get("/items/recently-used", (c) => c.json(recentlyUsed(db, Number(c.req.query("days") ?? 30) || 30)));
   api.get("/items/low", (c) => c.json(listLow(db)));
+  api.get("/items/needs-details", (c) => c.json(listNeedsDetails(db)));
   api.get("/review", (c) => c.json(listStale(db)));
   api.get("/items/:id", (c) => c.json(getItem(db, intParam(c.req.param("id")))));
   api.post("/items", async (c) => {

@@ -180,6 +180,11 @@ await page.getByText(/found/).waitFor();
 await page.getByRole("link", { name: /Electrical tape/ }).click();
 await page.getByRole("heading", { name: "Electrical tape" }).waitFor();
 await page.getByRole("link", { name: /Needs details/ }).click();
+// A part leaves the list with a name and a category (DEC-007, DEC-037).
+const catBox = page.getByRole("combobox", { name: "Category" });
+await catBox.click();
+await catBox.fill("Supplies");
+await catBox.press("Enter");
 await page.getByRole("button", { name: "Save" }).click();
 await page.getByRole("heading", { name: "Electrical tape" }).waitFor();
 await page.goBack(); await page.waitForTimeout(500);

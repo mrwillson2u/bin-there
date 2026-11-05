@@ -231,7 +231,10 @@ export const updateItemSchema = z
     notes: optText(4000),
     /** Exact-count items: on the low-stock list once the total is at or below this. */
     lowThreshold: z.number().int().min(0).max(1_000_000).nullable(),
-    /** Saving the details form clears "needs details" unless this is true. */
+    /**
+     * Left out, a part stays on the Needs details list until it has a name and a category
+     * (DEC-007, Q47). true keeps it there regardless.
+     */
     needsDetails: z.boolean(),
   })
   .partial();
@@ -303,6 +306,7 @@ export type ItemSummary = {
   kind: ItemKind;
   tracking: TrackingMode;
   needsDetails: boolean;
+  categoryId: number | null;
   categoryName: string | null;
   thumbUrl: string | null;
   /** Sum of counted stock + units; null when nothing is counted. */
@@ -432,7 +436,6 @@ export type EventView = {
 };
 
 export type ItemDetail = ItemSummary & {
-  categoryId: number | null;
   fieldDefs: FieldDef[];
   attributes: Record<string, string>;
   price: number | null;

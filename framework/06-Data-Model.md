@@ -75,7 +75,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 | tracking | enum TrackingMode | exact / level; default from category |
 | attributes | JSON | Values for the category's `field_defs` |
 | price, supplier, supplier_pn, url | nullable | |
-| needs_details | boolean | true after quick capture until filled in |
+| needs_details | boolean | true until the part has a name and a category (DEC-007, DEC-037; migration 0017 put back parts that had left with only a name) |
 | low_threshold | int, nullable | exact mode: on the low-stock list once the total is at or below this (DEC-016). Set on the edit screen |
 | notes, created_at, updated_at | | |
 

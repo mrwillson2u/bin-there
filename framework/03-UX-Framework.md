@@ -47,7 +47,7 @@ Enter Put-back mode → Scan a QR sticker → Known item? → +1 returned (tap +
 | Known item | Scans its QR | Opens the record, shows its **home location** and logs **+1 returned**. Big **+ / −** buttons to adjust quantity (e.g. returning 10 = scan once, tap + nine times, or type 10) | Scanning 10 identical items is tedious | Stepper + numeric entry |
 | Returnable item | Scans its QR | Checks it **in** (closes the check-out) and shows its home | | Shows where it was used |
 | Unknown / new | Scans a fresh, unassigned sticker | **Quick capture**: take a photo, optionally pick a location, save. Done in seconds. Item is flagged **"needs details"** | Data entry mid-clean-out kills momentum | Defer all typing |
-| Later | Opens **Needs details** queue | Shows each photo-only item; fill in name, category, consumable/returnable, tracking mode, qty, price, supplier, etc. | | Can be done on the couch, not in the garage |
+| Later | Opens **Needs details** queue | Shows each photo-only item; fill in name, category, consumable/returnable, tracking mode, qty, price, supplier, etc. Since DEC-037 this is one page: a row per part with name, a category box you can type in, how it's counted and how many, saving as you go; the rest in a popup | | Can be done on the couch, not in the garage |
 
 ### Labeling rules & scan resolution
 

@@ -232,7 +232,7 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-02 |
-| **Status** | Accepted (confirmed by Colin 2026-11-03; confirmed again 2026-11-04, Q47: a name alone isn't enough, a part needs its category too) |
+| **Status** | Accepted, tightened (confirmed by Colin 2026-11-03; 2026-11-04, Q47: a name alone isn't enough, a part needs its category too; enforced on every save from 2026-11-05, DEC-037) |
 | **Deciders** | AI (during M2 build); confirmed by Colin |
 | **Category** | Product |
 
@@ -243,6 +243,8 @@ F1–F8 is the smallest loop that keeps data current (catalog → find → use �
 **Rationale:** Required fields add friction, and friction is what killed the last attempt. Saving the form is a deliberate "I've looked at this" signal.
 
 **Consequences:** Items can leave the queue with only a name. Easy to tighten later (e.g. require a category) without a data change.
+
+**Update 2026-11-05 (DEC-037):** Q47 kept the stricter rule, but saving the form still let a part go with only a name. Now any save takes a part off the list only once it has a name **and** a category, and clearing the category puts it back. The form says so under the category box.
 
 ---
 
@@ -1075,6 +1077,52 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-037: Fill in details on one page; a category box you can type in; amounts in the details form
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-05 |
+| **Status** | Accepted |
+| **Deciders** | Colin (asked for the page and the type-to-search box); AI (layout and save rules) |
+| **Category** | UX |
+
+**Context:** Two notes from Colin:
+- **The count in the edit form.** He asked why he could set the count there for an exact-count part but not for a plenty/low/out one. He couldn't set it for either. The number box under "Count" was the low-stock warning, so it looked like the count. The real amounts were only on the part's page.
+- **One page for the Needs details list.** Filling in parts one at a time meant opening each part, then the form, saving, and going back (the review's "save and next" proposal). He asked for one page listing them all. Each row would have a small thumbnail, the name, a category dropdown you can type in to search, how it's counted and how many, plus a popup for more details.
+
+**Decision:**
+- **Fill in details page** (`/needs-details`). Reached from "Fill them in on one page" under Inventory's Needs details filter, and from the capture screen.
+  - **Order.** Every part on the list, in the order they were added.
+  - **Each row.** The thumbnail (tap for the full photo), the name, the category box, Exact count or Plenty / low / out, and how many in each place, with the place shown. The ⚙ button opens the full details form in a popup: full screen on a phone, a centred panel on a computer.
+  - **Saving.** Each change saves straight away: the name on Enter or leaving the box, the rest on tap or pick. Amounts are logged with Undo, like anywhere else.
+  - **Done rows.** A part with a name and a category gets a green tick and stays where it is until you leave, so rows don't jump. The heading counts what's left.
+  - **Layout.** On a phone each part is a card. On a computer each part is one line, under the headings Name, Category, and "Keep track by, and how many".
+- **Picking a category in a row** uses the category's usual way of counting (Fasteners count by level), unless you already picked it on that row or it would throw away a typed count. It also uses the category's usual type, unless the part has its own sticker.
+- **The category box** (`CategoryPicker`), on the page and in the form.
+  - **Finding one.** Typing narrows the list: names starting with the text first, then a word starting with it, then anywhere.
+  - **Keys.** Arrows move, Enter picks, Tab takes the highlighted match, Escape puts it back.
+  - **New categories.** A name that isn't there offers "Add 'X' as a new category".
+- **The details form.**
+  - "Count" is now "Keep track by".
+  - A **How many** section shows each place's amount: a number, or Plenty / Low / Out. It converts on screen when you switch, and is saved with the form as recounts.
+  - The number box is labelled **"Warn me when it's down to"**. For plenty/low/out parts the form says Low is their warning, which answers why there was no box.
+- **Needs details rule** (DEC-007, Q47). Any save takes a part off the list only once it has a name and a category. Migration 0017 puts back parts that left with only a name; on the live data that's one part, "Angled male headers 40 x 1".
+
+**Rationale:**
+- Working through a list in place removes four steps a part, and typing "fast" beats scrolling 17 categories.
+- Saving as you go fits short sessions on the couch.
+- Keeping done rows still avoids tapping the wrong part as the list shifts.
+- Putting the amounts in the form, labelled plainly, removes the confusion that prompted the question.
+
+**Consequences:**
+- **Data.** Migration 0017, data only.
+- **API.** `GET /api/items/needs-details` returns every part on the list in full. `categoryId` is on every item summary. `PATCH /api/items/:id` works out `needs_details` from the name and category unless `needsDetails` is sent.
+- **Web.** New `NeedsDetailsPage.tsx` and `CategoryPicker.tsx`. `ItemForm` is exported and works in a popup (`onClose`, `onDeleted`). `LevelButtons` is shared from `StockControl.tsx`. The bin pane's rename no longer forces "needs details".
+- **Checks.** New `needs-check.mjs`. Story J14 now goes through the page.
+- **Superseded proposal.** This replaces the review's "save and next" proposal.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1085,7 +1133,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-004 | TypeScript: React (Vite PWA) + Hono + SQLite/Drizzle, one container | Tech Stack | Accepted | 2026-11-02 |
 | DEC-005 | SPV = F1–F8, ship 2026-11-23 | Scope | Accepted | 2026-11-02 |
 | DEC-006 | Resize photos on the phone, not the server | Architecture | Accepted | 2026-11-02 |
-| DEC-007 | When an item leaves "Needs details" | Product | Accepted (reconfirmed 2026-11-04) | 2026-11-02 |
+| DEC-007 | When an item leaves "Needs details" | Product | Accepted (name and category, enforced on save by DEC-037) | 2026-11-02 |
 | DEC-008 | Backups run inside the app, not host cron | Architecture | Accepted | 2026-11-03 |
 | DEC-009 | The put-back bin is physical only | Product | Accepted | 2026-11-03 |
 | DEC-010 | Sites as the top level of the location tree | Product | Accepted | 2026-11-03 |
@@ -1115,6 +1163,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-034 | Racks have a size and numbered positions; drag to arrange | UX / Data | Accepted (drop behaviour changed by DEC-035) | 2026-11-04 |
 | DEC-035 | Dropping a box in a rack moves the others along, and you see them slide | UX | Accepted | 2026-11-04 |
 | DEC-036 | Bin tiles show the part's photo, with a per-box switch back to names | UX / Data | Accepted | 2026-11-04 |
+| DEC-037 | Fill in details on one page; a category box you can type in; amounts in the details form | UX | Accepted | 2026-11-05 |
 
 ---
 

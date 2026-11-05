@@ -280,18 +280,18 @@ await story("J14", "Fill in details for quick-added parts", "/", async () => {
   note(`home's filter says: "${await filter.textContent()}"`);
   await tap(filter);
   await snap("J14-queue");
-  await tap(page.getByRole("link", { name: /^M2 washers/ }));
-  await page.getByRole("heading", { name: "M2 washers" }).waitFor();
-  await tap(page.getByRole("link", { name: /Needs details/ }));
-  await snap("J14-edit");
-  await tap(page.getByRole("button", { name: "Save" }));
-  await page.getByRole("heading", { name: "M2 washers" }).waitFor();
-  await toast("Saved M2 washers");
-  note(`Save returns to: ${new URL(page.url()).pathname}`);
-  await page.goBack(); await page.waitForTimeout(300);
-  note(`then one Back lands on: ${new URL(page.url()).pathname}${new URL(page.url()).search}`);
-  const left = await page.getByRole("main").getByRole("listitem").count();
-  note(`after one Back, the rest of the queue is on screen: ${left} part${left === 1 ? "" : "s"}`);
+  // One page for the whole list (DEC-037): type a few letters of the category, Enter.
+  await tap(page.getByRole("link", { name: /Fill them in on one page/ }));
+  await page.getByRole("heading", { name: "Fill in details" }).waitFor();
+  const rows = await page.getByRole("main").getByRole("listitem").count();
+  note(`the page lists ${rows} part${rows === 1 ? "" : "s"}, each with name, category, how it's counted and how many`);
+  const cat = page.getByRole("combobox", { name: "Category for M2 washers" });
+  await tap(cat);
+  await type(cat, "fast");
+  await enter();
+  await page.getByRole("listitem", { name: "M2 washers, done" }).waitFor();
+  await snap("J14-fill");
+  note("M2 washers done without leaving the page; the next part is right below");
 });
 
 await browser.close();

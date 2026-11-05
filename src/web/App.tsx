@@ -17,6 +17,7 @@ import { ActivityPage } from "./pages/ActivityPage";
 import { PutBackPage } from "./pages/PutBackPage";
 import { CheckedOutPage } from "./pages/CheckedOutPage";
 import { ReviewPage } from "./pages/ReviewPage";
+import { NeedsDetailsPage } from "./pages/NeedsDetailsPage";
 import { ToastProvider } from "./components/Toast";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 
@@ -57,6 +58,7 @@ export function App() {
             <Route path="/putback" element={<PutBackPage />} />
             <Route path="/out" element={<CheckedOutPage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/needs-details" element={<NeedsDetailsPage />} />
             {/* The running-low list is a filter on Inventory now (DEC-026). */}
             <Route path="/low" element={<Navigate to="/?low=1" replace />} />
           </Routes>

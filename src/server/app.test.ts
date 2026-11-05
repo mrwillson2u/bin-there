@@ -200,6 +200,29 @@ describe("migration 0014 (DEC-034)", () => {
   }, 20_000);
 });
 
+describe("migration 0017 (DEC-037)", () => {
+  it("puts parts without a category back on Needs details", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "snt-needs-")), "app.db");
+    const journal = JSON.parse(readFileSync("drizzle/meta/_journal.json", "utf8")) as { entries: { tag: string; when: number }[] };
+    const upTo = journal.entries.findIndex((e) => e.tag === "0017_needs_details_category");
+    const raw = new Database(file);
+    raw.exec(`create table "__drizzle_migrations" (id integer primary key autoincrement, hash text not null, created_at numeric)`);
+    for (const e of journal.entries.slice(0, upTo)) {
+      for (const stmt of readFileSync(join("drizzle", `${e.tag}.sql`), "utf8").split("--> statement-breakpoint")) if (stmt.trim()) raw.exec(stmt);
+      raw.prepare(`insert into "__drizzle_migrations" (hash, created_at) values ('x', ?)`).run(e.when);
+    }
+    raw.exec(`insert into categories (id, name) values (1, 'Tools')`);
+    const add = raw.prepare(`insert into items (name, category_id, needs_details, archived) values (?, ?, ?, ?)`);
+    for (const row of [["Done", 1, 0, 0], ["Name only", null, 0, 0], ["Photo only", null, 1, 0], ["Deleted", null, 0, 1]]) add.run(...row);
+    raw.close();
+
+    openDb(file);
+    const after = new Database(file, { readonly: true });
+    const rows = after.prepare("select name, needs_details from items order by id").all() as { name: string; needs_details: number }[];
+    expect(rows.map((r) => [r.name, r.needs_details])).toEqual([["Done", 0], ["Name only", 1], ["Photo only", 1], ["Deleted", 0]]);
+  }, 20_000);
+});
+
 describe("stickers and scanning", () => {
   it("resolves an assigned sticker to its location", async () => {
     const tote = await create({ name: "Tote 4", type: "tote", code: "SNT-0001" });

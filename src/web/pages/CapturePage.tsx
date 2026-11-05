@@ -171,7 +171,13 @@ export function CapturePage() {
           {saved.length > 0 ? "Done" : "Cancel"}
         </Button>
       </div>
-      <p className="text-center text-[13px] text-muted">Saved items land in “Needs details” so you can fill them in later.</p>
+      <p className="text-center text-[13px] text-muted">
+        Saved items land in{" "}
+        <Link to="/needs-details" className="text-accent">
+          Needs details
+        </Link>{" "}
+        so you can fill them in later.
+      </p>
     </div>
   );
 }

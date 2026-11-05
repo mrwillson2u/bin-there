@@ -114,7 +114,11 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
   pin button on every row and tile (DEC-032).
   `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits, and an
   All places list (`GET /api/locations?all=1`) with type chips (DEC-027).
-  `SearchPage.tsx` lists only matches.
+  `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
+  part needing details as rows that save as you go; each row reads `["item", id]`, seeded from
+  `GET /api/items/needs-details`, so stock toasts and Undo update it. It opens `ItemForm` (exported
+  from `ItemEditPage.tsx`) in a popup. `CategoryPicker.tsx` is the type-to-find category box used there
+  and in the form. A part leaves Needs details only with a name and a category (`updateItem`).
 - **Scanning** (`scan/`): `ScanProvider` installs one capture-phase `keydown` listener for the
   whole app. `detector.ts` (pure, unit-tested) tells scanner input from typing: a `Ctrl+B` prefix
   from the hardware scanner puts it in scan mode and swallows keys until Enter; a timing-burst

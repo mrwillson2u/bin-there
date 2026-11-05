@@ -194,8 +194,8 @@ export function OnePart({ item: i, bin }: { item: LocationItem; bin: LocationSum
   const label = itemName(i.name);
 
   const rename = useMutation({
-    // Renaming keeps "needs details" as it was; that's cleared by filling in the details.
-    mutationFn: (name: string) => api<ItemDetail>(`/items/${i.itemId}`, { method: "PATCH", body: { name, needsDetails: i.needsDetails } }),
+    // The server keeps "needs details" until the part has a category too (DEC-007).
+    mutationFn: (name: string) => api<ItemDetail>(`/items/${i.itemId}`, { method: "PATCH", body: { name } }),
     onSuccess: (d) => {
       qc.setQueryData(["item", d.id], d);
       toast.show({ message: `Renamed to ${d.name}` });

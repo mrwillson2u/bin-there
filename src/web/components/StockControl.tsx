@@ -77,15 +77,31 @@ function LevelControl({ itemId, locationId, placeName, level, compact }: Props) 
     mutationFn: (l: StockLevel) => api<StockResult>("/stock/adjust", { method: "POST", body: { itemId, locationId, level: l } }),
     ...handlers((r) => (r.eventId ? `${placeName}: ${levelLabels[r.item.places.find((x) => x.locationId === locationId)?.level ?? "plenty"]}` : null)),
   });
+  return <LevelButtons value={level} onPick={(l) => set.mutate(l)} compact={compact} />;
+}
+
+/** Plenty / Low / Out as three buttons; the chosen one is coloured. */
+export function LevelButtons({
+  value,
+  onPick,
+  compact,
+  label = "Stock level",
+}: {
+  value: StockLevel | null;
+  onPick: (l: StockLevel) => void;
+  compact?: boolean;
+  label?: string;
+}) {
   return (
-    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Stock level">
+    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={label}>
       {stockLevels.map((l) => (
         <button
+          type="button"
           key={l}
           role="radio"
-          aria-checked={level === l}
-          onClick={() => set.mutate(l)}
-          className={`${compact ? "min-h-10 text-sm" : "min-h-14 text-base"} rounded-xl border font-semibold ${level === l ? levelTone[l] : "border-border bg-surface-2 text-muted"}`}
+          aria-checked={value === l}
+          onClick={() => onPick(l)}
+          className={`${compact ? "min-h-10 text-sm" : "min-h-14 text-base"} rounded-xl border font-semibold ${value === l ? levelTone[l] : "border-border bg-surface-2 text-muted"}`}
         >
           {levelLabels[l]}
         </button>

@@ -18,6 +18,7 @@ script refuses the app's own `data` folder and any folder that isn't empty.
 | `takeout-check.mjs` | Taking a bin out of its box: to a kit or with a note, the grey striped tile, the part's "bin out" line, the kit's list, taking the whole bin by scanning it on a kit, put back by tap and by put-back scan, freeing its spot, desktop pane |
 | `photo-check.mjs` | Square photos: a tall upload gets a square thumbnail, the part's page shows a square, Crop on the photo moves and zooms it (original kept), Centre; a second photo in the strip, Use as main, the viewer, Delete; desktop |
 | `tiles-check.mjs` | Bin tiles with photos: photo-only small squares framed in the bin colour, wide and tall layouts, "+1", the name of the photo's part, the per-box Photos / Names switch, the desktop name strip |
+| `needs-check.mjs` | Fill in details: every part needing details on one page, saving as you go (name, category by typing with arrows/Enter/Tab/Escape and adding a new one, how it's counted, a count with Undo, Plenty/Low/Out), done rows stay with a tick, the More details popup, the photo, desktop columns; the details form's amounts per place and warning wording, and that a part without a category stays on the list |
 
 Setup, once per dev copy (needs `ffmpeg`, and a Chromium; Playwright's headless shell works):
 

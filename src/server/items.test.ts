@@ -90,11 +90,15 @@ describe("quick capture", () => {
     expect(r.status).toBe(409);
   });
 
-  it("lists items needing details until the details form is saved", async () => {
+  it("lists items needing details until they have a name and a category", async () => {
     const it1 = await item({});
     expect((await ok<{ needsDetails: number }>("GET", "/stats")).needsDetails).toBe(1);
     expect(await ok<ItemSummary[]>("GET", "/items?needs=1")).toHaveLength(1);
+    // A name alone isn't enough (DEC-007, Q47).
     await ok("PATCH", `/items/${it1.id}`, { name: "Hot glue sticks" });
+    expect(await ok<ItemSummary[]>("GET", "/items?needs=1")).toHaveLength(1);
+    const cats = await ok<Category[]>("GET", "/categories");
+    await ok("PATCH", `/items/${it1.id}`, { categoryId: cats[0]!.id });
     expect(await ok<ItemSummary[]>("GET", "/items?needs=1")).toHaveLength(0);
   });
 });
@@ -330,6 +334,27 @@ describe("needs details", () => {
     const full = await item({ name: "10k resistor", categoryId: cats[0]!.id });
     const nameOnly = await item({ name: "Something" });
     expect([full.needsDetails, nameOnly.needsDetails]).toEqual([false, true]);
+  });
+
+  it("lists the parts to fill in, oldest first, with their category and places (DEC-037)", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const b = await bin("Bin 7");
+    const first = await item({ locationId: b.id, qty: 3 });
+    const second = await item({ name: "Glue", locationId: b.id });
+    await item({ name: "Done already", categoryId: cats[0]!.id });
+    const list = await ok<ItemDetail[]>("GET", "/items/needs-details");
+    expect(list.map((i) => i.id)).toEqual([first.id, second.id]);
+    expect(list[0]).toMatchObject({ categoryId: null, places: [expect.objectContaining({ locationId: b.id, qty: 3 })] });
+
+    // Picking a category for a part that has a name takes it off; the list skips it from then on.
+    const done = await ok<ItemDetail>("PATCH", `/items/${second.id}`, { categoryId: cats[1]!.id });
+    expect(done).toMatchObject({ needsDetails: false, categoryId: cats[1]!.id });
+    expect((await ok<ItemSummary[]>("GET", "/items/needs-details")).map((i) => i.id)).toEqual([first.id]);
+
+    // Taking the category away puts it back; saying so keeps a complete part on the list.
+    expect((await ok<ItemDetail>("PATCH", `/items/${second.id}`, { categoryId: null })).needsDetails).toBe(true);
+    const kept = await ok<ItemDetail>("PATCH", `/items/${second.id}`, { categoryId: cats[1]!.id, needsDetails: true });
+    expect(kept.needsDetails).toBe(true);
   });
 });
 
