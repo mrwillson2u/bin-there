@@ -224,7 +224,7 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
       type="button"
       onClick={() => setMode(m)}
       aria-pressed={mode === m}
-      className={`flex min-h-10 items-center gap-1.5 px-3 text-sm ${mode === m ? "bg-accent/15 font-semibold text-accent" : "text-muted"}`}
+      className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 px-3 text-sm sm:flex-none ${mode === m ? "bg-accent/15 font-semibold text-accent" : "text-muted"}`}
     >
       <Icon size={16} /> {label}
     </button>
@@ -233,14 +233,14 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
   return (
     <div className="fixed inset-0 z-40 overflow-y-auto bg-bg" role="dialog" aria-label={`Stickers for ${box.name}`}>
       <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] lg:max-w-5xl">
-        <header className="flex items-center gap-2">
+        <header className="flex flex-wrap items-center gap-2">
           <div className="min-w-0 flex-1">
             <h2 className="font-semibold leading-tight">Stickers</h2>
             <p className="truncate text-[13px] text-muted">
               {box.name} · {stickered} of {bins.length} stickered
             </p>
           </div>
-          <div className="flex overflow-hidden rounded-xl border border-border" role="group" aria-label="Scan with">
+          <div className="order-last flex basis-full overflow-hidden rounded-xl border border-border sm:order-none sm:basis-auto" role="group" aria-label="Scan with">
             {modeButton("camera", "Camera", Camera)}
             {modeButton("scanner", "Scanner", ScanLine)}
           </div>
