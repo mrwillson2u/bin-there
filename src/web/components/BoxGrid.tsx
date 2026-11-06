@@ -4,13 +4,13 @@ import { binSizeLabels, type BinSize, type LocationDetail, type LocationSummary 
 import { DEFAULT_GRID, STRIP_HEIGHT, footprint, snapSlot, type Grid, type PlacedBin, type Slot } from "../../shared/grid";
 import { itemName } from "./ui";
 
-/** The bin's colour as the tile's outline (DEC-041): the inside stays dark, so the grid reads quietly. */
+/** The bin's colour as the tile's outline, with the inside a very dark tint of it (DEC-041), so the grid reads quietly. */
 const binOutline: Record<BinSize, string> = {
-  "1x1": "border-bin-1x1",
-  "2x1": "border-bin-2x1",
-  "2x2": "border-bin-2x2",
-  front_strip: "border-bin-front",
-  other: "border-border",
+  "1x1": "border-bin-1x1 bg-bin-1x1/15",
+  "2x1": "border-bin-2x1 bg-bin-2x1/15",
+  "2x2": "border-bin-2x2 bg-bin-2x2/15",
+  front_strip: "border-bin-front bg-bin-front/15",
+  other: "border-border bg-surface-2",
 };
 
 // The gridded box drawn as it sits on the bench: a grid of cells with the front
@@ -82,7 +82,7 @@ function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photo
       const url = shown[0]!.url;
       if (tile.shape === "wide") {
         return (
-          <span className="pointer-events-none absolute inset-0 flex items-center gap-1.5 overflow-hidden bg-surface">
+          <span className="pointer-events-none absolute inset-0 flex items-center gap-1.5 overflow-hidden">
             <img src={url} alt="" draggable={false} className="aspect-square h-full shrink-0 object-cover" />
             <span className={`line-clamp-2 min-w-0 pr-1 ${name}`}>{label}</span>
           </span>
@@ -90,14 +90,14 @@ function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photo
       }
       if (tile.shape === "tall") {
         return (
-          <span className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden bg-surface">
+          <span className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden">
             <img src={url} alt="" draggable={false} className="aspect-square w-full shrink-0 object-cover" />
             <span className={`line-clamp-3 min-h-0 px-1 pt-1 ${name}`}>{label}</span>
           </span>
         );
       }
       return (
-        <span className="pointer-events-none absolute inset-0 overflow-hidden bg-surface">
+        <span className="pointer-events-none absolute inset-0 overflow-hidden">
           <img src={url} alt="" draggable={false} className="h-full w-full object-cover" />
           <span className={`absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 ${name}`}>{label}</span>
         </span>
@@ -108,7 +108,7 @@ function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photo
     // in the first spare cell, or on the last strip when there's none.
     const spare = cells - shown.length;
     return (
-      <span className="pointer-events-none absolute inset-0 overflow-hidden bg-surface">
+      <span className="pointer-events-none absolute inset-0 overflow-hidden">
         <span className="grid h-full w-full" style={{ gridTemplateColumns: `repeat(${tile.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${tile.rows}, minmax(0, 1fr))` }}>
           {shown.map((t, k) => (
             <span key={k} className="relative overflow-hidden">
@@ -295,7 +295,7 @@ export function BoxGrid({
   };
 
   const binClass = (size: BinSize | null, out = false) =>
-    `relative flex items-center justify-center overflow-hidden rounded-[6px] border-[3px] bg-surface-2 px-1 text-center text-[11px] font-medium leading-tight text-text [overflow-wrap:anywhere] ${binOutline[size ?? "other"]} ${out ? OUT_CLASS : ""}`;
+    `relative flex items-center justify-center overflow-hidden rounded-[6px] border-[3px] px-1 text-center text-[11px] font-medium leading-tight text-text [overflow-wrap:anywhere] ${binOutline[size ?? "other"]} ${out ? OUT_CLASS : ""}`;
 
   // A tile's shape decides how a photo is laid out on it (DEC-036). Big = room for a name strip.
   const photos = box.tileView !== "names";
