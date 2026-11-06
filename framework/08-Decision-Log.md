@@ -1166,6 +1166,23 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-039: The AI deploys to ubuntubot itself, after a backup
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted |
+| **Deciders** | Colin (Q52) |
+| **Category** | Process |
+
+**Context:** Every change so far ended with "deploy with `docker compose up -d --build`" for Colin to run. Colin asked why. Nothing technical stops the AI: `colin` is in the `docker` group, so no password is needed. The habit came from the first sessions, when the Tailscale setup needed `sudo`, and from caution about the live data.
+
+**Decision:** After a change is verified (tests and browser checks on a throwaway copy), committed and pushed, the AI takes a backup (`POST /api/backup`), rebuilds the container in `~/bin-there` on ubuntubot, and checks `/api/health`. The rebuild still runs the tests and refuses to ship if they fail. The AI reports that it's live.
+
+**Consequences:** `AGENTS.md` and the handoff say so. Anything needing `sudo` (Tailscale, system packages) is still Colin's to run.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1208,6 +1225,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-036 | Bin tiles show the part's photo, with a per-box switch back to names | UX / Data | Accepted | 2026-11-04 |
 | DEC-037 | Fill in details on one page; a category box you can type in; amounts in the details form | UX | Accepted | 2026-11-05 |
 | DEC-038 | Where a part is, told as directions: the walk in lines, the box as a small map, the level in words | UX | Accepted | 2026-11-06 |
+| DEC-039 | The AI deploys to ubuntubot itself, after a backup | Process | Accepted | 2026-11-06 |
 
 ---
 

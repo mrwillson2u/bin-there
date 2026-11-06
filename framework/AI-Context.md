@@ -41,7 +41,7 @@
 
 ### Deploying a change
 
-On ubuntubot: back up, pull, rebuild (the image build runs the tests and refuses to ship if they fail).
+On ubuntubot: back up, pull, rebuild (the image build runs the tests and refuses to ship if they fail). Since 2026-11-06 the AI does this itself after each verified change (Q52, DEC-039); the checkout is already at the pushed commit, so `git pull` is a no-op there.
 
 ```bash
 cd ~/bin-there

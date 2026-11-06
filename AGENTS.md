@@ -17,10 +17,11 @@ You are the **facilitator**. Guide the user through structured discovery questio
 Project-specific rules. These override the generic kit rules below where they differ.
 
 - **Fresh start.** Colin tried a garage inventory app years ago and it failed. Never search for, read or reuse the old version; only its *lessons* carry over (they're in `framework/01-Concept.md` and `03-UX-Framework.md`).
-- **One question at a time.** Colin often answers by voice. Ask a single short question per message that's easy to answer aloud; number them (the count was at Q51 on 2026-11-06). Don't offer question batches.
+- **One question at a time.** Colin often answers by voice. Ask a single short question per message that's easy to answer aloud; number them (the count was at Q52 on 2026-11-06). Don't offer question batches.
 - **Plain language.** Explain in everyday terms; Colin is technical but not reading code.
 - **Log every decision** as a DEC in `framework/08-Decision-Log.md` and keep docs true as you go.
 - **Protect the live data.** Before restarting or redeploying the real app, take a backup (`curl -X POST localhost:3000/api/backup` on the server). Never run destructive commands against `~/bin-there/data` on ubuntubot.
+- **Deploy it yourself** (Q52, 2026-11-06, DEC-039). After a change is verified, committed and pushed: back up, then `docker compose up -d --build` in `~/bin-there` on ubuntubot (no sudo needed; `colin` is in the `docker` group), then check `/api/health`. Tell Colin it's live rather than asking him to run it.
 - **Verify before claiming done:** run `npm test`, and click through UI changes (headless Chrome against a throwaway copy with its own `DATA_DIR`, never the real data).
 - Current state, where things run, and what's next: **Handoff** section in `framework/AI-Context.md`.
 
