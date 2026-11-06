@@ -55,13 +55,14 @@ export function ScanTarget({ what, camera, actions, compact, big, children, clas
         <ScanLine size={big ? 24 : 20} className="shrink-0" /> {what}
       </p>
       {children}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* On a phone the big button takes the row and the trigger note sits under it, so the button's words never wrap. */}
+      <div className={`flex flex-wrap items-center gap-2 ${big ? "flex-col items-stretch sm:flex-row sm:items-center" : ""}`}>
         {withCamera && (
-          <Button variant="scan" onClick={() => openCamera(camera)} className={big ? "min-h-14 flex-1 text-lg" : ""}>
+          <Button variant="scan" onClick={() => openCamera(camera)} className={`whitespace-nowrap ${big ? "min-h-14 text-lg sm:flex-1" : ""}`}>
             <ScanLine size={big ? 22 : 18} /> Scan with camera
           </Button>
         )}
-        {trigger && <span className={`text-sm text-muted ${big && !withCamera ? "text-base" : ""}`}>{trigger}</span>}
+        {trigger && <span className={`text-sm text-muted ${big ? "text-center sm:text-left" : ""} ${big && !withCamera ? "text-base" : ""}`}>{trigger}</span>}
         {actions}
       </div>
     </Card>

@@ -93,7 +93,8 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
 
   return (
     <div ref={shellRef} className="flex min-h-dvh flex-col lg:pl-56">
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 pb-28 pt-[max(1rem,env(safe-area-inset-top))] lg:max-w-6xl lg:px-8 lg:pb-10 lg:pt-6">
+      {/* Top: clear of the status bar and the Dynamic Island's blur, not just the inset edge. Bottom: room for the bar, and for the scan strip when one is up (DEC-044). */}
+      <main className={`mx-auto w-full max-w-2xl flex-1 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:max-w-6xl lg:px-8 lg:pb-10 lg:pt-6 ${target ? "pb-40" : "pb-28"}`}>
         {scanError && <p className="mb-4 rounded-xl bg-danger/15 px-4 py-3 text-sm text-danger" role="alert">{scanError}</p>}
         {/* Above the per-screen remount, so it also catches a screen that fails while closing. */}
         <ScreenErrorBoundary resetKey={location.pathname}>
@@ -104,7 +105,8 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
       {/* Phone: bottom bar with the big scan button in thumb reach. */}
       <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {target && (
-          <p className="flex items-center justify-center gap-1.5 bg-scan px-3 py-1 text-center text-[13px] font-semibold text-white" role="status" aria-label={`A scan now: ${target}`}>
+          /* The round button rises 24 px into whatever is above it, so the strip keeps its words above that. */
+          <p className="flex items-center justify-center gap-1.5 bg-scan px-3 pb-7 pt-1.5 text-center text-[13px] font-semibold text-white" role="status" aria-label={`A scan now: ${target}`}>
             <ScanLine size={14} /> {target}
           </p>
         )}
