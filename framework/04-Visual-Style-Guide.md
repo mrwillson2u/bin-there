@@ -71,7 +71,7 @@ Bins: **Allit economy modular storage case** (Lee Valley #70869): https://www.le
 | 2×2 | Blue | `#3B82F6` | `bin-2x2` |
 | Front strip (346 × 46 mm) | Matches the case (neutral) | `#9AA0A6` | `bin-front` |
 
-On the box grid the colour is the tile's 2 px outline round a dark inside, not a fill (DEC-041); empty bins have a dashed outline. The small bin chip in lists stays solid.
+On the box grid the colour is the tile's 3 px outline round a dark inside, not a fill (DEC-041); empty bins have a dashed outline. The small bin chip in lists stays solid.
 
 **Case layout (from the product description):** 365 × 292 × 55 mm case; bins are 43 mm deep. A **6 × 4 grid** of 51 mm cells (each cell ~53 mm with walls) plus one full-width **front strip** bin. Stock set: 8× 1×1, 4× 2×1, 2× 2×2, 1 front strip = 24 grid cells + strip. Bins are also sold separately, so the mix per case can vary.
 

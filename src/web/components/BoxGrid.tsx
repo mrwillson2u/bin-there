@@ -64,8 +64,8 @@ type TileShape = { shape: "square" | "wide" | "tall"; big: boolean };
 
 /**
  * What a tile shows: for a bin that's out, "Out" and where it went; else, when the box shows
- * photos and the bin has one (DEC-036), the photo filling the tile inside its coloured outline
- * with the part's name in a strip along the bottom, the same on every shape (DEC-041);
+ * photos and the bin has one (DEC-036), the square photo at the tile's left (top on a tall tile)
+ * with the rest darker and the part's name in a strip along the bottom, the same on every shape (DEC-041);
  * otherwise its contents in words, or a quiet "Empty".
  */
 function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photos?: boolean; tile?: TileShape }) {
@@ -74,8 +74,8 @@ function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photo
     // Name the part whose photo it is (the first with a photo may not be the first A to Z).
     label = `${itemName(bin.thumbName ?? "")}${more > 0 ? ` +${more}` : ""}`;
     return (
-      <span className="pointer-events-none absolute inset-0 overflow-hidden">
-        <img src={bin.thumbUrl} alt="" draggable={false} className="h-full w-full object-cover" />
+      <span className="pointer-events-none absolute inset-0 overflow-hidden bg-surface">
+        <img src={bin.thumbUrl} alt="" draggable={false} className={`absolute left-0 top-0 aspect-square object-cover ${tile.shape === "tall" ? "w-full" : "h-full"}`} />
         <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 text-left text-[10px] font-medium leading-tight text-white">{label}</span>
       </span>
     );
@@ -251,7 +251,7 @@ export function BoxGrid({
   };
 
   const binClass = (size: BinSize | null, out = false, empty = false) =>
-    `relative flex items-center justify-center overflow-hidden rounded-[6px] border-2 bg-surface-2 px-1 text-center text-[11px] font-medium leading-tight text-text [overflow-wrap:anywhere] ${binOutline[size ?? "other"]} ${empty ? "border-dashed" : ""} ${out ? OUT_CLASS : ""}`;
+    `relative flex items-center justify-center overflow-hidden rounded-[6px] border-[3px] bg-surface-2 px-1 text-center text-[11px] font-medium leading-tight text-text [overflow-wrap:anywhere] ${binOutline[size ?? "other"]} ${empty ? "border-dashed" : ""} ${out ? OUT_CLASS : ""}`;
 
   // A tile's shape decides how a photo is laid out on it (DEC-036). Big = room for a name strip.
   const photos = box.tileView !== "names";
@@ -268,11 +268,12 @@ export function BoxGrid({
   const dragFp = drag ? footprint(drag.bin.binSize, drag.rotated, grid) : null;
   const ring = (id: number) =>
     id === selectedId
-      ? `outline outline-2 outline-offset-0 ${id === seenId ? "outline-ok" : "outline-accent"}`
+      ? `outline outline-[3px] outline-offset-0 ${id === seenId ? "outline-ok" : "outline-text"}`
       : id === seenId
-        ? "outline-dashed outline-2 outline-offset-0 outline-warn"
+        ? "outline-dashed outline-[3px] outline-offset-0 outline-text"
         : "";
-  const lift = (id: number) => (id === selectedId || id === seenId ? "z-10" : "");
+  /** The chosen bin stands out by the others fading; it and the seen one draw above their neighbours. */
+  const lift = (id: number) => (id === selectedId || id === seenId ? "z-10" : selectedId !== null ? "opacity-40" : "");
   // Screen readers get the full name ("Bin 0042"), plus the contents when the tile shows them.
   const ariaName = (b: Bin, label: string) =>
     (stickers ? `${b.name}, ${b.code ? `sticker ${b.code}` : "no sticker"}` : label === EMPTY ? `${b.name}, empty` : `${label}, ${b.name}`) +
@@ -280,7 +281,7 @@ export function BoxGrid({
   const pxSize = (size: BinSize, rotated: boolean, px = cellPx) => {
     const fp = footprint(size, rotated, grid);
     const strip = size === "front_strip";
-    return { width: strip ? "100%" : fp.w * px - 4, height: (strip ? STRIP_HEIGHT : fp.h) * px - 4 };
+    return { width: strip ? "100%" : fp.w * px - 6, height: (strip ? STRIP_HEIGHT : fp.h) * px - 6 };
   };
   // The palette shows the shapes a bit smaller than life so it doesn't push the grid down the screen.
   const palettePx = cellPx * 0.6;
@@ -318,13 +319,13 @@ export function BoxGrid({
             <div
               key={i}
               className="absolute rounded-[6px] border border-border/50"
-              style={{ left: `calc(${x * cw}% + 2px)`, top: `calc(${y * ch}% + 2px)`, width: `calc(${cw}% - 4px)`, height: `calc(${ch}% - 4px)` }}
+              style={{ left: `calc(${x * cw}% + 3px)`, top: `calc(${y * ch}% + 3px)`, width: `calc(${cw}% - 6px)`, height: `calc(${ch}% - 6px)` }}
             />
           );
         })}
         <div
           className="absolute rounded-[6px] border border-border/50"
-          style={{ left: 2, top: `calc(${grid.rows * ch}% + 2px)`, width: "calc(100% - 4px)", height: `calc(${STRIP_HEIGHT * ch}% - 4px)` }}
+          style={{ left: 3, top: `calc(${grid.rows * ch}% + 3px)`, width: "calc(100% - 6px)", height: `calc(${STRIP_HEIGHT * ch}% - 6px)` }}
         />
 
         {/* Where the dragged bin will land (or won't). */}
@@ -336,7 +337,7 @@ export function BoxGrid({
         )}
 
         {placed.map((b) => {
-          const style = { ...rect(b.slot, b.binSize), padding: 2 };
+          const style = { ...rect(b.slot, b.binSize), padding: 3 };
           const lifted = drag?.bin.id === b.id;
           const label = binLabel(b);
           return (
@@ -397,8 +398,8 @@ export function BoxGrid({
           style={{
             left: drag.x - drag.grabX,
             top: drag.y - drag.grabY,
-            width: (drag.bin.binSize === "front_strip" ? grid.cols : dragFp.w) * cellPx - 4,
-            height: (drag.bin.binSize === "front_strip" ? STRIP_HEIGHT : dragFp.h) * cellPx - 4,
+            width: (drag.bin.binSize === "front_strip" ? grid.cols : dragFp.w) * cellPx - 6,
+            height: (drag.bin.binSize === "front_strip" ? STRIP_HEIGHT : dragFp.h) * cellPx - 6,
           }}
         >
           <span className="line-clamp-2">{binLabel(drag.bin)}</span>
