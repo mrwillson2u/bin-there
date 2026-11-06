@@ -322,7 +322,7 @@ export function BoxGrid({
   const pxSize = (size: BinSize, rotated: boolean, px = cellPx) => {
     const fp = footprint(size, rotated, grid);
     const strip = size === "front_strip";
-    return { width: strip ? "100%" : fp.w * px - 6, height: (strip ? STRIP_HEIGHT : fp.h) * px - 6 };
+    return { width: strip ? "100%" : fp.w * px - 3, height: (strip ? STRIP_HEIGHT : fp.h) * px - 3 };
   };
   // The palette shows the shapes a bit smaller than life so it doesn't push the grid down the screen.
   const palettePx = cellPx * 0.6;
@@ -347,7 +347,7 @@ export function BoxGrid({
 
       <div
         ref={gridRef}
-        className="relative w-full rounded-lg border border-border bg-surface"
+        className="relative w-full rounded-[8px] border border-border bg-surface"
         style={{ aspectRatio: `${grid.cols} / ${totalRows}` }}
         role="group"
         aria-label={`Grid of ${box.name}`}
@@ -360,13 +360,13 @@ export function BoxGrid({
             <div
               key={i}
               className="absolute rounded-[6px] border border-border/50"
-              style={{ left: `calc(${x * cw}% + 3px)`, top: `calc(${y * ch}% + 3px)`, width: `calc(${cw}% - 6px)`, height: `calc(${ch}% - 6px)` }}
+              style={{ left: `calc(${x * cw}% + 1.5px)`, top: `calc(${y * ch}% + 1.5px)`, width: `calc(${cw}% - 3px)`, height: `calc(${ch}% - 3px)` }}
             />
           );
         })}
         <div
           className="absolute rounded-[6px] border border-border/50"
-          style={{ left: 3, top: `calc(${grid.rows * ch}% + 3px)`, width: "calc(100% - 6px)", height: `calc(${STRIP_HEIGHT * ch}% - 6px)` }}
+          style={{ left: 1.5, top: `calc(${grid.rows * ch}% + 1.5px)`, width: "calc(100% - 3px)", height: `calc(${STRIP_HEIGHT * ch}% - 3px)` }}
         />
 
         {/* Where the dragged bin will land (or won't). */}
@@ -378,7 +378,7 @@ export function BoxGrid({
         )}
 
         {placed.map((b) => {
-          const style = { ...rect(b.slot, b.binSize), padding: 3 };
+          const style = { ...rect(b.slot, b.binSize), padding: 1.5 };
           const lifted = drag?.bin.id === b.id;
           const label = binLabel(b);
           return (
@@ -439,8 +439,8 @@ export function BoxGrid({
           style={{
             left: drag.x - drag.grabX,
             top: drag.y - drag.grabY,
-            width: (drag.bin.binSize === "front_strip" ? grid.cols : dragFp.w) * cellPx - 6,
-            height: (drag.bin.binSize === "front_strip" ? STRIP_HEIGHT : dragFp.h) * cellPx - 6,
+            width: (drag.bin.binSize === "front_strip" ? grid.cols : dragFp.w) * cellPx - 3,
+            height: (drag.bin.binSize === "front_strip" ? STRIP_HEIGHT : dragFp.h) * cellPx - 3,
           }}
         >
           <span className="line-clamp-2">{binLabel(drag.bin)}</span>

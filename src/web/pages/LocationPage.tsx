@@ -50,9 +50,16 @@ export function LocationPage() {
   const [gridMessage, setGridMessage] = useState<string | null>(null);
   const [arranging, setArranging] = useState(false);
   const [openBin, setOpenBin] = useState<LocationSummary | null>(null);
-  // Opened from a part's directions (DEC-038): that bin is outlined on the grid until one is tapped.
-  const [params] = useSearchParams();
-  const markedId = Number(params.get("bin")) || null;
+  // Opened from a part's directions (DEC-038): that bin is outlined on the grid until one is
+  // tapped or the pane is closed; then every bin is back at full strength (DEC-041).
+  const [params, setParams] = useSearchParams();
+  const [markedId, setMarkedId] = useState<number | null>(() => Number(params.get("bin")) || null);
+  const choose = (bin: LocationSummary | null) => {
+    setMarkedId(null);
+    if (params.has("bin")) setParams({}, { replace: true });
+    // Tapping the open bin again closes its pane: that's how you deselect.
+    setOpenBin(bin && openBin?.id === bin.id ? null : bin);
+  };
   // Sticker mode: the full-screen camera + grid for labelling bins (DEC-022).
   const [labelling, setLabelling] = useState(false);
   const [edit, setEdit] = useState<{ name: string } | null>(null);
@@ -234,7 +241,7 @@ export function LocationPage() {
           {!arranging && hasBins && (
             <button
               type="button"
-              onClick={() => { primeFeedback(); setGridMessage(null); setOpenBin(null); setLabelling(true); }}
+              onClick={() => { primeFeedback(); setGridMessage(null); choose(null); setLabelling(true); }}
               className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent"
             >
               <QrCode size={18} /> Stickers
@@ -243,7 +250,7 @@ export function LocationPage() {
           {!labelling && (
             <button
               type="button"
-              onClick={() => { setGridMessage(null); setOpenBin(null); setArranging((a) => !a); }}
+              onClick={() => { setGridMessage(null); choose(null); setArranging((a) => !a); }}
               className={`inline-flex min-h-11 items-center gap-1.5 px-1 ${arranging ? "font-semibold text-accent" : "text-accent"}`}
             >
               <LayoutGrid size={18} /> {arranging ? "Done" : hasBins ? "Add or arrange bins" : "Add bins"}
@@ -258,7 +265,7 @@ export function LocationPage() {
         selectedId={sheetDocked ? openBin.id : openBin ? null : markedId}
         onPlace={(bin, slot) => { setGridMessage(null); place.mutate({ bin, slot }); }}
         onCreate={(binSize, slot) => { setGridMessage(null); addBin.mutate({ binSize, slot }); }}
-        onOpen={setOpenBin}
+        onOpen={choose}
         onProblem={setGridMessage}
       />
       {gridMessage && <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm" role="status">{gridMessage}</p>}
@@ -286,7 +293,7 @@ export function LocationPage() {
   );
 
   const sheet = openBin && (
-    <BinSheet bin={loc.children.find((c) => c.id === openBin.id) ?? openBin} box={loc} onClose={() => setOpenBin(null)} onSwitch={setOpenBin} docked={wide} />
+    <BinSheet bin={loc.children.find((c) => c.id === openBin.id) ?? openBin} box={loc} onClose={() => choose(null)} onSwitch={setOpenBin} docked={wide} />
   );
 
   let body;
