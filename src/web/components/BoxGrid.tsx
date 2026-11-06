@@ -64,8 +64,9 @@ type TileShape = { shape: "square" | "wide" | "tall"; big: boolean };
 
 /**
  * What a tile shows: for a bin that's out, "Out" and where it went; else, when the box shows
- * photos and the bin has one (DEC-036), the square photo at the tile's left (top on a tall tile)
- * with the rest darker and the part's name in a strip along the bottom, the same on every shape (DEC-041);
+ * photos and the bin has one (DEC-036), the square photo with the part's name in the same small
+ * white type on every shape: in a strip over a square tile, beside the photo on a wide one, under
+ * it on a tall one (DEC-041);
  * otherwise its contents in words, or a quiet "Empty".
  */
 function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photos?: boolean; tile?: TileShape }) {
@@ -73,10 +74,27 @@ function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photo
     const more = bin.itemCount > 1 ? bin.itemCount - 1 : 0;
     // Name the part whose photo it is (the first with a photo may not be the first A to Z).
     label = `${itemName(bin.thumbName ?? "")}${more > 0 ? ` +${more}` : ""}`;
+    const name = "text-left text-[10px] font-medium leading-tight text-white";
+    if (tile.shape === "wide") {
+      return (
+        <span className="pointer-events-none absolute inset-0 flex items-center gap-1.5 overflow-hidden bg-surface">
+          <img src={bin.thumbUrl} alt="" draggable={false} className="aspect-square h-full shrink-0 object-cover" />
+          <span className={`line-clamp-2 min-w-0 pr-1 ${name}`}>{label}</span>
+        </span>
+      );
+    }
+    if (tile.shape === "tall") {
+      return (
+        <span className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden bg-surface">
+          <img src={bin.thumbUrl} alt="" draggable={false} className="aspect-square w-full shrink-0 object-cover" />
+          <span className={`line-clamp-3 min-h-0 px-1 pt-1 ${name}`}>{label}</span>
+        </span>
+      );
+    }
     return (
       <span className="pointer-events-none absolute inset-0 overflow-hidden bg-surface">
-        <img src={bin.thumbUrl} alt="" draggable={false} className={`absolute left-0 top-0 aspect-square object-cover ${tile.shape === "tall" ? "w-full" : "h-full"}`} />
-        <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 text-left text-[10px] font-medium leading-tight text-white">{label}</span>
+        <img src={bin.thumbUrl} alt="" draggable={false} className="h-full w-full object-cover" />
+        <span className={`absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 ${name}`}>{label}</span>
       </span>
     );
   }
@@ -250,8 +268,8 @@ export function BoxGrid({
     if (e.key === "Escape") cancel();
   };
 
-  const binClass = (size: BinSize | null, out = false, empty = false) =>
-    `relative flex items-center justify-center overflow-hidden rounded-[6px] border-[3px] bg-surface-2 px-1 text-center text-[11px] font-medium leading-tight text-text [overflow-wrap:anywhere] ${binOutline[size ?? "other"]} ${empty ? "border-dashed" : ""} ${out ? OUT_CLASS : ""}`;
+  const binClass = (size: BinSize | null, out = false) =>
+    `relative flex items-center justify-center overflow-hidden rounded-[6px] border-[3px] bg-surface-2 px-1 text-center text-[11px] font-medium leading-tight text-text [overflow-wrap:anywhere] ${binOutline[size ?? "other"]} ${out ? OUT_CLASS : ""}`;
 
   // A tile's shape decides how a photo is laid out on it (DEC-036). Big = room for a name strip.
   const photos = box.tileView !== "names";
@@ -273,7 +291,7 @@ export function BoxGrid({
         ? "outline-dashed outline-[3px] outline-offset-0 outline-text"
         : "";
   /** The chosen bin stands out by the others fading; it and the seen one draw above their neighbours. */
-  const lift = (id: number) => (id === selectedId || id === seenId ? "z-10" : selectedId !== null ? "opacity-40" : "");
+  const lift = (id: number) => (id === selectedId || id === seenId ? "z-10" : selectedId !== null ? "opacity-50" : "");
   // Screen readers get the full name ("Bin 0042"), plus the contents when the tile shows them.
   const ariaName = (b: Bin, label: string) =>
     (stickers ? `${b.name}, ${b.code ? `sticker ${b.code}` : "no sticker"}` : label === EMPTY ? `${b.name}, empty` : `${label}, ${b.name}`) +
@@ -345,7 +363,7 @@ export function BoxGrid({
               {arranging ? (
                 <div
                   {...handlers(b)}
-                  className={`relative h-full w-full cursor-grab ${binClass(b.binSize, !!b.out, label === EMPTY)} ${lifted ? "opacity-30" : ""}`}
+                  className={`relative h-full w-full cursor-grab ${binClass(b.binSize, !!b.out)} ${lifted ? "opacity-30" : ""}`}
                   role="button"
                   aria-label={`${ariaName(b, label)}, ${binSizeLabels[b.binSize ?? "other"]} at column ${b.slot.x + 1} row ${b.slot.y + 1}${b.binSize === "2x1" ? ", tap to turn" : ""}`}
                 >
@@ -353,7 +371,7 @@ export function BoxGrid({
                   {b.binSize === "2x1" && <RotateCw size={12} className="absolute right-0.5 top-0.5 z-10 opacity-60" aria-hidden />}
                 </div>
               ) : (
-                <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize, !!b.out, label === EMPTY)} ${ring(b.id)} active:opacity-80`} aria-label={ariaName(b, label)}>
+                <button type="button" onClick={() => onOpen(b)} className={`h-full w-full ${binClass(b.binSize, !!b.out)} ${ring(b.id)} active:opacity-80`} aria-label={ariaName(b, label)}>
                   {stickers ? <StickerLabel bin={b} /> : <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, b.slot.rotated)} />}
                 </button>
               )}
@@ -375,12 +393,12 @@ export function BoxGrid({
               const lifted = drag?.bin.id === b.id;
               const label = binLabel(b);
               return arranging ? (
-                <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize, !!b.out, label === EMPTY)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${ariaName(b, label)}, not placed`}>
+                <div key={b.id} {...handlers(b)} style={style} className={`cursor-grab ${binClass(b.binSize, !!b.out)} ${lifted ? "opacity-30" : ""}`} role="button" aria-label={`${ariaName(b, label)}, not placed`}>
                   <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, false)} />
                 </div>
               ) : (
                 <div key={b.id} className={`relative ${lift(b.id)}`} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined}>
-                  <button type="button" onClick={() => onOpen(b)} style={style} className={`${binClass(b.binSize, !!b.out, label === EMPTY)} ${ring(b.id)}`} aria-label={ariaName(b, label)}>
+                  <button type="button" onClick={() => onOpen(b)} style={style} className={`${binClass(b.binSize, !!b.out)} ${ring(b.id)}`} aria-label={ariaName(b, label)}>
                     {stickers ? <StickerLabel bin={b} /> : <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, false)} />}
                   </button>
                 </div>
