@@ -158,6 +158,7 @@ export function BoxGrid({
   stickers = false,
   selectedId = null,
   seenId = null,
+  veil = true,
 }: {
   box: LocationDetail;
   arranging: boolean;
@@ -173,6 +174,8 @@ export function BoxGrid({
   selectedId?: number | null;
   /** The bin whose sticker the camera (or scanner) is looking at: dashed outline. */
   seenId?: number | null;
+  /** Veil the other bins while one is chosen (DEC-041). Off on the Stickers screen, where the choice moves with every scan. */
+  veil?: boolean;
 }) {
   const grid: Grid = box.grid ?? DEFAULT_GRID;
   const bins = box.children.filter((c) => c.type === "bin");
@@ -325,7 +328,7 @@ export function BoxGrid({
    * would let the cells behind show through). It and the seen one draw above their neighbours.
    */
   const VEIL = "after:pointer-events-none after:absolute after:inset-[1.5px] after:rounded-[6px] after:bg-bg/60 after:content-['']";
-  const faded = (id: number) => selectedId !== null && id !== selectedId && id !== seenId;
+  const faded = (id: number) => veil && selectedId !== null && id !== selectedId && id !== seenId;
   const lift = (id: number) => (id === selectedId || id === seenId ? "z-10" : faded(id) ? VEIL : "");
   // Screen readers get the full name ("Bin 0042"), plus the contents when the tile shows them.
   const ariaName = (b: Bin, label: string) =>

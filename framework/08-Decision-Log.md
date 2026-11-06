@@ -1232,6 +1232,35 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-042: Stickers by scanner: a "next up" panel and the choice moving on by itself
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted (Colin asked for it, Q55) |
+| **Deciders** | Colin; AI (the scanner-mode layout) |
+| **Category** | UX |
+
+**Context:** Colin set up a new box and stickered its bins with the hardware scanner from the box page. Every scan brought up the bin pane's "New sticker scanned: put it on Bin 0042?" question, an extra click per bin. The Stickers screen (DEC-022) already puts a scan straight on a chosen bin, but it was built round the camera (a preview above the grid, a Scan button) and still needed a tap per bin to choose the next one.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Scan while dragging bins in from the palette | One pass | Two hands on two things; bins without stickers are a normal state, stickers come later from a sheet |
+| Skip the question in the bin pane | No extra click | A scan would write without the screen saying what it will do (against DEC-025) |
+| The Stickers screen: choose once, then scan, scan, scan | One tap per box; the screen says which bin is next before each scan | The camera layout wastes the top of the screen when a scanner is in use |
+
+**Decision:**
+- **The choice moves on by itself.** After a sticker goes on, the next bin without a sticker is chosen, in reading order (left to right, top to bottom, the front strip last, then any not placed), wrapping round; with none left, nothing is chosen. The status line says "…is on Bin 0042. Next: Bin 0043". Works with the camera too.
+- **Scanner mode.** A Camera / Scanner switch in the header, remembered. In scanner mode the camera is off and a **Next up** panel takes its place: "Scan the sticker for Bin 0042", with a line explaining the flow; the big Scan button becomes **Skip**, which moves the choice on without a sticker. The header counts "3 of 16 stickered".
+- **A hardware scan with nothing chosen** switches to scanner mode and chooses the first bin without a sticker, saying "Bin 0042 is chosen: scan again to put X on it". It never writes on that first scan (DEC-025).
+- The bins aren't veiled on this screen (DEC-041's veil), since the choice moves with every scan and the sticker codes on the other tiles need to stay readable.
+
+**Consequences:** `StickersView.tsx` (`readingOrder`, `nextBare`, the mode switch, the panel); `BoxGrid` takes `veil`. `stickers-check.mjs` walks the scanner flow. The bin pane's question stays for scans that arrive elsewhere.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1277,6 +1306,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-039 | The AI deploys to ubuntubot itself, after a backup | Process | Accepted | 2026-11-06 |
 | DEC-040 | A dev branch and a dev instance; the full checks gate `main` | Process | Accepted | 2026-11-06 |
 | DEC-041 | Quieter grid tiles: colour as the outline, a dark tint inside, names in one type, a veil for the unchosen | UX | Accepted | 2026-11-06 |
+| DEC-042 | Stickers by scanner: a "next up" panel and the choice moving on by itself | UX | Accepted | 2026-11-06 |
 
 ---
 
