@@ -21,7 +21,7 @@
 ## Brand Guidelines
 
 ### Existing Brand Assets
-None. Starting fresh. Name: **Bin There** (DEC-011). Logo TBD.
+None. Starting fresh. Name: **Bin→There**, with the arrow glyph (DEC-011, DEC-045). Logo TBD.
 
 ---
 

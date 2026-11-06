@@ -129,7 +129,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
 
       {/* Desktop / Pi screen: sidebar. The hardware scanner works on any screen. */}
       <nav className="fixed inset-y-0 left-0 hidden w-56 flex-col gap-1 border-r border-border bg-surface px-3 py-5 lg:flex">
-        <div className="mb-4 px-3 text-lg font-semibold">Bin There</div>
+        <div className="mb-4 px-3 text-lg font-semibold">Bin→There</div>
         <SideItem to="/" icon={<Boxes size={20} />} label="Inventory" />
         <SideItem to="/locations" end={false} icon={<Warehouse size={20} />} label="Locations" />
         <SideItem to="/search" icon={<Search size={20} />} label="Search" />

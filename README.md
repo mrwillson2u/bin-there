@@ -1,4 +1,6 @@
-# Bin There
+# Bin→There
+
+(Written "Bin→There", with the arrow; the code slug stays `bin-there`, DEC-045.)
 
 A self-hosted, scan-driven inventory app for a home garage workshop. Find any part, see how
 many you have and exactly which rack → box → bin it's in, and keep it current with one-tap

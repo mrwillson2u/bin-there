@@ -1303,6 +1303,23 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-045: The name is written "Bin→There", with the arrow
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted (Colin, Q57) |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** Colin wanted the name shown as "Bin->There" in the app, the code and the repo. A `>` can't be in a GitHub repository name (it would become `bin--there`) and is the shell's redirect character, so it has no place in a folder, package or container name. The display name is the only thing that needs it.
+
+**Decision:** Everywhere people read the name (the sidebar, the browser tab, the home-screen icon, the docs) it is **Bin→There**, with the real arrow glyph rather than `->`, which reads as code and lines up badly on iOS. The code slug stays `bin-there` (repo, folders, package, container, backups; DEC-011).
+
+**Consequences:** `App.tsx`, `index.html`, `manifest.webmanifest`, the docs' headings. Phones that already have the icon keep the old label until it's re-added.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1351,6 +1368,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-042 | Stickers by scanner: a "next up" panel and the choice moving on by itself | UX | Accepted | 2026-11-06 |
 | DEC-043 | A Settings screen: how the Stickers screen starts, the beep, appearance | UX | Accepted | 2026-11-06 |
 | DEC-044 | One scan language: a scan colour, a scan target on every scanning screen, the bar as the status | UX | Accepted | 2026-11-06 |
+| DEC-045 | The name is written "Bin→There", with the arrow | Product | Accepted | 2026-11-06 |
 
 ---
 

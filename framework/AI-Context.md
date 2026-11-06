@@ -11,7 +11,7 @@
 
 | Attribute | Value |
 |-----------|-------|
-| **Project Name** | Bin There (DEC-011; formerly the working name Stack-n-Track) |
+| **Project Name** | Bin→There (DEC-011; written with the arrow since DEC-045; code slug `bin-there`; formerly the working name Stack-n-Track) |
 | **Project Type** | Web app (personal / single user) |
 | **One-liner** | An inventory app for a home garage workshop, so I can find and keep track of the things I own. |
 | **Current Phase** | **Shipped 2026-11-03.** Post-ship: the numbered docs are now advisory; keep this summary and the Decision Log current |

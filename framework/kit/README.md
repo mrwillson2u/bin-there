@@ -1,7 +1,7 @@
 # Kit material
 
 Files from the [ai-framework kit](https://github.com/mrwillson2u/ai-framework-kit) (version 1.1.0) that
-are not specific to Bin There. Moved here on 2026-11-03 to keep the repo root and `framework/` to
+are not specific to Bin→There. Moved here on 2026-11-03 to keep the repo root and `framework/` to
 this project's own docs (DEC-012).
 
 | File | What it is |

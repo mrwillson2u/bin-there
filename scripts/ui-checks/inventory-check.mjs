@@ -213,7 +213,7 @@ desk.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
 await desk.goto(`${base}/`);
 await desk.getByRole("heading", { name: "Inventory" }).waitFor();
 await desk.waitForTimeout(400);
-const side = await desk.locator("nav").filter({ hasText: "Bin There" }).textContent();
+const side = await desk.locator("nav").filter({ hasText: "Bin→There" }).textContent();
 check(side.includes("Inventory") && side.includes("Locations") && side.includes("Search"), "sidebar: Inventory, Locations, Search: " + side);
 check(await desk.getByText("Category", { exact: true }).isVisible(), "list has a Category column on desktop");
 await desk.screenshot({ path: `${shots}/i6-desk-list.png` });
@@ -245,7 +245,7 @@ await future.goto(`${base}/`);
 await future.getByRole("heading", { name: "Inventory" }).waitFor();
 await future.getByLabel("Category").selectOption(String(fasteners.id)); // a filter on, so the chip row effect runs
 await future.waitForTimeout(400);
-const sidebar = future.locator("nav").filter({ hasText: "Bin There" });
+const sidebar = future.locator("nav").filter({ hasText: "Bin→There" });
 for (const tab of ["Locations", "Inventory", "Search", "Inventory", "Put-back", "Inventory", "Activity", "Locations"]) {
   await sidebar.getByRole("link", { name: tab }).click();
   await future.waitForTimeout(500);
