@@ -112,11 +112,12 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
           {/* Inventory has its own search bar at the top, so the phone bar has room for Locations. */}
           <NavItem to="/" icon={<Boxes size={22} />} label="Inventory" />
           <NavItem to="/locations" end={false} icon={<Warehouse size={22} />} label="Locations" />
+          {/* Outlined: a scan opens what you scanned. Filled: a scan does what the strip says (DEC-044). */}
           <button
             onClick={openCamera}
             disabled={!camera}
-            className={`-mt-6 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ${target ? "bg-scan text-white" : camera ? "bg-accent text-accent-fg" : "border-2 border-scan/60 bg-surface text-scan"}`}
-            aria-label={camera ? (target ? `Scan with camera: ${target}` : "Scan with camera") : target ? `Scanner: ${target}` : "Scanner ready: scan a sticker to open it"}
+            className={`-mt-6 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ${target ? "bg-scan text-white" : "border-[3px] border-scan bg-surface text-scan"}`}
+            aria-label={camera ? (target ? `Scan with camera: ${target}` : "Scan with camera: open what you scan") : target ? `Scanner: ${target}` : "Scanner ready: scan a sticker to open it"}
             title={camera ? undefined : "This device scans with the hardware scanner (Settings)"}
           >
             <ScanLine size={28} />
@@ -136,30 +137,23 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
         <SideItem to="/activity" icon={<History size={20} />} label="Activity" />
         <SideItem to="/settings" icon={<Settings size={20} />} label="Settings" />
         <span className="flex-1" />
-        {target ? (
-          <div className="flex flex-col gap-2 rounded-xl border border-scan/70 bg-scan/10 p-3" role="status" aria-label={`A scan now: ${target}`}>
-            <p className="flex items-center gap-2 text-sm font-semibold text-scan">
-              <ScanLine size={18} className="shrink-0" /> {target}
-            </p>
-            {camera && (
-              <button onClick={openCamera} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-scan text-sm font-semibold text-white">
-                Scan with camera
-              </button>
-            )}
-            {scanner && <p className="text-xs text-muted">{camera ? "…or pull the scanner's trigger." : "Pull the scanner's trigger."}</p>}
-          </div>
-        ) : camera ? (
-          <>
-            <button onClick={openCamera} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
-              <ScanLine size={20} /> Scan with camera
-            </button>
-            {scanner && <p className="px-1 pt-2 text-center text-xs text-muted">Or just scan with the scanner: it works on any screen.</p>}
-          </>
-        ) : (
-          <p className="flex items-center gap-2 rounded-xl border border-scan/40 px-3 py-3 text-sm text-muted" role="status">
-            <ScanLine size={18} className="shrink-0 text-scan" /> Scanner ready: scan a sticker to open it.
+        {/* The same block in both states (DEC-044): filled magenta while a scan does what a screen says,
+            outlined when a scan just opens what you scanned. The camera button only where the camera is allowed. */}
+        <div
+          className={`flex flex-col gap-2 rounded-xl border p-3 ${target ? "border-scan bg-scan/15" : "border-scan/50"}`}
+          role="status"
+          aria-label={target ? `A scan now: ${target}` : "A scan now: opens what you scan"}
+        >
+          <p className={`flex items-center gap-2 text-sm font-semibold ${target ? "text-scan" : "text-text"}`}>
+            <ScanLine size={18} className="shrink-0 text-scan" /> {target ?? "Scan any sticker to open it"}
           </p>
-        )}
+          {camera && (
+            <button onClick={openCamera} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-scan text-sm font-semibold text-white">
+              Scan with camera
+            </button>
+          )}
+          {scanner && <p className="text-xs text-muted">{camera ? "…or pull the scanner's trigger." : "Pull the scanner's trigger."}</p>}
+        </div>
       </nav>
     </div>
   );

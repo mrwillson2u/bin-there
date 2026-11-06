@@ -158,7 +158,7 @@ const scanning = () => page.getByRole("radiogroup", { name: "Scanning on this de
 await scanning().getByRole("radio", { name: "Scanner only" }).click();
 const b4 = await mk("1x1", { x: 3, y: 0 }); // a bin without a sticker, so the screen has a next one
 await page.goto(`${base}/locations/${box.id}`);
-check((await page.getByRole("button", { name: /^Scanner ready/ }).count()) === 1 && (await page.getByRole("button", { name: "Scan with camera" }).count()) === 0, "scanner only: the bar's camera button becomes a scanner status");
+check((await page.getByRole("button", { name: /^Scanner ready/ }).count()) === 1 && (await page.getByRole("button", { name: /Scan with camera/ }).count()) === 0 && (await page.getByText("Scan with camera").count()) === 0, "scanner only: the bar's camera button becomes a scanner status and 'Scan with camera' appears nowhere");
 await page.getByRole("button", { name: "Stickers" }).click();
 await sheet().waitFor();
 check((await sheet().getByRole("group", { name: "Scan with" }).count()) === 0 && (await page.locator("video").count()) === 0 && (await sheet().getByText(`Scan the sticker for ${b4.name}`).count()) === 1, "scanner only: Stickers has no camera and no switch, just the scan target");
