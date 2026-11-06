@@ -6,6 +6,7 @@ import { api } from "../api";
 import { CameraView, type CodeNote } from "../scan/CameraView";
 import { scanBad, scanOk, setSound, soundOn } from "../scan/feedback";
 import { useScanHandler } from "../scan/ScanProvider";
+import { getScanMethod } from "../settings";
 import { BoxGrid } from "./BoxGrid";
 import { Button } from "./ui";
 
@@ -21,8 +22,6 @@ import { Button } from "./ui";
 
 type Ref = { id: number; name: string };
 type Mode = "camera" | "scanner";
-const MODE_KEY = "stickers.mode";
-const storedMode = (): Mode => (typeof localStorage !== "undefined" && localStorage.getItem(MODE_KEY) === "scanner" ? "scanner" : "camera");
 
 /** Bins in reading order: the grid left to right, top to bottom, the front strip last, then any not placed. */
 function readingOrder(bins: LocationSummary[]): LocationSummary[] {
@@ -52,7 +51,10 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
   const [status, setStatus] = useState<Status | null>(null);
   const [last, setLast] = useState<Last | null>(null);
   const [sound, setSoundState] = useState(soundOn);
-  const [mode, setModeState] = useState<Mode>(storedMode);
+  // How it starts is a setting (DEC-043); the switch here is for this visit only.
+  const [method] = useState(getScanMethod);
+  const [mode, setModeState] = useState<Mode>(method === "camera" ? "camera" : "scanner");
+  const cameraAllowed = method !== "scanner-only";
 
   const bins = box.children.filter((c) => c.type === "bin");
   const ordered = readingOrder(bins);
@@ -64,8 +66,8 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
     return ring.find((b) => !b.code && b.id !== afterId) ?? null;
   };
   const setMode = (m: Mode) => {
+    if (m === "camera" && !cameraAllowed) return;
     setModeState(m);
-    localStorage.setItem(MODE_KEY, m);
     // The scanner needs a chosen bin before anything can happen: start at the first without a sticker.
     if (m === "scanner" && selectedId === null) setSelectedId(nextBare(null)?.id ?? null);
   };
@@ -240,10 +242,12 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
               {box.name} · {stickered} of {bins.length} stickered
             </p>
           </div>
-          <div className="order-last flex basis-full overflow-hidden rounded-xl border border-border sm:order-none sm:basis-auto" role="group" aria-label="Scan with">
-            {modeButton("camera", "Camera", Camera)}
-            {modeButton("scanner", "Scanner", ScanLine)}
-          </div>
+          {cameraAllowed && (
+            <div className="order-last flex basis-full overflow-hidden rounded-xl border border-border sm:order-none sm:basis-auto" role="group" aria-label="Scan with">
+              {modeButton("camera", "Camera", Camera)}
+              {modeButton("scanner", "Scanner", ScanLine)}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => { setSound(!sound); setSoundState(!sound); }}

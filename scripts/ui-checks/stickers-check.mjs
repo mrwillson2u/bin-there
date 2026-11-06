@@ -150,6 +150,27 @@ await sheet().getByRole("button", { name: "Done" }).click();
 await sheet().waitFor({ state: "detached" });
 check((await page.locator("video").count()) === 0, "camera is off after Done");
 
+// 8b. Settings (DEC-043): the Stickers screen can start with the scanner, or never show the camera.
+await page.goto(`${base}/locations`);
+await page.getByRole("link", { name: /Settings: appearance, scanning, beep/ }).click();
+await page.getByRole("heading", { name: "Settings" }).waitFor();
+await page.getByRole("radiogroup", { name: "Stickers screen starts with" }).getByRole("radio", { name: "Scanner", exact: true }).click();
+await page.goto(`${base}/locations/${box.id}`);
+await page.getByRole("button", { name: "Stickers" }).click();
+await sheet().waitFor();
+check((await sheet().getByRole("button", { name: "Scanner" }).getAttribute("aria-pressed")) === "true" && (await page.locator("video").count()) === 0 && (await sheet().getByRole("button", { name: "Camera" }).count()) === 1, "set to Scanner: Stickers opens in scanner mode with Camera a tap away");
+await sheet().getByRole("button", { name: "Done" }).click();
+await page.goto(`${base}/settings`);
+await page.getByRole("radiogroup", { name: "Stickers screen starts with" }).getByRole("radio", { name: "Scanner only" }).click();
+await page.goto(`${base}/locations/${box.id}`);
+await page.getByRole("button", { name: "Stickers" }).click();
+await sheet().waitFor();
+check((await sheet().getByRole("group", { name: "Scan with" }).count()) === 0 && (await page.locator("video").count()) === 0 && (await sheet().getByText(/Next up/i).count()) === 1, "set to Scanner only: no camera and no switch on the Stickers screen");
+await sheet().getByRole("button", { name: "Done" }).click();
+await page.goto(`${base}/settings`);
+await page.getByRole("radiogroup", { name: "Stickers screen starts with" }).getByRole("radio", { name: "Camera", exact: true }).click();
+await page.goto(`${base}/locations/${box.id}`);
+
 // 9. The bin pane has no sticker controls; the bin's own page does, and its camera waits for a tap.
 await page.getByRole("button", { name: "Bin 0003, empty", exact: true }).click();
 const pane = page.getByRole("dialog", { name: "Bin 0003 in Screws box" });

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Archive, Boxes, History, ScanLine, Search, Warehouse } from "lucide-react";
+import { Archive, Boxes, History, ScanLine, Search, Settings, Warehouse } from "lucide-react";
 import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
 import { InventoryPage } from "./pages/InventoryPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { LocationsPage } from "./pages/LocationsPage";
 import { LocationPage } from "./pages/LocationPage";
 import { LocationFormPage } from "./pages/LocationFormPage";
@@ -59,6 +60,7 @@ export function App() {
             <Route path="/out" element={<CheckedOutPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/needs-details" element={<NeedsDetailsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             {/* The running-low list is a filter on Inventory now (DEC-026). */}
             <Route path="/low" element={<Navigate to="/?low=1" replace />} />
           </Routes>
@@ -114,6 +116,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
         <SideItem to="/search" icon={<Search size={20} />} label="Search" />
         <SideItem to="/putback" icon={<Archive size={20} />} label="Put-back" />
         <SideItem to="/activity" icon={<History size={20} />} label="Activity" />
+        <SideItem to="/settings" icon={<Settings size={20} />} label="Settings" />
         <span className="flex-1" />
         <button onClick={openCamera} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
           <ScanLine size={20} /> Scan with camera

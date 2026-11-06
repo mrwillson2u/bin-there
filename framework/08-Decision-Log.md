@@ -1261,6 +1261,26 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-043: A Settings screen: how the Stickers screen starts, the beep, appearance
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted (Colin asked for the switch) |
+| **Deciders** | Colin; AI (where it lives) |
+| **Category** | UX |
+
+**Context:** With scanner mode on the Stickers screen (DEC-042), Colin asked for a switch somewhere to make it the default, or to turn the camera off altogether. The app had no settings screen; the only preference with a home was the theme picker at the bottom of Locations.
+
+**Decision:** A **Settings** screen (`/settings`), reached from the sidebar on a desktop and from a link at the bottom of Locations on a phone (where the theme picker used to be). Everything on it is kept on the device, not the server:
+- **Stickers screen starts with:** Camera (the default), Scanner (opens ready for the hardware scanner, the camera a tap away), or Scanner only (never shows the camera, for a station without one). The switch on the Stickers screen itself is for that visit only.
+- **Scan beep:** on or off (the same setting the Stickers header toggles).
+- **Appearance:** device, dark or light (moved here from Locations).
+
+**Consequences:** `src/web/settings.ts` (`getScanMethod`/`setScanMethod`), `SettingsPage.tsx`, a `Settings` item in the sidebar, the Locations footer link; `StickersView` reads the setting on open and hides its Camera/Scanner switch for "Scanner only". `stickers-check.mjs` covers all three settings.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1307,6 +1327,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-040 | A dev branch and a dev instance; the full checks gate `main` | Process | Accepted | 2026-11-06 |
 | DEC-041 | Quieter grid tiles: colour as the outline, a dark tint inside, names in one type, a veil for the unchosen | UX | Accepted | 2026-11-06 |
 | DEC-042 | Stickers by scanner: a "next up" panel and the choice moving on by itself | UX | Accepted | 2026-11-06 |
+| DEC-043 | A Settings screen: how the Stickers screen starts, the beep, appearance | UX | Accepted | 2026-11-06 |
 
 ---
 

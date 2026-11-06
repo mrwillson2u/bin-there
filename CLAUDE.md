@@ -133,6 +133,7 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
   buzzes (DEC-022). Pages that want to consume a scan call `useScanHandler` and return `true`;
   the most recently mounted handler wins, and unhandled scans fall back to opening whatever was
   scanned via `/api/scan/:code`.
+- `SettingsPage.tsx` (`/settings`, DEC-043) holds the device-only preferences: `settings.ts` (how the Stickers screen starts), the scan beep (`scan/feedback.ts`) and the theme (`theme.ts`), all in `localStorage`.
 - Photos are resized on the device (`lib/photo.ts`) into a photo and a square thumbnail before upload;
   the server only stores JPEGs under `DATA_DIR/photos`. Each photo has a square crop (DEC-030):
   `CroppedPhoto` draws it from the original, `CropEditor` changes it and uploads a new square thumbnail.

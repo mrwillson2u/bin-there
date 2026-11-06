@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronRight, FolderKanban, Pin, Plus, Search, SunMoon, Warehouse, X } from "lucide-react";
+import { ChevronRight, FolderKanban, Pin, Plus, Search, Settings, Warehouse, X } from "lucide-react";
 import { crumbLabel, locationTypes, type LocationDetail, type LocationSummary, type LocationType, type PinnedLocation, type Pins, type ProjectSummary } from "../../shared/api";
-import { getTheme, setTheme, themeLabels, themes, type Theme } from "../theme";
 import { api } from "../api";
 import { contents, LocationList, LocationIcon } from "../components/LocationList";
 import { LocationItemList } from "../components/ItemList";
@@ -118,7 +117,9 @@ export function LocationsPage() {
         </Link>
       </div>
 
-      <ThemePicker />
+      <Link to="/settings" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
+        <Settings size={16} /> Settings: appearance, scanning, beep
+      </Link>
     </div>
   );
 }
@@ -228,31 +229,6 @@ function AllPlaces() {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-/** Dark, light, or whatever the device is set to. Remembered on this device. */
-function ThemePicker() {
-  const [theme, set] = useState<Theme>(getTheme);
-  const pick = (t: Theme) => {
-    setTheme(t);
-    set(t);
-  };
-  return (
-    <div className="flex items-center justify-center gap-2 text-sm text-muted" role="radiogroup" aria-label="Appearance">
-      <SunMoon size={16} />
-      {themes.map((t) => (
-        <button
-          key={t}
-          role="radio"
-          aria-checked={theme === t}
-          onClick={() => pick(t)}
-          className={`min-h-11 rounded-lg px-2 ${theme === t ? "font-semibold text-accent" : ""}`}
-        >
-          {themeLabels[t]}
-        </button>
-      ))}
     </div>
   );
 }
