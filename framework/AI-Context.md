@@ -25,7 +25,7 @@
 
 ## Handoff (current state; keep this updated at the end of each session)
 
-*Last updated 2026-11-06, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), the four backlog quick wins (DEC-015 to DEC-018), project kits (DEC-019), the quick box-filling flow (DEC-020), the camera scanner rebuild (DEC-021), the tap-to-scan Stickers screen (DEC-022), global fixed-width bin IDs (DEC-023), content-first screens (DEC-024), the user-story flow review (DEC-025), Inventory as home (DEC-026), the all-places list, move-by-list and more categories (DEC-027), taking a bin out of its box (DEC-028), a fix for the black page after leaving Inventory (DEC-029), square photos with an adjustable crop (DEC-030), the reworked part page with a main photo (DEC-031), the clearer place picker plus pinning from Inventory (DEC-032), positions for places in a rack (DEC-033), racks with a size and drag-to-arrange positions (DEC-034), dropping that moves the others along with a sliding preview (DEC-035), photos on bin tiles (DEC-036), the Fill in details page with a type-in category box (DEC-037), and where-a-part-is told as directions with a map of the box (DEC-038).*
+*Last updated 2026-11-06, after shipping the SPV and adding delete (DEC-013), the grid view (DEC-014), the four backlog quick wins (DEC-015 to DEC-018), project kits (DEC-019), the quick box-filling flow (DEC-020), the camera scanner rebuild (DEC-021), the tap-to-scan Stickers screen (DEC-022), global fixed-width bin IDs (DEC-023), content-first screens (DEC-024), the user-story flow review (DEC-025), Inventory as home (DEC-026), the all-places list, move-by-list and more categories (DEC-027), taking a bin out of its box (DEC-028), a fix for the black page after leaving Inventory (DEC-029), square photos with an adjustable crop (DEC-030), the reworked part page with a main photo (DEC-031), the clearer place picker plus pinning from Inventory (DEC-032), positions for places in a rack (DEC-033), racks with a size and drag-to-arrange positions (DEC-034), dropping that moves the others along with a sliding preview (DEC-035), photos on bin tiles (DEC-036), the Fill in details page with a type-in category box (DEC-037), where-a-part-is as a numbered route with a map of the box (DEC-038), the AI deploying itself (DEC-039), and a dev branch with a dev instance (DEC-040).*
 
 ### Where things run
 
@@ -35,13 +35,14 @@
 | **Server** | `ubuntubot` (Ubuntu 22.04, x86_64, Docker 28 + Compose v2, GTX 1080 Ti 11 GB). SSH as `colin` via MagicDNS or `ubuntubot.local`. `sudo` needs Colin's password, so he runs sudo commands himself |
 | **App folder** | `~/bin-there` on ubuntubot (a git checkout). Container `bin-there`, bound to `127.0.0.1:3000`; `.env` there sets `BACKUP_PATH` and `TZ=America/Los_Angeles` (not in git) |
 | **Live data** | `~/bin-there/data` on ubuntubot (`app.db` + `photos/`) |
+| **Dev instance** | `~/bin-there-dev` on ubuntubot, branch `dev`, container `bin-there-dev` on `127.0.0.1:3001` (`compose.dev.yaml`), data a throwaway copy of the live backup (`scripts/dev-data-refresh.sh`). Phone: `https://ubuntubot.llama-arctic.ts.net:8444` once Colin runs `sudo tailscale serve --bg --https=8444 3001` (DEC-040) |
 | **Backups** | `~/bin-there-backups` on ubuntubot: nightly 03:00, newest 14 snapshots + all photos. Same disk as the app (no second drive; the other partitions are Windows/BitLocker). Restore tested on the server 2026-11-03 |
 | **Code** | GitHub `mrwillson2u/bin-there` (private), branch `main` |
 | **Old Mac copy** | `~/Projects/stack-n-track` on `macbip-pro`. **Stopped and no longer served; its data is stale. Don't restart it against `./data`.** It's a dev checkout now |
 
 ### Deploying a change
 
-On ubuntubot: back up, pull, rebuild (the image build runs the tests and refuses to ship if they fail). Since 2026-11-06 the AI does this itself after each verified change (Q52, DEC-039); the checkout is already at the pushed commit, so `git pull` is a no-op there.
+Two speeds since 2026-11-06 (DEC-040). **Dev:** work in `~/bin-there-dev` on `dev`; per change run typecheck, `npm test` and the one browser check for the screen touched, then `docker compose -f compose.dev.yaml up -d --build` (port 3001). **Live:** when a set of changes is ready, run the full suite and the story walk on a scratch copy, then in `~/bin-there`: back up, `git pull`, `git merge --ff-only origin/dev`, push, `docker compose up -d --build` (the image build runs the tests and refuses to ship if they fail), check `/api/health`. The AI does both itself (DEC-039).
 
 ```bash
 cd ~/bin-there

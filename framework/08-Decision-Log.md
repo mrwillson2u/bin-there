@@ -1185,6 +1185,29 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-040: A dev branch and a dev instance; the full checks gate `main`
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted |
+| **Deciders** | Colin (proposed it; Q54: dev data is a copy of the live data) |
+| **Category** | Process |
+
+**Context:** Every change, however small, ended with the full browser suite (6 to 8 minutes) before it reached the app. Colin wants to iterate on visual changes faster, and proposed a dev branch with its own running instance, with the full suite run only when dev merges into main.
+
+**Decision:**
+- **Branches.** `dev` is where work happens; `main` is what's live. `main` only moves by a fast-forward merge from `dev`, after the full suite and the story walk pass.
+- **Instances.** The live app stays as it is (`~/bin-there`, `main`, port 3000, backed up). A dev instance runs beside it: `~/bin-there-dev` on `dev`, container `bin-there-dev` on port 3001 (`compose.dev.yaml`, no backups), reached from the phone on port 8444 through Tailscale Serve.
+- **Dev data** is a copy of the newest live backup (database and photos), refreshed by `scripts/dev-data-refresh.sh` when Colin asks. It only runs inside the dev checkout, so it can't touch the live data. Changes made in dev are throwaway.
+- **Checks per change on dev:** typecheck, the unit tests, the one browser check for the screen touched, and a screenshot. **Before a merge to main:** everything.
+
+**Rationale:** The live data and Colin's daily use stay safe behind the full gate, while a tweak to a screen takes a minute to see with real parts and photos.
+
+**Consequences:** `AGENTS.md`, the handoff and `DEPLOY.md` describe both flows. The AI deploys to both (DEC-039). The one `sudo` step (Tailscale Serve on 8444) is Colin's.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1228,6 +1251,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-037 | Fill in details on one page; a category box you can type in; amounts in the details form | UX | Accepted | 2026-11-05 |
 | DEC-038 | Where a part is, told as directions: a numbered route, the box as a small map, the level in words | UX | Accepted (route form added the same day) | 2026-11-06 |
 | DEC-039 | The AI deploys to ubuntubot itself, after a backup | Process | Accepted | 2026-11-06 |
+| DEC-040 | A dev branch and a dev instance; the full checks gate `main` | Process | Accepted | 2026-11-06 |
 
 ---
 

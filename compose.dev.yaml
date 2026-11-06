@@ -1,0 +1,16 @@
+# The dev instance (DEC-040): the `dev` branch running beside the live app on ubuntubot, from
+# ~/bin-there-dev, on port 3001, against a throwaway copy of the live data
+# (scripts/dev-data-refresh.sh). No backups: nothing here is worth keeping.
+#   docker compose -f compose.dev.yaml up -d --build
+name: bin-there-dev
+services:
+  bin-there-dev:
+    build: .
+    container_name: bin-there-dev
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./data:/data

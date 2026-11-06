@@ -46,6 +46,23 @@ Open that URL on the iPhone (with Tailscale on). In Safari: Share → **Add to H
 It then opens full-screen like an app, and the app itself loads from the phone's cache even on a
 weak signal (stock data always comes fresh from the server).
 
+## Dev instance (DEC-040)
+
+A second checkout on the `dev` branch runs beside the live app, on port 3001, against a
+throwaway copy of the live data. Visual changes go here first; `main` only moves when the full
+checks pass.
+
+```bash
+git clone --branch dev git@github.com:mrwillson2u/bin-there.git ~/bin-there-dev
+cd ~/bin-there-dev
+echo "TZ=$(cat /etc/timezone)" > .env
+scripts/dev-data-refresh.sh                       # copies the newest backup in, builds, starts
+sudo tailscale serve --bg --https=8444 3001       # one time; then https://ubuntubot.<tailnet>.ts.net:8444
+```
+
+Update it with `docker compose -f compose.dev.yaml up -d --build`. It takes no backups. To ship,
+merge `dev` into `main` (fast-forward) and follow "Deploy / update" above.
+
 ## Data and backups
 
 Live data is in `./data`: `app.db` (SQLite) and `photos/`.

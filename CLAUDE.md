@@ -15,8 +15,9 @@ section of `framework/AI-Context.md`. Deploy and restore steps are in `DEPLOY.md
 `~/bin-there` on `ubuntubot` is the production checkout: the `bin-there` Docker container runs from
 it and `./data` is the live database and photos. Check `hostname` before running anything. On
 ubuntubot, do not run `npm run dev`, `npm start`, or tests that write to `./data`; `node_modules`
-is deliberately absent there (the image installs its own). Develop on another machine or in a copy
-with its own `DATA_DIR`, and take a backup before any redeploy (see `AGENTS.md`).
+is deliberately absent there (the image installs its own). Develop in `~/bin-there-dev` (branch `dev`, its own
+container on :3001 via `compose.dev.yaml`, throwaway data; DEC-040) or in a copy with its own `DATA_DIR`,
+and take a backup before any redeploy of the live app (see `AGENTS.md`).
 
 ## Commands
 
