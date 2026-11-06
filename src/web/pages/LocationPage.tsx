@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
@@ -173,6 +173,14 @@ export function LocationPage() {
   });
 
   const { openCamera } = useScan();
+
+  // Arriving with a marked bin on a desktop: open its pane beside the grid (DEC-041). On a phone
+  // the pane would cover the grid you came to see, so there the ring stays and a tap opens it.
+  useEffect(() => {
+    if (!wide || markedId === null || !loc) return;
+    const bin = loc.children.find((c) => c.id === markedId);
+    if (bin) setOpenBin(bin);
+  }, [wide, markedId, loc?.id]);
 
   if (error) return <p className="text-danger">{(error as Error).message}</p>;
   if (!loc) return <p className="text-muted">Loading…</p>;

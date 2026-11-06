@@ -131,6 +131,15 @@ await dm.waitFor();
 const [dmb, dwb] = [await dm.boundingBox(), await desk.getByText("Red 1×1 bin, front row, 2nd from the left").boundingBox()];
 check(dwb.y >= dmb.y + dmb.height - 2 && dmb.width >= 140, "desktop: the map hangs off the box's stop and the bin's words are the next stop");
 await desk.screenshot({ path: `${shots}/w5-part-desk.png` });
+// On a desktop, the map opens the box with the bin's pane already open beside the grid.
+await desk.getByRole("link", { name: `Open Grid box 3 with ${here.name} marked` }).click();
+await desk.getByRole("heading", { name: "Grid box 3" }).waitFor();
+await desk.getByRole("dialog", { name: `${here.name} in Grid box 3` }).waitFor();
+check((await desk.getByText("Tap a bin to see what's in it or add a part.").count()) === 0 && (await desk.locator("[data-selected]").count()) === 1, "desktop: arriving from the map opens the marked bin's pane beside the grid");
+await desk.screenshot({ path: `${shots}/w6-box-desk-open.png` });
+await desk.getByRole("button", { name: "Close", exact: true }).click();
+await desk.waitForTimeout(300);
+check((await desk.locator("[data-selected]").count()) === 0 && (await desk.locator("[data-faded]").count()) === 0, "desktop: closing the pane deselects it");
 
 await browser.close();
 server.kill();
