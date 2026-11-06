@@ -8,12 +8,12 @@ import { itemName } from "./ui";
  * The bin's colour as the tile's outline, with the inside a very dark, solid tint of it (DEC-041):
  * the colour mixed 12% into the surface, so nothing shows through from behind.
  */
-const tint = (color: string) => `bg-[color-mix(in_oklab,var(--color-${color})_12%,var(--color-surface))]`;
+// Written out in full: Tailwind only generates classes it can read from the source as they are.
 const binOutline: Record<BinSize, string> = {
-  "1x1": `border-bin-1x1 ${tint("bin-1x1")}`,
-  "2x1": `border-bin-2x1 ${tint("bin-2x1")}`,
-  "2x2": `border-bin-2x2 ${tint("bin-2x2")}`,
-  front_strip: `border-bin-front ${tint("bin-front")}`,
+  "1x1": "border-bin-1x1 bg-[color-mix(in_oklab,var(--color-bin-1x1)_12%,var(--color-surface))]",
+  "2x1": "border-bin-2x1 bg-[color-mix(in_oklab,var(--color-bin-2x1)_12%,var(--color-surface))]",
+  "2x2": "border-bin-2x2 bg-[color-mix(in_oklab,var(--color-bin-2x2)_12%,var(--color-surface))]",
+  front_strip: "border-bin-front bg-[color-mix(in_oklab,var(--color-bin-front)_12%,var(--color-surface))]",
   other: "border-border bg-surface-2",
 };
 
