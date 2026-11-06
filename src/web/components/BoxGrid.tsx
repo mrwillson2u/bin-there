@@ -103,21 +103,24 @@ function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photo
         </span>
       );
     }
-    // Two or more: one square photo per cell, row by row (DEC-041). Names go in the cells left over
-    // when there's a whole row (or the rest of a one-row tile); else they ride over the bottom like a 1×1's.
-    const left = cells - shown.length;
-    const beside = tile.rows === 1 && left > 0;
-    const below = !beside && left >= tile.cols;
+    // Two or more: one square photo per cell, row by row, each with its own name strip like a
+    // 1×1's (DEC-041), so a name always sits on its photo. Parts without a photo count as "+N"
+    // in the first spare cell, or on the last strip when there's none.
+    const spare = cells - shown.length;
     return (
       <span className="pointer-events-none absolute inset-0 overflow-hidden bg-surface">
         <span className="grid h-full w-full" style={{ gridTemplateColumns: `repeat(${tile.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${tile.rows}, minmax(0, 1fr))` }}>
           {shown.map((t, k) => (
-            <img key={k} src={t.url} alt="" draggable={false} className="h-full w-full object-cover" />
+            <span key={k} className="relative overflow-hidden">
+              <img src={t.url} alt="" draggable={false} className="h-full w-full object-cover" />
+              <span className={`absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 ${name}`} data-strip>
+                {itemName(t.name)}
+                {more > 0 && spare === 0 && k === shown.length - 1 ? ` +${more}` : ""}
+              </span>
+            </span>
           ))}
-          {beside && <span className={`line-clamp-2 self-center px-1 ${name}`} style={{ gridColumn: `span ${left}` }}>{label}</span>}
-          {below && <span className={`line-clamp-3 px-1 pt-1 ${name}`} style={{ gridColumn: `span ${tile.cols}`, gridRow: `span ${Math.floor(left / tile.cols)}` }}>{label}</span>}
+          {more > 0 && spare > 0 && <span className="flex items-center justify-center text-[11px] font-medium text-muted">+{more}</span>}
         </span>
-        {!beside && !below && <span className={`absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 ${name}`}>{label}</span>}
       </span>
     );
   }

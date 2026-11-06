@@ -82,15 +82,15 @@ check((await tile(page, two.name).textContent()).trim() === "Buck converter +1",
 const pairTile = tile(page, pair.name);
 const pairImgs = await pairTile.locator("img").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
 check(pairImgs.length === 2 && Math.abs(pairImgs[0].y - pairImgs[1].y) < 1 && pairImgs[1].x > pairImgs[0].x + pairImgs[0].width - 1, "a wide bin with two photo parts shows both side by side");
-check((await pairTile.textContent()).trim() === "Relay · Servo", "…and names them in a strip, like a 1×1: " + (await pairTile.textContent()).trim());
+const strips = async (t) => t.locator("[data-strip]").evaluateAll((els) => els.map((e) => e.textContent.trim()));
+check(JSON.stringify(await strips(pairTile)) === JSON.stringify(["Relay", "Servo"]), "…each with its own name strip, like a 1×1: " + (await strips(pairTile)).join(" | "));
 const q2 = tile(page, quad2.name);
 const q2Imgs = await q2.locator("img").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
 const q2Box = await q2.boundingBox();
 check(q2Imgs.length === 2 && Math.abs(q2Imgs[0].y - q2Imgs[1].y) < 1 && q2Imgs[0].height < q2Box.height * 0.55, "a 2×2 with two photo parts puts them side by side across the top");
-const q2Name = await q2.getByText("Motor · Pump").boundingBox();
-check(q2Name && q2Name.y >= q2Imgs[0].y + q2Imgs[0].height - 1, "…with the names underneath, not over the photos");
+check(JSON.stringify(await strips(q2)) === JSON.stringify(["Motor", "Pump"]), "…each named on its own photo");
 const q3 = tile(page, quad3.name);
-check((await q3.locator("img").count()) === 3 && (await q3.textContent()).trim() === "Fan · Heater · Valve +1", "a 2×2 with three photo parts shows all three and names them in a strip, +1 for the one without: " + (await q3.textContent()).trim());
+check((await q3.locator("img").count()) === 3 && JSON.stringify(await strips(q3)) === JSON.stringify(["Fan", "Heater", "Valve"]) && (await q3.textContent()).trim().endsWith("+1"), "a 2×2 with three photo parts names each, and +1 in the spare cell for the one without: " + (await q3.textContent()).trim());
 await page.screenshot({ path: `${shots}/t1-photos-phone.png` });
 
 // Switch this box to names; it sticks.
