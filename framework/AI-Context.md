@@ -55,7 +55,7 @@ Tailscale Serve config persists across reboots; it was set once with `sudo tails
 
 ### Developing
 
-`npm install`, then `npm test` (Vitest, 108 tests) and `npm run build`. For a throwaway copy: `PORT=3001 DATA_DIR=/tmp/bt-test npm start`. Schema changes: edit `src/server/db/schema.ts`, run `npm run db:generate`, and check the migration against an old-shaped database (see the migration test in `src/server/app.test.ts`). Code map: `README.md`.
+`npm install`, then `npm test` (Vitest, 108 tests) and `npm run build`. For a throwaway copy: `PORT=3011 DATA_DIR=/tmp/bt-test npm start`. Schema changes: edit `src/server/db/schema.ts`, run `npm run db:generate`, and check the migration against an old-shaped database (see the migration test in `src/server/app.test.ts`). Code map: `README.md`.
 
 ### What's built
 

@@ -1208,6 +1208,29 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-041: Quieter grid tiles: colour as the outline, one layout for every shape
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Proposed (on dev, for Colin to look at) |
+| **Deciders** | Colin (asked for a cleaner, less bold grid); AI (the style) |
+| **Category** | UX |
+
+**Context:** The box page's tiles were solid blocks of bin colour with bold text, photo tiles had three layouts depending on shape (framed square, thumbnail beside the name, thumbnail above it), the selection ring sat outside the tile with a black gap and ran over the neighbours, and the tiles' corners didn't nest in the box's. Colin found it bold and unpolished and asked for the colour to be just the outline with a dark inside, and for the styles to be unified.
+
+**Decision:**
+- **Colour is the outline.** Every tile is a 2 px outline in its bin colour round a dark inside (`surface-2`), radius 6 px. An empty bin's outline is dashed and its "Empty" muted. A bin that's out keeps its grey stripes.
+- **One text style.** 11 px medium in the text colour on every tile, whatever its size; no more white-on-red or black-on-yellow.
+- **One photo layout.** The photo fills the tile inside its outline, with the part's name (and "+N") in a translucent strip along the bottom, the same for squares, wide and tall tiles and at every screen size. The name strip is small on a phone's 1×1, which Colin accepted.
+- **Selection** is a 2 px ring in the 2 px gap round the tile (solid accent for the chosen bin, dashed amber for the one the camera sees), so it never covers a neighbour and has no gap inside it.
+- **Corners nest:** the box is radius 8 px, the tiles 6 px with a 2 px gap; the faint empty cells match.
+- The palette, the tray and the bin under the finger use the same tile.
+
+**Consequences:** `BoxGrid.tsx` only (`binOutline`, `binClass`, `TileText`, `ring`). `binColors` in `ui.tsx` stays for the small solid bin chip and the route's map. `tiles-check.mjs` checks the outline and the one layout. The UI checks moved to port 3011, since 3001 is now the dev instance (DEC-040).
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1252,6 +1275,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-038 | Where a part is, told as directions: a numbered route, the box as a small map, the level in words | UX | Accepted (route form added the same day) | 2026-11-06 |
 | DEC-039 | The AI deploys to ubuntubot itself, after a backup | Process | Accepted | 2026-11-06 |
 | DEC-040 | A dev branch and a dev instance; the full checks gate `main` | Process | Accepted | 2026-11-06 |
+| DEC-041 | Quieter grid tiles: colour as the outline, one layout for every shape | UX | Proposed (on dev) | 2026-11-06 |
 
 ---
 

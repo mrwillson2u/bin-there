@@ -3,7 +3,7 @@
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-// Safety: never point this at the real data. It runs its own server on port 3001
+// Safety: never point this at the real data. It runs its own server on port 3011
 // against DATA_DIR, which must be a new, empty folder outside the app's ./data.
 {
   const { resolve } = await import("node:path");
@@ -17,7 +17,7 @@ import { writeFileSync } from "node:fs";
 const require = createRequire(process.argv[2] + "/package.json");
 const { chromium } = require("playwright");
 const [, , app, dataDir, shots] = process.argv;
-const base = "http://127.0.0.1:3001";
+const base = "http://127.0.0.1:3011";
 
 const zx = await import(require.resolve("zxing-wasm/full", { paths: [app] }));
 const qr = await zx.writeBarcode("BIN0007", { format: "QRCode", scale: 4 });
@@ -25,7 +25,7 @@ writeFileSync(`${shots}/qr.png`, new Uint8Array(await qr.image.arrayBuffer()));
 execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-loop", "1", "-i", `${shots}/qr.png`, "-t", "3", "-r", "10",
   "-vf", "scale=110:110:flags=neighbor,pad=640:480:265:185:white,format=yuv420p", `${shots}/qr.y4m`]);
 
-const server = spawn("node", ["dist/server.js"], { cwd: app, env: { ...process.env, PORT: "3001", DATA_DIR: dataDir }, stdio: "pipe" });
+const server = spawn("node", ["dist/server.js"], { cwd: app, env: { ...process.env, PORT: "3011", DATA_DIR: dataDir }, stdio: "pipe" });
 server.stdout.on("data", (d) => process.stdout.write("[server] " + d));
 server.stderr.on("data", (d) => process.stdout.write("[server!] " + d));
 process.on("exit", () => server.kill());

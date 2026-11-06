@@ -39,7 +39,7 @@ Headless-browser checks and the user-story walk live in `scripts/ui-checks/` (se
 Run a throwaway copy, never against the real data:
 
 ```bash
-PORT=3001 DATA_DIR=/tmp/bt-test npm start
+PORT=3011 DATA_DIR=/tmp/bt-test npm start
 ```
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`

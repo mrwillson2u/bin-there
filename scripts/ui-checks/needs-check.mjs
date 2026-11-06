@@ -4,7 +4,7 @@
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-// Safety: never point this at the real data. It runs its own server on port 3001
+// Safety: never point this at the real data. It runs its own server on port 3011
 // against DATA_DIR, which must be a new, empty folder outside the app's ./data.
 {
   const { resolve } = await import("node:path");
@@ -18,9 +18,9 @@ import { readFileSync } from "node:fs";
 const require = createRequire(process.argv[2] + "/package.json");
 const { chromium } = require("playwright");
 const [, , app, dataDir, shots] = process.argv;
-const base = "http://127.0.0.1:3001";
+const base = "http://127.0.0.1:3011";
 execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=600x600", "-frames:v", "1", `${shots}/a.jpg`]);
-const server = spawn("node", ["dist/server.js"], { cwd: app, env: { ...process.env, PORT: "3001", DATA_DIR: dataDir }, stdio: "pipe" });
+const server = spawn("node", ["dist/server.js"], { cwd: app, env: { ...process.env, PORT: "3011", DATA_DIR: dataDir }, stdio: "pipe" });
 process.on("exit", () => server.kill());
 for (let i = 0; i < 50; i++) { try { if ((await fetch(base + "/api/health")).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 const api = async (method, path, body) => {

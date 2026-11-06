@@ -4,7 +4,7 @@
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-// Safety: never point this at the real data. It runs its own server on port 3001
+// Safety: never point this at the real data. It runs its own server on port 3011
 // against DATA_DIR, which must be a new, empty folder outside the app's ./data.
 {
   const { resolve } = await import("node:path");
@@ -18,11 +18,11 @@ import { readFileSync } from "node:fs";
 const require = createRequire(process.argv[2] + "/package.json");
 const { chromium } = require("playwright");
 const [, , app, dataDir, shots] = process.argv;
-const base = "http://127.0.0.1:3001";
+const base = "http://127.0.0.1:3011";
 for (const [f, src] of [["a", "testsrc=size=600x600"], ["b", "smptebars=size=600x600"], ["c", "rgbtestsrc=size=600x600"]]) {
   execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", src, "-frames:v", "1", `${shots}/${f}.jpg`]);
 }
-const server = spawn("node", ["dist/server.js"], { cwd: app, env: { ...process.env, PORT: "3001", DATA_DIR: dataDir }, stdio: "pipe" });
+const server = spawn("node", ["dist/server.js"], { cwd: app, env: { ...process.env, PORT: "3011", DATA_DIR: dataDir }, stdio: "pipe" });
 process.on("exit", () => server.kill());
 for (let i = 0; i < 50; i++) { try { if ((await fetch(base + "/api/health")).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
 const api = async (method, path, body) => {
@@ -59,15 +59,17 @@ await page.getByRole("heading", { name: "Modules" }).waitFor();
 await page.waitForTimeout(600);
 
 const t1 = tile(page, sq.name);
-check((await t1.locator("img").count()) === 1 && (await t1.textContent()).trim() === "", "small square tile on a phone: just the photo");
+check((await t1.locator("img").count()) === 1 && (await t1.textContent()).trim() === "ESP32", "small square tile on a phone: the photo with the name in a strip along the bottom");
 const tb = await t1.boundingBox(), ib = await t1.locator("img").boundingBox();
-check(ib.x - tb.x >= 2 && ib.y - tb.y >= 2, `the bin's colour frames the photo (${Math.round(ib.x - tb.x)} px)`);
+check(ib.x - tb.x >= 2 && ib.y - tb.y >= 2 && ib.x - tb.x <= 3, `the bin's coloured outline frames the photo (${Math.round(ib.x - tb.x)} px)`);
+const edge = await t1.evaluate((e) => [getComputedStyle(e).borderTopColor, getComputedStyle(e).backgroundColor, getComputedStyle(e).borderTopWidth]);
+check(edge[0].startsWith("rgb(239") && !edge[1].startsWith("rgb(239") && edge[2] === "2px", `colour is the outline only, the inside is dark (${edge.join(" / ")})`);
 check((await tile(page, plain.name).locator("img").count()) === 0 && (await tile(page, plain.name).textContent()).includes("M3 nuts"), "a bin without a photo shows its name");
-check((await tile(page, wide.name).locator("img").count()) === 1 && (await tile(page, wide.name).textContent()).includes("Arduino Nano"), "wide tile: thumbnail and name");
-const wImg = await tile(page, wide.name).locator("img").boundingBox();
-check(Math.abs(wImg.width - wImg.height) < 2, "wide tile's thumbnail is square, beside the name");
-check((await tile(page, tall.name).locator("img").count()) === 1 && (await tile(page, tall.name).textContent()).includes("LED strip"), "tall tile: photo above the name");
-check((await tile(page, two.name).textContent()).trim() === "+1", "a bin with two parts shows its photo and +1");
+check((await tile(page, wide.name).locator("img").count()) === 1 && (await tile(page, wide.name).textContent()).includes("Arduino Nano"), "wide tile: photo and name");
+const wImg = await tile(page, wide.name).locator("img").boundingBox(), wTile = await tile(page, wide.name).boundingBox();
+check(wImg.width >= wTile.width - 6 && wImg.height >= wTile.height - 6, "wide tile: the photo fills it, the same layout as a square");
+check((await tile(page, tall.name).locator("img").count()) === 1 && (await tile(page, tall.name).textContent()).includes("LED strip"), "tall tile: photo with the name strip");
+check((await tile(page, two.name).textContent()).trim() === "Buck converter +1", "a bin with two parts names the photo's part and +1");
 await page.screenshot({ path: `${shots}/t1-photos-phone.png` });
 
 // Switch this box to names; it sticks.

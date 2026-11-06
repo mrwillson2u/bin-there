@@ -2,7 +2,7 @@
 
 Headless-browser walks through the real app, used to verify UI changes and to review the
 user stories in `framework/03-UX-Framework.md` (results: `reports/UI flow review 2026-11-03.md`).
-Each script starts its own server on port 3001 against a data folder you give it, seeds
+Each script starts its own server on port 3011 against a data folder you give it, seeds
 what it needs through the API, and saves screenshots.
 
 **Never run these on ubuntubot's live checkout or against `./data`.** Use a dev copy. Each
