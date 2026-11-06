@@ -110,7 +110,7 @@ await page.getByRole("dialog", { name: "Bin 0001 in Screws box" }).waitFor();
 await sheet().getByText("Nothing in it yet.").waitFor();
 await sheet().getByText("What goes in it?").waitFor();
 check(await sheet().getByLabel("Part name").evaluate((e) => e === document.activeElement), "empty bin: the name box is ready to type in");
-check((await sheet().getByRole("button", { name: /Replace|Scan with camera|Rename bin/ }).count()) === 0, "no sticker or rename buttons in the bin pane");
+check((await sheet().getByRole("button", { name: /Scan with camera|Rename bin/ }).count()) === 0 && (await sheet().getByRole("button", { name: "Set sticker" }).count()) === 1, "no camera or rename button in the bin pane; Set sticker is a button, not a scan target (DEC-044)");
 await sheet().getByLabel("Part name").fill("M3 nuts");
 await sheet().getByLabel("How many").fill("40");
 await page.screenshot({ path: `${shots}/f3-sheet-empty.png` });

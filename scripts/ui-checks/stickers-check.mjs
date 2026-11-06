@@ -183,7 +183,16 @@ await sheet().getByRole("button", { name: "Done" }).click();
 await page.getByRole("button", { name: "Bin 0003, empty", exact: true }).click();
 const pane = page.getByRole("dialog", { name: "Bin 0003 in Screws box" });
 await pane.waitFor();
-check((await pane.getByRole("button", { name: /Replace|Scan with camera/ }).count()) === 0, "no sticker button in the bin pane");
+check((await pane.getByRole("button", { name: "Replace sticker" }).count()) === 1 && (await pane.locator("[data-scan-target]").count()) === 0 && (await pane.getByText(/Scan with camera/).count()) === 0, "the bin pane has a Replace sticker button and no scan target until it's pressed (DEC-044)");
+await pane.getByRole("button", { name: "Replace sticker" }).click();
+await pane.getByText("Scan the new sticker for Bin 0003 (replaces the old one)").waitFor();
+await scan("BIN0009");
+await page.getByRole("status").filter({ hasText: "New sticker is on Bin 0003" }).waitFor();
+check((await codeOf(b3)) === "BIN0009" && (await pane.locator("[data-scan-target]").count()) === 0, "with Replace sticker pressed, a scan goes straight on and the target goes away");
+await scan("BIN0010");
+await pane.getByRole("group", { name: "New sticker scanned" }).waitFor();
+check(true, "without the button, an unused sticker still asks first");
+await pane.getByRole("button", { name: "Not now" }).click();
 await pane.getByRole("link", { name: "Open Bin 0003" }).click();
 await page.getByRole("heading", { name: "Bin 0003" }).waitFor();
 await page.getByRole("button", { name: /Assign sticker|Replace sticker/ }).click();
@@ -194,7 +203,7 @@ check((await page.getByRole("button", { name: "Close camera" }).count()) === 1, 
 await page.screenshot({ path: `${shots}/s6-tap-camera.png` });
 await page.getByRole("button", { name: "Scan BIN0007" }).click();
 await page.getByRole("alert").waitFor();
-check((await page.getByRole("button", { name: "Close camera" }).count()) === 0 && (await codeOf(b3)) === "BIN0003", "Scan closes the camera; BIN0007 is Bin 0002's, so it isn't taken: " + (await page.getByRole("alert").textContent()));
+check((await page.getByRole("button", { name: "Close camera" }).count()) === 0 && (await codeOf(b3)) === "BIN0009", "Scan closes the camera; BIN0007 is Bin 0002's, so it isn't taken: " + (await page.getByRole("alert").textContent()));
 
 // 10. The bottom-bar camera (looking things up) still takes the first code it sees.
 await page.getByRole("button", { name: "Cancel" }).click();

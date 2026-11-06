@@ -52,6 +52,8 @@ export function BinSheet({
   const [error, setError] = useState<string | null>(null);
   /** An unused sticker scanned while the sheet is open: offered for this bin, never put on silently. */
   const [newSticker, setNewSticker] = useState<string | null>(null);
+  /** Set sticker was pressed: the next scan goes straight on (the pane says so, DEC-044). */
+  const [settingSticker, setSettingSticker] = useState(false);
 
   useEffect(() => {
     setAdding(false);
@@ -65,6 +67,7 @@ export function BinSheet({
     onSuccess: () => {
       toast.show({ message: bin.code ? `New sticker is on ${bin.name}` : `Sticker added to ${bin.name}` });
       setNewSticker(null);
+      setSettingSticker(false);
       refreshAll(qc);
     },
     onError: (e: Error) => setError(e.message),
@@ -77,6 +80,11 @@ export function BinSheet({
     setError(null);
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
       .then((r) => {
+        if (settingSticker) {
+          if (r.kind === "unassigned") sticker.mutate(r.code);
+          else setError(r.kind === "location" ? `That sticker is already on ${r.location.name}` : "That sticker is on a part, not a bin");
+          return;
+        }
         if (r.kind === "unassigned") setNewSticker(r.code);
         else if (r.kind === "location") {
           const sibling = box.children.find((c) => c.id === r.location.id);
@@ -110,7 +118,6 @@ export function BinSheet({
           <X size={20} />
         </button>
       </div>
-      {!newSticker && <ScanTarget compact what={bin.code ? "Scan another bin to switch, or a new sticker to replace this one" : `Scan a new sticker to put it on ${bin.name}`} />}
 
       {newSticker && (
         <div className="flex flex-col gap-2 rounded-2xl border border-accent/50 bg-accent/10 p-3" role="group" aria-label="New sticker scanned">
@@ -143,7 +150,13 @@ export function BinSheet({
       )}
 
       {detail !== undefined &&
-        (takingOut ? (
+        (settingSticker ? (
+          <ScanTarget
+            what={bin.code ? `Scan the new sticker for ${bin.name} (replaces the old one)` : `Scan the new sticker for ${bin.name}`}
+            camera={{ tap: true, title: `Sticker for ${bin.name}` }}
+            actions={<Button variant="ghost" onClick={() => setSettingSticker(false)}>Cancel</Button>}
+          />
+        ) : takingOut ? (
           <TakeOutForm bin={bin} onDone={() => setTakingOut(false)} onCancel={() => setTakingOut(false)} />
         ) : items.length === 0 || adding ? (
           <AddPart bin={bin} first={items.length === 0} onDone={() => setAdding(false)} onCancel={items.length > 0 ? () => setAdding(false) : undefined} />
@@ -160,6 +173,12 @@ export function BinSheet({
             )}
           </div>
         ))}
+      {/* A deliberate button, on an empty bin too, so the scan target only shows when a scan will write (DEC-044). The code itself stays off the pane (DEC-024). */}
+      {detail !== undefined && !settingSticker && !takingOut && (
+        <Button variant="ghost" className="self-start px-1 text-[13px]" onClick={() => { setError(null); setSettingSticker(true); }}>
+          <QrCode size={16} /> {bin.code ? "Replace sticker" : "Set sticker"}
+        </Button>
+      )}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
       {/* Deleting a bin is on its own page (tap its name above), not in this quick view. */}
