@@ -6,7 +6,8 @@ import { holdsPositions, locationTypeLabels, type BinSize, type LocationDetail, 
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
 import { useWide } from "../lib/useWide";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { LocationList } from "../components/LocationList";
 import { BoxGrid } from "../components/BoxGrid";
 import { BinSheet, OnePart } from "../components/BinSheet";
@@ -171,8 +172,6 @@ export function LocationPage() {
     // In move mode, PickLocation takes the scan.
     return false;
   });
-
-  const { openCamera } = useScan();
 
   // Arriving with a marked bin on a desktop: open its pane beside the grid (DEC-041). On a phone
   // the pane would cover the grid you came to see, so there the ring stays and a tap opens it.
@@ -386,16 +385,11 @@ export function LocationPage() {
         </div>
 
         {mode === "assign" && (
-          <Card className="flex flex-col gap-3 p-4">
-            <p className="flex items-center gap-2 font-semibold">
-              <ScanLine size={20} className="text-accent" />
-              Scan the new sticker for {loc.name}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="primary" onClick={() => openCamera({ tap: true, title: `Sticker for ${loc.name}` })}>Use camera</Button>
-              <Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>
-            </div>
-          </Card>
+          <ScanTarget
+            what={`Scan the new sticker for ${loc.name}`}
+            camera={{ tap: true, title: `Sticker for ${loc.name}` }}
+            actions={<Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>}
+          />
         )}
         {/* Scan where it's going, or pick it from a list: plenty of places have no sticker. */}
         {mode === "move" && (

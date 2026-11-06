@@ -1273,11 +1273,33 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 **Context:** With scanner mode on the Stickers screen (DEC-042), Colin asked for a switch somewhere to make it the default, or to turn the camera off altogether. The app had no settings screen; the only preference with a home was the theme picker at the bottom of Locations.
 
 **Decision:** A **Settings** screen (`/settings`), reached from the sidebar on a desktop and from a link at the bottom of Locations on a phone (where the theme picker used to be). Everything on it is kept on the device, not the server:
-- **Stickers screen starts with:** Camera (the default), Scanner (opens ready for the hardware scanner, the camera a tap away), or Scanner only (never shows the camera, for a station without one). The switch on the Stickers screen itself is for that visit only.
+- **Stickers screen starts with:** Camera, Scanner, or Scanner only. *(Replaced the same day by DEC-044's device-wide "Scanning on this device": Camera and scanner, Camera only, Scanner only, which every scanning screen follows.)*
 - **Scan beep:** on or off (the same setting the Stickers header toggles).
 - **Appearance:** device, dark or light (moved here from Locations).
 
 **Consequences:** `src/web/settings.ts` (`getScanMethod`/`setScanMethod`), `SettingsPage.tsx`, a `Settings` item in the sidebar, the Locations footer link; `StickersView` reads the setting on open and hides its Camera/Scanner switch for "Scanner only". `stickers-check.mjs` covers all three settings.
+
+---
+
+### DEC-044: One scan language: a scan colour, a scan target on every screen that scans, and the bar as the status
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted (on dev; Colin asked for the audit and chose magenta, Q56) |
+| **Deciders** | Colin (the problem, the colour); AI (the language) |
+| **Category** | UX |
+
+**Context:** Moving a part offered "Scan with camera" or "Pick from list" and nothing said the hardware scanner would work, though it did. An audit found twelve places that listen for a scan; eleven of them only ever mentioned the camera, each in its own words, and on a device set to scanner-only the camera would still start from any of them. Colin asked for a universal scan language: a colour and an affordance that mean "a scan does something here", used everywhere, plus the camera never starting where scanning is set to the scanner.
+
+**Decision:**
+- **One setting for the device: "Scanning on this device"** (Settings, DEC-043, replacing the Stickers-only choice): Camera and scanner (default), Camera only, Scanner only. It decides what every scan button offers and whether the camera ever opens to scan. Scanner only: the camera never opens for scanning anywhere (`openCamera` refuses), the bar's camera button becomes a scanner status, and every target says to pull the trigger. Taking photos is a different use of the camera and is unaffected.
+- **One colour: magenta** (`--color-scan`, `#f472b6`; `#be185d` in light mode), used for scanning and nothing else. It isn't a bin colour, a warning, success or "out". The flash on each scan is magenta too.
+- **One component, `ScanTarget`:** a box outlined in the scan colour with the scan icon and one line saying what a scan does right now ("Scan where it's going", "Scan the sticker for Bin 0042"). Inside it: "Scan with camera" when the camera is allowed, "pull the scanner's trigger" when the scanner is expected, the other ways to do the same thing (Pick from list) and Cancel. A compact one-line form sits inside forms and panes. **A scan writes only where a scan target is showing** (DEC-025 made visible); anywhere else a scan opens what was scanned.
+- **The bar is the status.** While a scan target is on screen, the phone bar shows a magenta strip with the same words and the round button turns magenta; the desktop sidebar's scan block does the same. Idle, it says "Scan with camera" (plus "or just scan with the scanner" when both) or, on scanner-only, "Scanner ready: scan a sticker to open it". So the same corner always says whether a scan will do something or just open something.
+- **Every scanning screen uses it:** moving a part, adding a place, moving or checking out a stickered one, moving a place (`PickLocation`); the part page's new sticker; the place page's assign sticker; the new place form; quick add; put-back (ready, next, and "scan the bin it's going in"); the kit screen and its pull panel; the bin pane ("Scan a new sticker to put it on Bin 0042"); a rack position; and the Stickers screen's Next up panel. With both allowed the Stickers screen keeps its Camera/Scanner switch and remembers it.
+
+**Consequences:** `settings.ts` (`useScanMethod`, `cameraAllowed`, `scannerExpected`), `scan/ScanTarget.tsx`, `useScanTarget` and `target` in `ScanProvider`, the `scan` Button variant, the token in `index.css`. Checks: `stickers-check.mjs` covers the setting's three values and the bar; the other checks keep their "Pick from list" and "Scan with camera" steps.
 
 ---
 
@@ -1328,6 +1350,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-041 | Quieter grid tiles: colour as the outline, a dark tint inside, names in one type, a veil for the unchosen | UX | Accepted | 2026-11-06 |
 | DEC-042 | Stickers by scanner: a "next up" panel and the choice moving on by itself | UX | Accepted | 2026-11-06 |
 | DEC-043 | A Settings screen: how the Stickers screen starts, the beep, appearance | UX | Accepted | 2026-11-06 |
+| DEC-044 | One scan language: a scan colour, a scan target on every scanning screen, the bar as the status | UX | Accepted | 2026-11-06 |
 
 ---
 

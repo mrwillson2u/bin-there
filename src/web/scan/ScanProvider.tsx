@@ -2,6 +2,7 @@ import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useR
 import { normalizeCode } from "../../shared/api";
 import { ScanDetector, type Scan } from "./detector";
 import { primeFeedback } from "./feedback";
+import { cameraAllowed, getScanMethod } from "../settings";
 // The barcode decoder is large; only download it when the camera is first opened.
 const CameraScanner = lazy(() => import("./CameraScanner").then((m) => ({ default: m.CameraScanner })));
 
@@ -24,6 +25,9 @@ type ScanContextValue = {
   closeCamera: () => void;
   cameraOpen: boolean;
   register: (handler: ScanHandler) => () => void;
+  /** A screen saying what a scan does right now (DEC-044); the bar shows it. */
+  registerTarget: (label: string) => () => void;
+  target: string | null;
   lastScan: { code: string; at: number } | null;
 };
 
@@ -41,6 +45,18 @@ export function useScanHandler(handler: ScanHandler) {
   const ref = useRef(handler);
   ref.current = handler;
   useEffect(() => register((code) => ref.current(code)), [register]);
+}
+
+/**
+ * While mounted, the bar says a scan does `what` (DEC-044). Use it wherever a `useScanHandler`
+ * acts on a scan; `ScanTarget` does it for you.
+ */
+export function useScanTarget(what: string | null) {
+  const { registerTarget } = useScan();
+  useEffect(() => {
+    if (!what) return;
+    return registerTarget(what);
+  }, [registerTarget, what]);
 }
 
 /** Remove characters a prefix-less scan already typed into the focused field. */
@@ -80,6 +96,15 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
       handlers.current = handlers.current.filter((x) => x !== h);
     };
   }, []);
+  // The most recently mounted target wins, like handlers.
+  const [targets, setTargets] = useState<{ id: number; label: string }[]>([]);
+  const nextId = useRef(0);
+  const registerTarget = useCallback((label: string) => {
+    const id = nextId.current++;
+    setTargets((t) => [...t, { id, label }]);
+    return () => setTargets((t) => t.filter((x) => x.id !== id));
+  }, []);
+  const target = targets.at(-1)?.label ?? null;
 
   useEffect(() => {
     const detector = new ScanDetector((scan: Scan) => {
@@ -122,10 +147,12 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
 
   const openCamera = useCallback((options: CameraOptions | { nativeEvent: unknown } = {}) => {
     primeFeedback(); // this runs in the tap that opened the camera, so the beep is allowed later
+    // On a scanner-only device the camera never opens for scanning (DEC-044); the screens don't offer it either.
+    if (!cameraAllowed(getScanMethod())) return;
     setCamera("nativeEvent" in options ? {} : options);
   }, []);
   const closeCamera = useCallback(() => setCamera(null), []);
-  const value = { submit, openCamera, closeCamera, cameraOpen: camera !== null, register, lastScan };
+  const value = { submit, openCamera, closeCamera, cameraOpen: camera !== null, register, registerTarget, target, lastScan };
 
   return (
     <ScanContext.Provider value={value}>

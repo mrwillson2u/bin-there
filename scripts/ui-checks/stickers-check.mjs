@@ -129,7 +129,7 @@ check(true, "tapping a chosen bin again unchooses it");
 // and chooses the first bin without a sticker; the next scan goes straight on, and the choice moves on.
 await scan("BIN0001");
 await status("Bin 0001 is chosen: scan again to put BIN0001 on it");
-check((await sheet().getByRole("button", { name: "Scanner" }).getAttribute("aria-pressed")) === "true" && (await page.locator("video").count()) === 0, "a hardware scan switches the screen to scanner mode: camera off, 'next up' panel instead");
+check((await sheet().getByRole("button", { name: "Scanner", exact: true }).getAttribute("aria-pressed")) === "true" && (await page.locator("video").count()) === 0, "a hardware scan switches the screen to scanner mode: camera off, 'next up' panel instead");
 await sheet().getByText("Scan the sticker for Bin 0001").waitFor();
 await scan("BIN0001");
 await status("BIN0001 is on Bin 0001. Next: Bin 0003");
@@ -139,7 +139,7 @@ await scan("BIN0003");
 await status("BIN0003 is on Bin 0003. Every bin has a sticker");
 check((await codeOf(b3)) === "BIN0003" && (await sheet().locator("[data-selected]").count()) === 0, "scan, scan: the box is done and nothing is left chosen");
 await page.screenshot({ path: `${shots}/s5-scanner-mode.png` });
-await sheet().getByRole("button", { name: "Camera" }).click();
+await sheet().getByRole("button", { name: "Camera", exact: true }).click();
 await page.locator("video").waitFor();
 check(true, "Camera brings the preview back");
 check((await tile("Bin 0001").textContent()).includes("…0001"), "tile shows the end of its code");
@@ -150,26 +150,34 @@ await sheet().getByRole("button", { name: "Done" }).click();
 await sheet().waitFor({ state: "detached" });
 check((await page.locator("video").count()) === 0, "camera is off after Done");
 
-// 8b. Settings (DEC-043): the Stickers screen can start with the scanner, or never show the camera.
+// 8b. Settings (DEC-043, DEC-044): scanning on this device decides what the Stickers screen offers.
 await page.goto(`${base}/locations`);
 await page.getByRole("link", { name: /Settings: appearance, scanning, beep/ }).click();
 await page.getByRole("heading", { name: "Settings" }).waitFor();
-await page.getByRole("radiogroup", { name: "Stickers screen starts with" }).getByRole("radio", { name: "Scanner", exact: true }).click();
+const scanning = () => page.getByRole("radiogroup", { name: "Scanning on this device" });
+await scanning().getByRole("radio", { name: "Scanner only" }).click();
+const b4 = await mk("1x1", { x: 3, y: 0 }); // a bin without a sticker, so the screen has a next one
+await page.goto(`${base}/locations/${box.id}`);
+check((await page.getByRole("button", { name: /^Scanner ready/ }).count()) === 1 && (await page.getByRole("button", { name: "Scan with camera" }).count()) === 0, "scanner only: the bar's camera button becomes a scanner status");
+await page.getByRole("button", { name: "Stickers" }).click();
+await sheet().waitFor();
+check((await sheet().getByRole("group", { name: "Scan with" }).count()) === 0 && (await page.locator("video").count()) === 0 && (await sheet().getByText(`Scan the sticker for ${b4.name}`).count()) === 1, "scanner only: Stickers has no camera and no switch, just the scan target");
+check((await sheet().getByRole("button", { name: "Scan with camera" }).count()) === 0 && (await sheet().getByText("Pull the scanner's trigger").count()) >= 1, "…and the target says to pull the trigger, with no camera button");
+await sheet().getByRole("button", { name: "Done" }).click();
+await page.goto(`${base}/settings`);
+await scanning().getByRole("radio", { name: "Camera and scanner" }).click();
 await page.goto(`${base}/locations/${box.id}`);
 await page.getByRole("button", { name: "Stickers" }).click();
 await sheet().waitFor();
-check((await sheet().getByRole("button", { name: "Scanner" }).getAttribute("aria-pressed")) === "true" && (await page.locator("video").count()) === 0 && (await sheet().getByRole("button", { name: "Camera" }).count()) === 1, "set to Scanner: Stickers opens in scanner mode with Camera a tap away");
+check((await sheet().getByRole("group", { name: "Scan with" }).count()) === 1 && (await sheet().getByRole("button", { name: "Camera", exact: true }).getAttribute("aria-pressed")) === "true", "camera and scanner: the switch is back, on Camera as last chosen");
+await sheet().getByRole("button", { name: "Scanner", exact: true }).click();
 await sheet().getByRole("button", { name: "Done" }).click();
-await page.goto(`${base}/settings`);
-await page.getByRole("radiogroup", { name: "Stickers screen starts with" }).getByRole("radio", { name: "Scanner only" }).click();
-await page.goto(`${base}/locations/${box.id}`);
 await page.getByRole("button", { name: "Stickers" }).click();
 await sheet().waitFor();
-check((await sheet().getByRole("group", { name: "Scan with" }).count()) === 0 && (await page.locator("video").count()) === 0 && (await sheet().getByText(/Next up/i).count()) === 1, "set to Scanner only: no camera and no switch on the Stickers screen");
+check((await sheet().getByRole("button", { name: "Scanner", exact: true }).getAttribute("aria-pressed")) === "true" && (await page.locator("video").count()) === 0, "…and it remembers the switch: Scanner next time");
+await sheet().getByRole("button", { name: "Camera", exact: true }).click();
+await page.locator("video").waitFor();
 await sheet().getByRole("button", { name: "Done" }).click();
-await page.goto(`${base}/settings`);
-await page.getByRole("radiogroup", { name: "Stickers screen starts with" }).getByRole("radio", { name: "Camera", exact: true }).click();
-await page.goto(`${base}/locations/${box.id}`);
 
 // 9. The bin pane has no sticker controls; the bin's own page does, and its camera waits for a tap.
 await page.getByRole("button", { name: "Bin 0003, empty", exact: true }).click();
@@ -179,7 +187,7 @@ check((await pane.getByRole("button", { name: /Replace|Scan with camera/ }).coun
 await pane.getByRole("link", { name: "Open Bin 0003" }).click();
 await page.getByRole("heading", { name: "Bin 0003" }).waitFor();
 await page.getByRole("button", { name: /Assign sticker|Replace sticker/ }).click();
-await page.getByRole("button", { name: "Use camera" }).click();
+await page.getByRole("button", { name: "Scan with camera" }).first().click();
 await page.getByRole("button", { name: "Scan BIN0007" }).waitFor({ timeout: 20000 });
 await page.waitForTimeout(1200);
 check((await page.getByRole("button", { name: "Close camera" }).count()) === 1, "tap-mode camera stays open until Scan is tapped");

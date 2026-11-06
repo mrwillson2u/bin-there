@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ScanLine } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Crumb, LocationDetail, LocationSummary, ScanResult } from "../../shared/api";
 import { api } from "../api";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { contents } from "./LocationList";
-import { BinChip, Button, Card, PositionTag } from "./ui";
+import { BinChip, Button, PositionTag } from "./ui";
 
 /**
  * "Where is it going?" Scan a location's sticker (scanner or camera), or browse to it.
@@ -29,7 +30,6 @@ export function PickLocation({
   exclude?: number;
   children?: ReactNode;
 }) {
-  const { openCamera } = useScan();
   const [error, setError] = useState<string | null>(null);
   const [browsing, setBrowsing] = useState(false);
 
@@ -44,27 +44,21 @@ export function PickLocation({
     return true;
   });
 
+  // The scan target (DEC-044) stays while browsing: a scan still picks, whichever way you're looking.
   return (
-    <Card className="flex flex-col gap-3 border-accent/50 p-4">
-      <p className="flex items-center gap-2 font-semibold">
-        <ScanLine size={20} className="text-accent" />
-        {title}
-      </p>
+    <ScanTarget
+      what={title}
+      actions={
+        <>
+          {!browsing && <Button onClick={() => setBrowsing(true)}>Pick from list</Button>}
+          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+        </>
+      }
+    >
       {children}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-      {browsing ? (
-        <Browser onPick={onPick} near={near} exclude={exclude} />
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="primary" onClick={openCamera}>Scan with camera</Button>
-          <Button onClick={() => setBrowsing(true)}>Pick from list</Button>
-          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-        </div>
-      )}
-      {browsing && (
-        <Button variant="ghost" onClick={onCancel} className="self-start">Cancel</Button>
-      )}
-    </Card>
+      {browsing && <Browser onPick={onPick} near={near} exclude={exclude} />}
+    </ScanTarget>
   );
 }
 

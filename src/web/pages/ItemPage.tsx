@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, ScanLine } from "lucide-react";
+import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode } from "lucide-react";
 import {
   itemKindLabels,
   trackingLabels,
@@ -11,7 +11,8 @@ import {
 } from "../../shared/api";
 import { api } from "../api";
 import { useWide } from "../lib/useWide";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
 import { EventList, timeAgo } from "../components/EventList";
@@ -313,7 +314,6 @@ export function UnitCheckIn({ unitId }: { unitId: number }) {
 
 function AddUnit({ item, done }: { item: ItemDetail; done: () => void }) {
   const handlers = useStockMutation();
-  const { openCamera } = useScan();
   const home = item.places.find((p) => p.isHome)?.locationId ?? null;
   const add = useMutation({
     mutationFn: (code: string) => api<StockResult>("/units", { method: "POST", body: { itemId: item.id, code, locationId: home } }),
@@ -324,17 +324,7 @@ function AddUnit({ item, done }: { item: ItemDetail; done: () => void }) {
     add.mutate(code);
     return true;
   });
-  return (
-    <Card className="flex flex-col gap-3 border-accent/50 p-4">
-      <p className="flex items-center gap-2 font-semibold">
-        <ScanLine size={20} className="text-accent" /> Scan the new sticker on it
-      </p>
-      <div className="flex gap-2">
-        <Button variant="primary" onClick={openCamera}>Scan with camera</Button>
-        <Button variant="ghost" onClick={done}>Cancel</Button>
-      </div>
-    </Card>
-  );
+  return <ScanTarget what="Scan the new sticker on it" camera={{ tap: true, title: "The new sticker" }} actions={<Button variant="ghost" onClick={done}>Cancel</Button>} />;
 }
 
 function Details({ item }: { item: ItemDetail }) {

@@ -130,10 +130,10 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
   `CameraView.tsx` is the live preview that brackets what it sees and reports the code nearest
   the aim mark; it never acts by itself. `openCamera(options)` takes `tap` (wait for the Scan
   button; use it whenever the scan writes something), `title`, `hint`. `feedback.ts` beeps and
-  buzzes (DEC-022). Pages that want to consume a scan call `useScanHandler` and return `true`;
+  buzzes (DEC-022). Pages that want to consume a scan call `useScanHandler` and return `true`, and show a `ScanTarget` (`scan/ScanTarget.tsx`, DEC-044): the magenta box that says what a scan does now, offers the camera or the scanner's trigger per `settings.ts` (`useScanMethod`), and tells the bar (`target` in the provider) so it shows the same words;
   the most recently mounted handler wins, and unhandled scans fall back to opening whatever was
   scanned via `/api/scan/:code`.
-- `SettingsPage.tsx` (`/settings`, DEC-043) holds the device-only preferences: `settings.ts` (how the Stickers screen starts), the scan beep (`scan/feedback.ts`) and the theme (`theme.ts`), all in `localStorage`.
+- `SettingsPage.tsx` (`/settings`, DEC-043) holds the device-only preferences: `settings.ts` (scanning on this device: camera, scanner or both, DEC-044), the scan beep (`scan/feedback.ts`) and the theme (`theme.ts`), all in `localStorage`.
 - Photos are resized on the device (`lib/photo.ts`) into a photo and a square thumbnail before upload;
   the server only stores JPEGs under `DATA_DIR/photos`. Each photo has a square crop (DEC-030):
   `CroppedPhoto` draws it from the original, `CropEditor` changes it and uploads a new square thumbnail.

@@ -6,6 +6,7 @@ import { comparePlaces, rackLabel, type LocationDetail, type LocationSummary, ty
 import { rackMove, type RackRow } from "../../shared/rack";
 import { api } from "../api";
 import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { contents, LocationIcon } from "./LocationList";
 import { PickLocation } from "./PickLocation";
 import { useToast } from "./Toast";
@@ -425,7 +426,7 @@ function FillSlot({ rack, slot, unplaced, onClose, place }: { rack: LocationDeta
           <PickLocation title="Scan it, or find it in the list" near={rack.path} onPick={take} onCancel={() => setElsewhere(false)} />
         ) : (
           <>
-            <p className="text-[13px] text-muted">Tap one, or scan its sticker.</p>
+            <ScanTarget compact what="Scan the box or tote that goes here" />
             {unplaced.length > 0 && (
               <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                 {unplaced.map((u) => (

@@ -19,9 +19,9 @@ export function SettingsPage() {
         <p className="text-[13px] text-muted">For this phone or computer only.</p>
       </div>
 
-      <Section icon={<ScanLine size={18} />} title="Stickers screen starts with">
+      <Section icon={<ScanLine size={18} />} title="Scanning on this device">
         <Choices
-          label="Stickers screen starts with"
+          label="Scanning on this device"
           options={scanMethods}
           labels={scanMethodLabels}
           value={method}

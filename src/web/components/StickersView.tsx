@@ -6,7 +6,8 @@ import { api } from "../api";
 import { CameraView, type CodeNote } from "../scan/CameraView";
 import { scanBad, scanOk, setSound, soundOn } from "../scan/feedback";
 import { useScanHandler } from "../scan/ScanProvider";
-import { getScanMethod } from "../settings";
+import { cameraAllowed as cameraOk, getScanMethod } from "../settings";
+import { ScanTarget } from "../scan/ScanTarget";
 import { BoxGrid } from "./BoxGrid";
 import { Button } from "./ui";
 
@@ -22,6 +23,7 @@ import { Button } from "./ui";
 
 type Ref = { id: number; name: string };
 type Mode = "camera" | "scanner";
+const MODE_KEY = "stickers.mode";
 
 /** Bins in reading order: the grid left to right, top to bottom, the front strip last, then any not placed. */
 function readingOrder(bins: LocationSummary[]): LocationSummary[] {
@@ -51,10 +53,14 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
   const [status, setStatus] = useState<Status | null>(null);
   const [last, setLast] = useState<Last | null>(null);
   const [sound, setSoundState] = useState(soundOn);
-  // How it starts is a setting (DEC-043); the switch here is for this visit only.
+  // The device's scanning setting decides (DEC-044): scanner-only never shows the camera, camera-only
+  // never the scanner panel; with both, the switch is remembered.
   const [method] = useState(getScanMethod);
-  const [mode, setModeState] = useState<Mode>(method === "camera" ? "camera" : "scanner");
-  const cameraAllowed = method !== "scanner-only";
+  const cameraAllowed = cameraOk(method);
+  const scannerAllowed = method !== "camera";
+  const [mode, setModeState] = useState<Mode>(() =>
+    !cameraAllowed ? "scanner" : !scannerAllowed ? "camera" : localStorage.getItem(MODE_KEY) === "scanner" ? "scanner" : "camera",
+  );
 
   const bins = box.children.filter((c) => c.type === "bin");
   const ordered = readingOrder(bins);
@@ -66,8 +72,9 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
     return ring.find((b) => !b.code && b.id !== afterId) ?? null;
   };
   const setMode = (m: Mode) => {
-    if (m === "camera" && !cameraAllowed) return;
+    if ((m === "camera" && !cameraAllowed) || (m === "scanner" && !scannerAllowed)) return;
     setModeState(m);
+    localStorage.setItem(MODE_KEY, m);
     // The scanner needs a chosen bin before anything can happen: start at the first without a sticker.
     if (m === "scanner" && selectedId === null) setSelectedId(nextBare(null)?.id ?? null);
   };
@@ -242,7 +249,7 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
               {box.name} · {stickered} of {bins.length} stickered
             </p>
           </div>
-          {cameraAllowed && (
+          {cameraAllowed && scannerAllowed && (
             <div className="order-last flex basis-full overflow-hidden rounded-xl border border-border sm:order-none sm:basis-auto" role="group" aria-label="Scan with">
               {modeButton("camera", "Camera", Camera)}
               {modeButton("scanner", "Scanner", ScanLine)}
@@ -263,18 +270,23 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
           {mode === "camera" ? (
             <CameraView onTarget={setAimed} note={note} className="h-[32dvh] min-h-44 rounded-2xl lg:h-[50dvh]" />
           ) : (
-            <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-4" aria-label="Next up">
-              <p className="text-[13px] font-semibold uppercase tracking-wide text-muted">Next up</p>
+            <section className="flex flex-col gap-2" aria-label="Next up">
               {selected ? (
-                <p className="text-xl font-semibold">Scan the sticker for {selected.name}</p>
-              ) : stickered === bins.length && bins.length > 0 ? (
-                <p className="text-xl font-semibold text-ok">Every bin has a sticker</p>
+                <ScanTarget big what={`Scan the sticker for ${selected.name}`}>
+                  <p className="text-sm text-muted">
+                    Each scan goes on the chosen bin, then the next bin without a sticker is chosen for you, left to right and top to bottom. Tap any bin to choose it instead.
+                  </p>
+                </ScanTarget>
               ) : (
-                <p className="text-xl font-semibold">Tap a bin to choose which gets the next sticker</p>
+                <div className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-4">
+                  <p className="text-[13px] font-semibold uppercase tracking-wide text-muted">Next up</p>
+                  {stickered === bins.length && bins.length > 0 ? (
+                    <p className="text-xl font-semibold text-ok">Every bin has a sticker</p>
+                  ) : (
+                    <p className="text-xl font-semibold">Tap a bin to choose which gets the next sticker</p>
+                  )}
+                </div>
               )}
-              <p className="text-sm text-muted">
-                Each scan goes on the chosen bin, then the next bin without a sticker is chosen for you, left to right and top to bottom. Tap any bin to choose it instead.
-              </p>
             </section>
           )}
           <BoxGrid

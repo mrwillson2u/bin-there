@@ -5,7 +5,8 @@ import { Camera, MapPin, QrCode, X } from "lucide-react";
 import type { CreateItem, ItemDetail, LocationDetail, ScanResult } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { PickLocation } from "../components/PickLocation";
 import { Button, Card, Field, inputClass, pathText } from "../components/ui";
 
@@ -18,7 +19,6 @@ export function CapturePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { openCamera } = useScan();
 
   const [code, setCode] = useState<string | null>(params.get("code"));
   const [locationId, setLocationId] = useState<number | null>(params.get("location") ? Number(params.get("location")) : null);
@@ -162,11 +162,12 @@ export function CapturePage() {
 
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
+      {!picking && <ScanTarget compact what={code ? "Scan the bin it's going in" : "Scan the bin it's going in, or its own new sticker"} />}
+
       <div className="flex gap-2">
         <Button variant="primary" onClick={save} disabled={saving || (!photo && !name.trim() && !code)} className="min-h-14 flex-1 text-lg">
           {saving ? "Saving…" : "Save"}
         </Button>
-        <Button onClick={openCamera} className="min-h-14">Scan</Button>
         <Button variant="ghost" onClick={() => navigate(locationId !== null ? `/locations/${locationId}` : "/")} className="min-h-14">
           {saved.length > 0 ? "Done" : "Cancel"}
         </Button>

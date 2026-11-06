@@ -1,26 +1,44 @@
-// Settings kept on this device (DEC-043): how the Stickers screen starts, and the scan beep.
+// Settings kept on this device (DEC-043, DEC-044): how scanning works here, and the beep.
 // The theme lives in theme.ts. All of these are localStorage, so they're per phone or computer.
+import { useSyncExternalStore } from "react";
 
-export const scanMethods = ["camera", "scanner", "scanner-only"] as const;
+/** What "scan" means on this device: the camera, the hardware scanner, or both. */
+export const scanMethods = ["both", "camera", "scanner"] as const;
 export type ScanMethod = (typeof scanMethods)[number];
 export const scanMethodLabels: Record<ScanMethod, string> = {
-  camera: "Camera",
-  scanner: "Scanner",
-  "scanner-only": "Scanner only",
+  both: "Camera and scanner",
+  camera: "Camera only",
+  scanner: "Scanner only",
 };
 export const scanMethodHints: Record<ScanMethod, string> = {
-  camera: "The Stickers screen opens with the camera preview. A pull of the scanner's trigger still switches it.",
-  scanner: "The Stickers screen opens ready for the hardware scanner, with the camera a tap away.",
-  "scanner-only": "The Stickers screen never shows the camera. For a station with a scanner and no camera.",
+  both: "Scan buttons open the camera, and the hardware scanner works on every screen too.",
+  camera: "A phone without a scanner: scan buttons open the camera.",
+  scanner: "A station with a scanner and no camera: the camera never opens for scanning, and every screen says when a pull of the trigger will do something.",
 };
 
 const SCAN_KEY = "bin-there:scan-method";
+const listeners = new Set<() => void>();
 
 export function getScanMethod(): ScanMethod {
   const v = localStorage.getItem(SCAN_KEY);
-  return scanMethods.includes(v as ScanMethod) ? (v as ScanMethod) : "camera";
+  return scanMethods.includes(v as ScanMethod) ? (v as ScanMethod) : "both";
 }
 
 export function setScanMethod(m: ScanMethod) {
   localStorage.setItem(SCAN_KEY, m);
+  for (const l of listeners) l();
 }
+
+/** The setting, live: the bar and every scan target follow a change at once. */
+export function useScanMethod(): ScanMethod {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    getScanMethod,
+  );
+}
+
+export const cameraAllowed = (m: ScanMethod) => m !== "scanner";
+export const scannerExpected = (m: ScanMethod) => m !== "camera";

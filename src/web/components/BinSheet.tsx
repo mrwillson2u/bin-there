@@ -6,6 +6,7 @@ import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSumm
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
 import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl } from "./StockControl";
 import { QtyBadge } from "./ItemList";
 import { PhotoSpot } from "./PhotoSpot";
@@ -109,6 +110,7 @@ export function BinSheet({
           <X size={20} />
         </button>
       </div>
+      {!newSticker && <ScanTarget compact what={bin.code ? "Scan another bin to switch, or a new sticker to replace this one" : `Scan a new sticker to put it on ${bin.name}`} />}
 
       {newSticker && (
         <div className="flex flex-col gap-2 rounded-2xl border border-accent/50 bg-accent/10 p-3" role="group" aria-label="New sticker scanned">

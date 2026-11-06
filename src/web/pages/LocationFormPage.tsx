@@ -16,7 +16,8 @@ import {
   type LocationType,
 } from "../../shared/api";
 import { api } from "../api";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { PickLocation } from "../components/PickLocation";
 import { BinChip, Breadcrumbs, Button, Field, inputClass, pathText, PositionTag } from "../components/ui";
 
@@ -34,7 +35,6 @@ export function LocationFormPage() {
   // With one site, new things go in it unless you choose otherwise.
   const parentId = fixedParent ?? chosenParent ?? (sites?.length === 1 ? sites[0]!.id : null);
   const qc = useQueryClient();
-  const { openCamera } = useScan();
 
   const { data: parent } = useQuery({
     queryKey: ["location", parentId],
@@ -193,13 +193,9 @@ export function LocationFormPage() {
       </Field>
 
       <Field label="Sticker (scan it now, or leave blank)">
-        <div className="flex gap-2">
-          <input className={`${inputClass} flex-1 font-mono`} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Scan or type" />
-          <Button type="button" onClick={openCamera} aria-label="Scan with camera">
-            <ScanLine size={20} />
-          </Button>
-        </div>
+        <input className={`${inputClass} font-mono`} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Scan or type" />
       </Field>
+      <ScanTarget compact what="Scan its sticker to fill that in" />
 
       {create.error && <p className="text-danger">{(create.error as Error).message}</p>}
 

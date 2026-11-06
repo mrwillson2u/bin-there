@@ -4,6 +4,7 @@ import { Archive, Boxes, History, ScanLine, Search, Settings, Warehouse } from "
 import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
+import { cameraAllowed, scannerExpected, useScanMethod } from "./settings";
 import { InventoryPage } from "./pages/InventoryPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { LocationsPage } from "./pages/LocationsPage";
@@ -71,7 +72,13 @@ export function App() {
 }
 
 function Shell({ children, scanError }: { children: React.ReactNode; scanError: string | null }) {
-  const { openCamera, lastScan } = useScan();
+  const { openCamera, lastScan, target } = useScan();
+  // The bar is the one place that always says what a scan does right now (DEC-044): a screen's
+  // target in the scan colour, or plain "scan to open". On a scanner-only device the camera button
+  // becomes a status, since there's nothing to open.
+  const method = useScanMethod();
+  const camera = cameraAllowed(method);
+  const scanner = scannerExpected(method);
   const location = useLocation();
   // Visual confirmation of each scan. Restart the CSS animation without remounting the page,
   // so forms keep their state when a scan fills them in.
@@ -96,11 +103,22 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
 
       {/* Phone: bottom bar with the big scan button in thumb reach. */}
       <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+        {target && (
+          <p className="flex items-center justify-center gap-1.5 bg-scan px-3 py-1 text-center text-[13px] font-semibold text-white" role="status" aria-label={`A scan now: ${target}`}>
+            <ScanLine size={14} /> {target}
+          </p>
+        )}
         <div className="mx-auto flex max-w-2xl items-center justify-around">
           {/* Inventory has its own search bar at the top, so the phone bar has room for Locations. */}
           <NavItem to="/" icon={<Boxes size={22} />} label="Inventory" />
           <NavItem to="/locations" end={false} icon={<Warehouse size={22} />} label="Locations" />
-          <button onClick={openCamera} className="-mt-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-fg shadow-lg" aria-label="Scan with camera">
+          <button
+            onClick={openCamera}
+            disabled={!camera}
+            className={`-mt-6 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ${target ? "bg-scan text-white" : camera ? "bg-accent text-accent-fg" : "border-2 border-scan/60 bg-surface text-scan"}`}
+            aria-label={camera ? (target ? `Scan with camera: ${target}` : "Scan with camera") : target ? `Scanner: ${target}` : "Scanner ready: scan a sticker to open it"}
+            title={camera ? undefined : "This device scans with the hardware scanner (Settings)"}
+          >
             <ScanLine size={28} />
           </button>
           <NavItem to="/activity" icon={<History size={22} />} label="Activity" />
@@ -118,10 +136,30 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
         <SideItem to="/activity" icon={<History size={20} />} label="Activity" />
         <SideItem to="/settings" icon={<Settings size={20} />} label="Settings" />
         <span className="flex-1" />
-        <button onClick={openCamera} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
-          <ScanLine size={20} /> Scan with camera
-        </button>
-        <p className="px-1 pt-2 text-center text-xs text-muted">Or just scan with the scanner: it works on any screen.</p>
+        {target ? (
+          <div className="flex flex-col gap-2 rounded-xl border border-scan/70 bg-scan/10 p-3" role="status" aria-label={`A scan now: ${target}`}>
+            <p className="flex items-center gap-2 text-sm font-semibold text-scan">
+              <ScanLine size={18} className="shrink-0" /> {target}
+            </p>
+            {camera && (
+              <button onClick={openCamera} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-scan text-sm font-semibold text-white">
+                Scan with camera
+              </button>
+            )}
+            {scanner && <p className="text-xs text-muted">{camera ? "…or pull the scanner's trigger." : "Pull the scanner's trigger."}</p>}
+          </div>
+        ) : camera ? (
+          <>
+            <button onClick={openCamera} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
+              <ScanLine size={20} /> Scan with camera
+            </button>
+            {scanner && <p className="px-1 pt-2 text-center text-xs text-muted">Or just scan with the scanner: it works on any screen.</p>}
+          </>
+        ) : (
+          <p className="flex items-center gap-2 rounded-xl border border-scan/40 px-3 py-3 text-sm text-muted" role="status">
+            <ScanLine size={18} className="shrink-0 text-scan" /> Scanner ready: scan a sticker to open it.
+          </p>
+        )}
       </nav>
     </div>
   );

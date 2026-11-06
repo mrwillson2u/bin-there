@@ -4,7 +4,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { AlertTriangle, Archive, ChevronRight, House, Plus, ScanLine, Search, X } from "lucide-react";
 import type { ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../../shared/api";
 import { api } from "../api";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl } from "../components/StockControl";
 import { useToast } from "../components/Toast";
 import { usePutBackBin } from "../components/TakeOut";
@@ -38,7 +39,6 @@ export function PutBackPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const putBackBin = usePutBackBin();
-  const { openCamera } = useScan();
   const [step, setStep] = useState<Step>({ kind: "ready" });
   const [count, setCount] = useState(0);
 
@@ -108,19 +108,14 @@ export function PutBackPage() {
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
         <div className="flex flex-col gap-4">
           {step.kind === "ready" && (
-            <Card className="flex flex-col items-center gap-3 p-6 text-center">
-              <ScanLine size={40} className="text-accent" />
-              <p className="font-semibold">Scan whatever you're putting away</p>
+            <ScanTarget big what="Scan whatever you're putting away">
               <p className="text-sm text-muted">
                 Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives. A whole bin you took out goes back in its spot when you scan it.
               </p>
-              <Button variant="primary" onClick={openCamera} className="min-h-14 w-full text-lg">
-                <ScanLine size={22} /> Scan with camera
-              </Button>
-            </Card>
+            </ScanTarget>
           )}
 
-          {step.kind === "placed" && <Placed itemId={step.itemId} location={step.location} onNext={openCamera} />}
+          {step.kind === "placed" && <Placed itemId={step.itemId} location={step.location} />}
 
 
           {step.kind === "choose" && (
@@ -147,9 +142,12 @@ export function PutBackPage() {
           )}
 
           {step.kind === "where" && (
-            <Card className="flex flex-col gap-3 border-accent/50 p-4">
+            <ScanTarget
+              what={homesOf(step.item, step.unitId).length > 0 ? "…or scan the bin you're putting it in" : "No home yet: scan the bin it's going in"}
+              actions={<Button variant="ghost" onClick={() => setStep({ kind: "ready" })}>Cancel</Button>}
+            >
               <ItemHeader item={step.item} />
-              {homesOf(step.item, step.unitId).length > 0 ? (
+              {homesOf(step.item, step.unitId).length > 0 && (
                 <>
                   <p className="text-sm text-muted">Goes back in:</p>
                   {homesOf(step.item, step.unitId).map((h) => (
@@ -157,16 +155,9 @@ export function PutBackPage() {
                       <House size={20} /> {pathText(step.item.places.find((p) => p.locationId === h.id)?.path ?? [h])}
                     </Button>
                   ))}
-                  <p className="text-center text-sm text-muted">…or scan the bin you're putting it in</p>
                 </>
-              ) : (
-                <p className="flex items-center gap-2 font-semibold"><ScanLine size={20} className="text-accent" /> No home yet. Scan the bin it's going in</p>
               )}
-              <div className="flex gap-2">
-                <Button onClick={openCamera}>Scan with camera</Button>
-                <Button variant="ghost" onClick={() => setStep({ kind: "ready" })}>Cancel</Button>
-              </div>
-            </Card>
+            </ScanTarget>
           )}
 
           {step.kind === "notHome" && (
@@ -211,7 +202,7 @@ function ItemHeader({ item }: { item: ItemDetail }) {
 }
 
 /** After a put-back: what happened, with +/− to adjust the amount. */
-function Placed({ itemId, location, onNext }: { itemId: number; location: Loc; onNext: () => void }) {
+function Placed({ itemId, location }: { itemId: number; location: Loc }) {
   const { data: item } = useQuery({ queryKey: ["item", itemId], queryFn: () => api<ItemDetail>(`/items/${itemId}`) });
   if (!item) return null;
   const place = item.places.find((p) => p.locationId === location.id);
@@ -222,9 +213,7 @@ function Placed({ itemId, location, onNext }: { itemId: number; location: Loc; o
       {place?.hasStock && (
         <StockControl itemId={item.id} locationId={location.id} placeName={location.name} tracking={item.tracking} qty={place.qty} level={place.level} stale={place.stale} />
       )}
-      <Button variant="primary" onClick={onNext} className="min-h-14 text-lg">
-        <ScanLine size={22} /> Scan the next one
-      </Button>
+      <ScanTarget compact what="Scan the next one" />
     </Card>
   );
 }

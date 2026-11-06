@@ -5,13 +5,15 @@ import { ChevronRight, ImageOff } from "lucide-react";
 import { binSizeLabels, crumbLabel, positionText, type BinSize, type Crumb, type LocationSummary } from "../../shared/api";
 import { api } from "../api";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "scan";
 
 const variants: Record<Variant, string> = {
   primary: "bg-accent text-accent-fg font-semibold",
   secondary: "bg-surface-2 border border-border",
   ghost: "text-accent",
   danger: "bg-danger/15 text-danger border border-danger/40",
+  /** Opens the camera to scan (DEC-044): the scan colour, so it reads as part of the scan target. */
+  scan: "bg-scan text-white font-semibold",
 };
 
 export function Button({ variant = "secondary", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {

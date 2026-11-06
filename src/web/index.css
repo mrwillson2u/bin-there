@@ -18,6 +18,8 @@
   --color-bin-2x1: #facc15;
   --color-bin-2x2: #3b82f6;
   --color-bin-front: #9aa0a6;
+  /* Scanning, and nothing else (DEC-044): a scan target, the bar when a scan will do something, the flash. */
+  --color-scan: #f472b6;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -36,6 +38,7 @@ html[data-theme="light"] {
   --color-warn: #b45309;
   --color-danger: #b91c1c;
   --color-info: #6d28d9;
+  --color-scan: #be185d;
 }
 
 html,
@@ -48,7 +51,7 @@ body {
 }
 
 @keyframes scan-flash {
-  from { box-shadow: inset 0 0 0 3px var(--color-accent); }
+  from { box-shadow: inset 0 0 0 3px var(--color-scan); }
   to { box-shadow: inset 0 0 0 3px transparent; }
 }
 .scan-flash { animation: scan-flash 400ms ease-out; }

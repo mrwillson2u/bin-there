@@ -70,6 +70,7 @@ Bins: **Allit economy modular storage case** (Lee Valley #70869): https://www.le
 | 2×1 (1×2) | Yellow | `#FACC15` | `bin-2x1` |
 | 2×2 | Blue | `#3B82F6` | `bin-2x2` |
 | Front strip (346 × 46 mm) | Matches the case (neutral) | `#9AA0A6` | `bin-front` |
+| Scan (a scan does something here; the flash) | Magenta | `#F472B6` (light: `#BE185D`) | `scan` (DEC-044) |
 
 On the box grid the colour is the tile's 3 px outline, with the inside a solid dark tint of it (12% into the surface) rather than a full fill (DEC-041); empty bins look the same with a muted "Empty". The small bin chip in lists stays solid.
 

@@ -4,7 +4,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { CheckCircle2, House, Package, PackagePlus, ScanLine, Search, Undo2, X } from "lucide-react";
 import { levelLabels, type ItemDetail, type ItemSummary, type LocationDetail, type LocationItem, type PinnedLocation, type ReturnResult, type ScanResult, type StockResult } from "../../shared/api";
 import { api } from "../api";
-import { useScan, useScanHandler } from "../scan/ScanProvider";
+import { useScanHandler } from "../scan/ScanProvider";
+import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl, useStockMutation } from "./StockControl";
 import { useToast } from "./Toast";
 import { Badge, BinChip, Button, Card, inputClass, itemName, pathText, PlacePath, Thumb } from "./ui";
@@ -84,6 +85,7 @@ export function KitPanel({ kit, scanActive }: { kit: LocationDetail; scanActive:
   return (
     <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
       <section className="flex flex-col gap-3">
+        {scanActive && !pulling && <ScanTarget compact what="Scan a part or a bin to pull it into the kit" />}
         <div className="flex flex-wrap gap-2">
           <Button variant="primary" onClick={() => { setFromBin(null); setPulling(true); }}>
             <PackagePlus size={18} /> Pull in a part
@@ -208,7 +210,6 @@ function KitRow({ kit, item: i, onReturn, busy }: { kit: LocationDetail; item: L
 
 /** Find a part (search, or the contents of a scanned bin), then pull some of it into the kit. */
 function PullPanel({ kit, fromBin, onClose }: { kit: LocationDetail; fromBin: LocationDetail | null; onClose: () => void }) {
-  const { openCamera } = useScan();
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<Pick | null>(null);
@@ -256,9 +257,9 @@ function PullPanel({ kit, fromBin, onClose }: { kit: LocationDetail; fromBin: Lo
                   className={`${inputClass} w-full pl-10`}
                 />
               </div>
-              <Button onClick={openCamera} aria-label="Scan with camera"><ScanLine size={20} /></Button>
             </div>
           )}
+          {!fromBin && !picked && <ScanTarget compact what="Scan the part, or the bin it's in" />}
           {choices.length > 0 && (
             <ul className="max-h-80 divide-y divide-border overflow-y-auto rounded-xl border border-border">
               {choices.map((c) => (
