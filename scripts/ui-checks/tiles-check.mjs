@@ -70,7 +70,7 @@ check(ib.x - tb.x >= 2.5 && ib.y - tb.y >= 2.5 && ib.x - tb.x <= 4, `the bin's c
 const gap = (await tile(page, plain.name).boundingBox()).x - (tb.x + tb.width);
 check(gap >= 2.5 && gap <= 3.5, `the gutter between bins is as thick as the selection ring (${gap.toFixed(1)} px)`);
 const edge = await t1.evaluate((e) => [getComputedStyle(e).borderTopColor, getComputedStyle(e).backgroundColor, getComputedStyle(e).borderTopWidth]);
-check(edge[0].startsWith("rgb(239") && !edge[1].startsWith("rgb(239") && / 0\.15\)$/.test(edge[1]) && edge[2] === "3px", `colour is the outline, the inside a 15% tint of it (${edge.join(" / ")})`);
+check(edge[0].startsWith("rgb(239") && !edge[1].startsWith("rgb(239") && !/ \/ /.test(edge[1]) && edge[1] !== "rgb(23, 25, 28)" && edge[2] === "3px", `colour is the outline, the inside a solid dark tint of it (${edge.join(" / ")})`);
 check((await tile(page, plain.name).locator("img").count()) === 0 && (await tile(page, plain.name).textContent()).includes("M3 nuts"), "a bin without a photo shows its name");
 check((await tile(page, wide.name).locator("img").count()) === 1 && (await tile(page, wide.name).textContent()).includes("Arduino Nano"), "wide tile: photo and name");
 const wImg = await tile(page, wide.name).locator("img").boundingBox(), wTile = await tile(page, wide.name).boundingBox();

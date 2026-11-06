@@ -4,12 +4,16 @@ import { binSizeLabels, type BinSize, type LocationDetail, type LocationSummary 
 import { DEFAULT_GRID, STRIP_HEIGHT, footprint, snapSlot, type Grid, type PlacedBin, type Slot } from "../../shared/grid";
 import { itemName } from "./ui";
 
-/** The bin's colour as the tile's outline, with the inside a very dark tint of it (DEC-041), so the grid reads quietly. */
+/**
+ * The bin's colour as the tile's outline, with the inside a very dark, solid tint of it (DEC-041):
+ * the colour mixed 12% into the surface, so nothing shows through from behind.
+ */
+const tint = (color: string) => `bg-[color-mix(in_oklab,var(--color-${color})_12%,var(--color-surface))]`;
 const binOutline: Record<BinSize, string> = {
-  "1x1": "border-bin-1x1 bg-bin-1x1/15",
-  "2x1": "border-bin-2x1 bg-bin-2x1/15",
-  "2x2": "border-bin-2x2 bg-bin-2x2/15",
-  front_strip: "border-bin-front bg-bin-front/15",
+  "1x1": `border-bin-1x1 ${tint("bin-1x1")}`,
+  "2x1": `border-bin-2x1 ${tint("bin-2x1")}`,
+  "2x2": `border-bin-2x2 ${tint("bin-2x2")}`,
+  front_strip: `border-bin-front ${tint("bin-front")}`,
   other: "border-border bg-surface-2",
 };
 
