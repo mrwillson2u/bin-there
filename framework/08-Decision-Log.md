@@ -1158,6 +1158,8 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 - "level" is the word Colin uses; adding it in the app is one rule, where renaming would be one rack at a time.
 - The stack stays small on purpose: a rack with 25 levels is better said than drawn at that size.
 
+**Update 2026-11-06, later (Q53): drawn as a route.** Colin found the first version's lines and pictures read as unrelated pieces stacked up, and wanted the site kept. The block is now a route: one line down the left with a numbered stop for each place (site, rack, box…), each stop with the icon for its kind of place and its name, and under it what that kind has to show (a rack: "level 3 of 3" and the stack; a gridded box: the map). The last stop is the thing itself, a dot in the bin's colour with the spot in words and the number small; a bin that's out gets one more stop, "The bin is out: …". The box stays bold. On a bin's own page the route sits under the heading with a smaller map. Every step is the same shape, so new kinds of place slot in.
+
 **Consequences:**
 - **Web.** New `WhereMap.tsx` (`WhereBlock`, `BoxMap`, `RackMap`, `binWords`); the part page's place card and a bin's own page use it. The box page reads `?bin=` to outline a bin. `positionText` in `src/shared/api.ts`; the position tag's spoken label is now "level 3".
 - **API.** `Crumb` gains `type`, `rackSize`, `rackSlot`. Activity text changes from "3 · Grid box 1" to "level 3 · Grid box 1" for new events.
@@ -1224,7 +1226,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-035 | Dropping a box in a rack moves the others along, and you see them slide | UX | Accepted | 2026-11-04 |
 | DEC-036 | Bin tiles show the part's photo, with a per-box switch back to names | UX / Data | Accepted | 2026-11-04 |
 | DEC-037 | Fill in details on one page; a category box you can type in; amounts in the details form | UX | Accepted | 2026-11-05 |
-| DEC-038 | Where a part is, told as directions: the walk in lines, the box as a small map, the level in words | UX | Accepted | 2026-11-06 |
+| DEC-038 | Where a part is, told as directions: a numbered route, the box as a small map, the level in words | UX | Accepted (route form added the same day) | 2026-11-06 |
 | DEC-039 | The AI deploys to ubuntubot itself, after a backup | Process | Accepted | 2026-11-06 |
 
 ---

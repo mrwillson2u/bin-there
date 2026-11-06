@@ -1,16 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { LogOut } from "lucide-react";
+import { LocationIcon } from "./LocationList";
 import { binSizeLabels, positionText, type BinOut, type BinSize, type Crumb, type LocationDetail, type LocationSummary } from "../../shared/api";
 import { DEFAULT_GRID, STRIP_HEIGHT, footprint, type Grid, type Slot } from "../../shared/grid";
 import { api } from "../api";
 import { binColors } from "./ui";
 
-// Where something is, told as directions (DEC-038): one line per step of the walk, the biggest
-// place first and the place you walk to in bold; the last step is drawn rather than named. A
-// gridded box becomes a small map with this bin the only thing in colour, and a rack a thin
-// stack of its levels with the right one filled in. The bin's number is for stickers, so it
-// comes last and small (DEC-024).
+// Where something is, told as a route (DEC-038): one line down the left with a numbered stop for
+// each place of the walk, biggest first, and the last stop a dot in the bin's colour. Each stop
+// shows what its kind of place has to show: a rack its level as words and a thin stack, a gridded
+// box a small map with this bin the only thing in colour, a bin its spot in words. The place you
+// walk to (the box) is bold. The bin's number is for stickers, so it comes last and small (DEC-024).
 
 const binColorNames: Record<BinSize, string> = { "1x1": "Red", "2x1": "Yellow", "2x2": "Blue", front_strip: "Grey", other: "" };
 
@@ -86,11 +87,10 @@ export function RackMap({ name, size, slot, label }: { name: string; size: numbe
 export const rackDrawable = (size: number) => Math.floor((RACK_HEIGHT - (size - 1)) / size) >= 2;
 
 /**
- * The directions to a place: its path as lines, the last place in bold, and the bin drawn on
- * its box. `path` is the place's own path (the place is its last step).
+ * The route to a place: a stop per step of its path, the last one the place itself. `path` is the
+ * place's own path (the place is its last step).
  */
-export function WhereBlock({ path: full, out, showName = true, className = "" }: { path: Crumb[]; out?: BinOut | null; /** The bin's number under the map (off where the page's heading is that number). */ showName?: boolean; className?: string }) {
-  const { data: sites } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations"), staleTime: 60_000 });
+export function WhereBlock({ path: full, out, showName = true, compact = false, className = "" }: { path: Crumb[]; out?: BinOut | null; /** The bin's number under the words (off where the page's heading is that number). */ showName?: boolean; /** A smaller map, for a page whose subject is the bin itself. */ compact?: boolean; className?: string }) {
   const me = full.at(-1);
   const isBin = me?.type === "bin";
   const boxCrumb = isBin ? full.at(-2) : undefined;
@@ -102,56 +102,71 @@ export function WhereBlock({ path: full, out, showName = true, className = "" }:
   });
   if (!me) return null;
 
-  // With one site its name is left off (it's the same everywhere, as in PlacePath).
-  const start = sites?.length === 1 && full.length > 1 && full[0]!.id === sites[0]!.id ? 1 : 0;
-  const steps = full.slice(start, isBin ? -1 : undefined);
-  const lines = steps.length > 0 ? steps : full.slice(0, -1);
   const bin = box?.children.find((c) => c.id === me.id);
   const grid = box?.grid ?? null;
   const words = isBin ? (grid ? binWords(bin?.binSize ?? null, bin?.slot ?? null, grid) : binWhat(bin?.binSize ?? null)) : null;
+  const dotColor = isBin ? (bin?.binSize && bin.binSize !== "other" ? binColors[bin.binSize] : "bg-muted") : "bg-text";
+  // The place you walk to: the bin's box, or the place itself when it isn't a bin.
+  const walkTo = isBin ? full.length - 2 : full.length - 1;
+  const stops = full.length + (out ? 1 : 0);
 
   return (
-    <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
-      {lines.map((c, i) => {
-        const next = full[full.indexOf(c) + 1];
-        const slot = next?.position && c.rackSize ? (next.rackSlot ?? null) : null;
-        const last = i === lines.length - 1;
-        const position = next?.position
-          ? ` · ${positionText(next.position)}${c.rackSize && !rackDrawable(c.rackSize) ? ` of ${c.rackSize}` : ""}`
-          : "";
-        return (
-          <span key={c.id} className="flex items-center gap-2">
-            <Link to={`/locations/${c.id}`} className={`min-w-0 truncate ${last ? "text-base font-semibold" : "text-[13px] text-muted"}`}>
-              {c.name}
-              {position}
-            </Link>
-            {slot !== null && c.rackSize && next?.position && <RackMap name={c.name} size={c.rackSize} slot={slot} label={next.position} />}
-          </span>
-        );
-      })}
-      {isBin && (
-        <div className="mt-1.5 flex items-start gap-3">
-          {box && grid && bin?.slot && (
-            <Link to={`/locations/${box.id}?bin=${me.id}`} aria-label={`Open ${box.name} with ${me.name} marked`} className="shrink-0">
-              <BoxMap box={box} binId={me.id} />
-            </Link>
-          )}
-          <span className="flex min-w-0 flex-col gap-0.5 pt-0.5">
-            {words && <span className="text-sm">{words}</span>}
-            {showName && <span className="font-mono text-[13px] text-muted">{me.name}</span>}
-            {out && (
-              <span className="flex items-center gap-1 text-[13px] text-info">
-                <LogOut size={14} className="shrink-0" /> The bin is out: {out.to?.name ?? out.note}
-              </span>
+    <ol className={`flex min-w-0 flex-col ${className}`} aria-label="How to get there">
+      {full.map((c, i) => {
+        const next = full[i + 1];
+        const last = i === full.length - 1;
+        const level = next?.position && (
+          <span className="flex items-center gap-2 text-[13px] text-muted">
+            {positionText(next.position)}
+            {c.rackSize ? ` of ${c.rackSize}` : ""}
+            {c.rackSize && next.rackSlot !== null && next.rackSlot !== undefined && rackDrawable(c.rackSize) && (
+              <RackMap name={c.name} size={c.rackSize} slot={next.rackSlot} label={next.position} />
             )}
           </span>
-        </div>
+        );
+        return (
+          <li key={c.id} className="relative min-w-0 pb-3 pl-9 last:pb-0" data-stop={last ? "here" : i + 1}>
+            {i < stops - 1 && <span aria-hidden className="absolute bottom-0 left-[11px] top-6 w-0.5 bg-border" />}
+            {last ? (
+              <span aria-hidden className={`absolute left-[5px] top-1.5 h-3.5 w-3.5 rounded-full ${dotColor}`} />
+            ) : (
+              <span aria-hidden className="absolute left-0 top-0 flex h-6 w-6 items-center justify-center rounded-full border-2 border-border bg-surface text-[11px] font-semibold tabular-nums">
+                {i + 1}
+              </span>
+            )}
+            {last && isBin ? (
+              <span className="flex min-w-0 flex-col gap-0.5">
+                {showName ? <Link to={`/locations/${me.id}`} className="text-sm">{words}</Link> : <span className="text-sm">{words}</span>}
+                {showName && <span className="font-mono text-[13px] text-muted">{me.name}</span>}
+              </span>
+            ) : (
+              <span className="flex min-w-0 flex-col gap-1">
+                <Link to={`/locations/${c.id}`} className={`flex min-w-0 items-center gap-1.5 ${i === walkTo ? "text-base font-semibold" : "text-[15px]"}`}>
+                  {c.type && <LocationIcon type={c.type} />}
+                  <span className="truncate">{c.name}</span>
+                </Link>
+                {level}
+                {isBin && i === walkTo && box && grid && bin?.slot && (
+                  <Link to={`/locations/${box.id}?bin=${me.id}`} aria-label={`Open ${box.name} with ${me.name} marked`} className="self-start">
+                    <BoxMap box={box} binId={me.id} width={compact ? 108 : 150} />
+                  </Link>
+                )}
+                {isBin && i === walkTo && box && grid && !bin?.slot && <span className="text-[13px] text-muted">The bin isn't on the grid yet</span>}
+              </span>
+            )}
+          </li>
+        );
+      })}
+      {out && (
+        <li className="relative min-w-0 pl-9" data-stop="out">
+          <span aria-hidden className="absolute left-[5px] top-1.5 h-3.5 w-3.5 rounded-full bg-info" />
+          <span className="flex items-center gap-1.5 text-sm text-info">
+            <LogOut size={16} className="shrink-0" />
+            {isBin ? "The bin is out: " : "Out: "}
+            {out.to ? <Link to={`/locations/${out.to.id}`} className="underline">{out.to.name}</Link> : out.note}
+          </span>
+        </li>
       )}
-      {!isBin && out && (
-        <span className="flex items-center gap-1 text-[13px] text-info">
-          <LogOut size={14} className="shrink-0" /> Out: {out.to?.name ?? out.note}
-        </span>
-      )}
-    </div>
+    </ol>
   );
 }

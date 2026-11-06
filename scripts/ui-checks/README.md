@@ -19,7 +19,7 @@ script refuses the app's own `data` folder and any folder that isn't empty.
 | `photo-check.mjs` | Square photos: a tall upload gets a square thumbnail, the part's page shows a square, Crop on the photo moves and zooms it (original kept), Centre; a second photo in the strip, Use as main, the viewer, Delete; desktop |
 | `tiles-check.mjs` | Bin tiles with photos: photo-only small squares framed in the bin colour, wide and tall layouts, "+1", the name of the photo's part, the per-box Photos / Names switch, the desktop name strip |
 | `needs-check.mjs` | Fill in details: every part needing details on one page, saving as you go (name, category by typing with arrows/Enter/Tab/Escape and adding a new one, how it's counted, a count with Undo, Plenty/Low/Out), done rows stay with a tick, the More details popup, the photo, desktop columns; the details form's amounts per place and warning wording, and that a part without a category stays on the list |
-| `where-check.mjs` | Where a part is as directions (DEC-038): the walk in lines with the box bold, the rack level in words and as a stack (words only past 16 levels), the box map with the bin the only one in colour and in the right spot, the spot in words, the number small, tapping the map outlines the bin on the box, a bin's own page, a tote (no map), desktop |
+| `where-check.mjs` | Where a part is as a route (DEC-038): numbered stops down the left with the box bold, the rack level in words and as a stack (words only past 16 levels), the box map with the bin the only one in colour and in the right spot, the spot in words, the number small, tapping the map outlines the bin on the box, a bin's own page, a tote (no map), desktop |
 
 Setup, once per dev copy (needs `ffmpeg`, and a Chromium; Playwright's headless shell works):
 
@@ -37,5 +37,7 @@ export CHROME=$(ls -d ~/.cache/ms-playwright/chromium_headless_shell-*/chrome-he
 mkdir -p /tmp/ui/data /tmp/ui/shots
 node scripts/ui-checks/stories-walk.mjs "$PWD" /tmp/ui/data /tmp/ui/shots
 ```
+
+If `stickers-check.mjs` reports "Couldn't start the camera: Requested device not found", Chrome is refusing to read the fake-camera video it writes into the screenshots folder (seen on ubuntubot with a folder under `/tmp/claude-…`); give it a screenshots folder under your home directory instead.
 
 The checks print `PASS`/`FAIL` lines; the story walk prints a JSON list of stories with their counts and notes.

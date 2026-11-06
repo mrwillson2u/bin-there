@@ -320,7 +320,7 @@ export function LocationPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        {loc.type === "bin" ? <WhereBlock path={loc.path} showName={false} className="mb-1" /> : <Breadcrumbs path={loc.path} />}
+        {loc.type !== "bin" && <Breadcrumbs path={loc.path} />}
         {edit !== null ? (
           <form
             className="flex flex-wrap items-center gap-2"
@@ -347,6 +347,7 @@ export function LocationPage() {
         )}
         <p className="text-[13px] text-muted">{locationTypeLabels[loc.type]}</p>
       </div>
+      {loc.type === "bin" && <WhereBlock path={loc.path} showName={false} compact />}
 
       {loc.out && <OutBanner bin={loc} boxName={loc.path.at(-2)?.name ?? "its box"} />}
 
