@@ -190,7 +190,7 @@ await page.getByText("Goes in this position of Grid-Box Rack").waitFor();
 await page.getByPlaceholder(/Rack A, Screws box/).fill("Box 5");
 await page.getByRole("button", { name: /^Create|^Add|^Save/ }).first().click();
 await page.getByRole("heading", { name: "Box 5" }).waitFor();
-check((await page.getByLabel("position Top").count()) >= 1, "the new box is in position Top, shown on its page");
+check((await page.getByLabel("Top", { exact: true }).count()) >= 1, "the new box is in position Top, shown on its page");
 
 // A part's path shows its box's position.
 await page.goto(`${base}/?q=heat`);

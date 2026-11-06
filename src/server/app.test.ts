@@ -142,9 +142,12 @@ describe("racks with positions (DEC-034)", () => {
 
     // Paths and the activity log show the label; moving away clears it.
     const bin = await create({ type: "bin", parentId: fresh.id });
-    expect((await call<LocationDetail>("GET", `/locations/${bin.id}`)).json.path.map((x) => x.position ?? null)).toEqual([null, null, "4", null]);
+    const binPath = (await call<LocationDetail>("GET", `/locations/${bin.id}`)).json.path;
+    expect(binPath.map((x) => x.position ?? null)).toEqual([null, null, "4", null]);
+    // Each step says what it is, and a rack how big it is, so a screen can draw the walk (DEC-038).
+    expect(binPath.map((x) => [x.type, x.rackSize, x.rackSlot])).toEqual([["site", null, null], ["rack", 8, null], ["gridded_box", null, 3], ["bin", null, null]]);
     const ev = (await call<{ location: string | null }[]>("GET", `/events?location=${bin.id}`)).json;
-    expect(ev[0]!.location).toBe("Garage › Grid-Box Rack › 4 · Box 4 › Bin 0001");
+    expect(ev[0]!.location).toBe("Garage › Grid-Box Rack › level 4 · Box 4 › Bin 0001");
     const moved = (await call<LocationDetail>("PATCH", `/locations/${fresh.id}`, { parentId: site.id })).json;
     expect([moved.rackSlot, moved.position]).toEqual([null, null]);
     // …and can come back straight into a position.

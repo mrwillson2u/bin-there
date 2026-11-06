@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, ImageOff } from "lucide-react";
-import { binSizeLabels, crumbLabel, type BinSize, type Crumb, type LocationSummary } from "../../shared/api";
+import { binSizeLabels, crumbLabel, positionText, type BinSize, type Crumb, type LocationSummary } from "../../shared/api";
 import { api } from "../api";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
@@ -103,7 +103,7 @@ export function PositionTag({ position, big }: { position: string; big?: boolean
   return (
     <span
       className={`inline-flex shrink-0 items-center justify-center rounded-md border border-border font-mono font-semibold tabular-nums text-text ${big ? "h-7 min-w-7 px-1.5 text-sm" : "mr-1 h-[1.3em] min-w-[1.3em] px-1 text-[0.85em] leading-none"}`}
-      aria-label={`position ${position}`}
+      aria-label={positionText(position)}
     >
       {position}
     </span>

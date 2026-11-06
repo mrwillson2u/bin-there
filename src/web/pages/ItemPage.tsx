@@ -16,7 +16,8 @@ import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
 import { EventList, timeAgo } from "../components/EventList";
 import { PinButton } from "../components/PinButton";
-import { Badge, Button, Card, inputClass, itemName, pathText, PlacePath } from "../components/ui";
+import { Badge, Button, Card, inputClass, itemName, PlacePath } from "../components/ui";
+import { WhereBlock } from "../components/WhereMap";
 import { PartPhotos } from "../components/PartPhotos";
 
 type Mode =
@@ -182,15 +183,7 @@ function PlaceCard({ item, place, onMove }: { item: ItemDetail; place: Place; on
   return (
     <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-start gap-2">
-        <Link to={`/locations/${place.locationId}`} className="min-w-0 flex-1">
-          {place.path.length > 1 && <span className="block text-[13px] text-muted">{pathText(place.path.slice(0, -1))}</span>}
-          <span className="block font-semibold">{name}</span>
-          {place.out && (
-            <span className="flex items-center gap-1 text-[13px] text-info">
-              <LogOut size={14} className="shrink-0" /> The bin is out: {place.out.to?.name ?? place.out.note}
-            </span>
-          )}
-        </Link>
+        <WhereBlock path={place.path} out={place.out} className="flex-1" />
         <button
           onClick={() => toggleHome.mutate()}
           aria-pressed={place.isHome}

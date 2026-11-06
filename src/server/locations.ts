@@ -4,7 +4,7 @@ import { events, itemHomes, items, locations, pins, stock, units } from "./db/sc
 import { ApiError } from "./errors";
 import { locationItems, photoUrl } from "./items";
 import { isPinned } from "./pins";
-import { comparePlaces, holdsPositions, rackLabel, type BinOut, type BinSize, type CreateLocation, type Crumb, type LocationDetail, type LocationSummary, type PinnedLocation, type UpdateLocation } from "../shared/api";
+import { comparePlaces, holdsPositions, rackLabel, type BinOut, type BinSize, type CreateLocation, type Crumb, type LocationDetail, type LocationSummary, type LocationType, type PinnedLocation, type UpdateLocation } from "../shared/api";
 import { DEFAULT_GRID, slotProblem, type Grid, type PlacedBin, type Slot } from "../shared/grid";
 import { rackMove, type RackRow } from "../shared/rack";
 
@@ -167,19 +167,19 @@ function gridOf(loc: { type: string; gridCols: number | null; gridRows: number |
 
 /** Ancestors from the top level down to (and including) the location. */
 export function locationPath(db: Db, id: number): Crumb[] {
-  const rows = db.all<{ id: number; name: string; rack_slot: number | null; rack_labels: string | null; depth: number }>(sql`
-    with recursive chain(id, name, rack_slot, rack_labels, parent_id, depth) as (
-      select id, name, rack_slot, rack_labels, parent_id, 0 from locations where id = ${id}
+  const rows = db.all<{ id: number; name: string; type: LocationType; rack_slot: number | null; rack_size: number | null; rack_labels: string | null; depth: number }>(sql`
+    with recursive chain(id, name, type, rack_slot, rack_size, rack_labels, parent_id, depth) as (
+      select id, name, type, rack_slot, rack_size, rack_labels, parent_id, 0 from locations where id = ${id}
       union all
-      select l.id, l.name, l.rack_slot, l.rack_labels, l.parent_id, chain.depth + 1
+      select l.id, l.name, l.type, l.rack_slot, l.rack_size, l.rack_labels, l.parent_id, chain.depth + 1
       from locations l join chain on l.id = chain.parent_id
     )
-    select id, name, rack_slot, rack_labels, depth from chain order by depth desc
+    select id, name, type, rack_slot, rack_size, rack_labels, depth from chain order by depth desc
   `);
   // Each step's position label comes from the step before it (its parent's labels, DEC-034).
   return rows.map((r, i) => {
     const parentLabels = i > 0 && rows[i - 1]!.rack_labels ? (JSON.parse(rows[i - 1]!.rack_labels!) as (string | null)[]) : null;
-    return { id: r.id, name: r.name, position: r.rack_slot === null ? null : rackLabel(parentLabels, r.rack_slot) };
+    return { id: r.id, name: r.name, type: r.type, rackSize: r.rack_size, rackSlot: r.rack_slot, position: r.rack_slot === null ? null : rackLabel(parentLabels, r.rack_slot) };
   });
 }
 

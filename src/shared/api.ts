@@ -136,11 +136,21 @@ export type LocationSummary = {
   thumbName: string | null;
 };
 
-/** One step of a path. `position` is the label of its position in the step before (DEC-034). */
-export type Crumb = { id: number; name: string; position?: string | null };
+/**
+ * One step of a path. `position` is the label of its position in the step before (DEC-034).
+ * Paths from the server also say what each step is and, for a rack or shelf, how many
+ * positions it has, so a screen can draw the step without another request (DEC-038).
+ */
+export type Crumb = { id: number; name: string; position?: string | null; type?: LocationType; rackSize?: number | null; rackSlot?: number | null };
 
-/** "3 · Grid box 1", or just the name: how a step of a path reads as text. */
-export const crumbLabel = (c: Pick<Crumb, "name" | "position">) => (c.position ? `${c.position} · ${c.name}` : c.name);
+/**
+ * A position in words (DEC-038): a plain number is a level of its rack, "level 3"; a position
+ * Colin has named ("Top") reads as it is.
+ */
+export const positionText = (position: string) => (/^\d+$/.test(position) ? `level ${position}` : position);
+
+/** "level 3 · Grid box 1", or just the name: how a step of a path reads as text. */
+export const crumbLabel = (c: Pick<Crumb, "name" | "position">) => (c.position ? `${positionText(c.position)} · ${c.name}` : c.name);
 
 const byNumber = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 /**

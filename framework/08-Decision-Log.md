@@ -1123,6 +1123,49 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-038: Where a part is, told as directions: the walk in lines, the box as a small map, the level in words
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted |
+| **Deciders** | Colin (raised it, chose "level"); AI (layout) |
+| **Category** | UX |
+
+**Context:** Colin tried the main job, finding a part, and it fell down at the last step. The part page's Where card put the bin's number ("Bin 0035") in bold and the walk to it ("Garage › Grid-Box Rack › 3 · Grid box 3") in small grey above it. The number is how bins are told apart for stickers; nobody finds a bin by it. The useful part was the least prominent. The rack's position also read as a bare "3", and he wanted a picture of where in the box the bin sits, and maybe of the rack level too, as long as a big rack didn't make it tall. Q51: the word for a rack position is "level"; letting each rack choose its own word is left for later.
+
+**Options Considered:**
+
+| Option | Pros | Cons |
+|--------|------|------|
+| Reorder the text: the path bold, the number small | Cheap | Still a line of names to decode; the bin's spot is still not shown |
+| Rename rack positions by hand ("Shelf 3") | Nothing to build | Every rack, by hand; the app knows what the number means |
+| Draw it: the walk as lines, a map of the box with the bin lit, the rack level as a stack | Matches how you find things (walk, then look); the bin's number stops mattering | A component and one more request for the box; a big rack would need a tall drawing |
+
+**Decision:**
+- **The Where card reads as directions** (`WhereBlock` in `src/web/components/WhereMap.tsx`). One line per step of the walk, the biggest place first and each a link; with one site its name is left off (as in paths). The place you walk to, the box, is the bold line. Then, for a bin, the last step is drawn, not named:
+  - **The box as a small map:** the real grid, every bin a faint grey outline, this bin the only one in colour (its real bin colour). Tapping it opens the box's page with that bin outlined (`/locations/:id?bin=<id>`).
+  - **The spot in words** beside the map: "Red 1×1 bin, front row, 2nd from the left" (rows counted from the front strip, columns from the left; a front strip is just "Grey front strip"). This is also what the map says to a screen reader.
+  - **The bin's number** last, small and grey, like a sticker code (DEC-024). On a bin's own page it's left out, since the heading is the number.
+  - A bin that isn't on the grid says so; a bin in a place that isn't a gridded box gets just its colour and size.
+- **Rack positions are levels.** A plain number reads as "level 3" everywhere a path is written out (`positionText`, used by `crumbLabel`, so "Grid-Box Rack › level 3 · Grid box 3" in lists and the activity log). A position Colin has named ("Top") reads as it is. The boxed number tag in lists stays.
+- **The rack as a thin stack** beside its line: one short bar per level, the right one filled yellow, never taller than a line and a half. Past 16 levels the bars would be thinner than 2 px, so it gives way to words: "Big rack · level 7 of 25".
+- **Paths carry what each step is.** Every `Crumb` from the server now has `type`, `rackSize` and `rackSlot`, so a screen can tell a bin from a tote and draw the rack without another request. The box map needs the box's children, so that is one `GET /api/locations/:id` (cached).
+
+**Rationale:**
+- Finding is walk-then-look: the lines say where to walk, the map says where to look. The bin's number is for stickers, so it goes last.
+- Drawing the bin in its real colour on a greyed box needs no extra highlight, which also keeps yellow and blue bins readable.
+- "level" is the word Colin uses; adding it in the app is one rule, where renaming would be one rack at a time.
+- The stack stays small on purpose: a rack with 25 levels is better said than drawn at that size.
+
+**Consequences:**
+- **Web.** New `WhereMap.tsx` (`WhereBlock`, `BoxMap`, `RackMap`, `binWords`); the part page's place card and a bin's own page use it. The box page reads `?bin=` to outline a bin. `positionText` in `src/shared/api.ts`; the position tag's spoken label is now "level 3".
+- **API.** `Crumb` gains `type`, `rackSize`, `rackSlot`. Activity text changes from "3 · Grid box 1" to "level 3 · Grid box 1" for new events.
+- **Checks.** New `where-check.mjs`; `pages-check.mjs` reads the renamed position's new label.
+- **Later, maybe.** A word per rack ("shelf", "drawer") if "level" turns out wrong somewhere; the same block in the bin sheet and on Inventory rows.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1164,6 +1207,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-035 | Dropping a box in a rack moves the others along, and you see them slide | UX | Accepted | 2026-11-04 |
 | DEC-036 | Bin tiles show the part's photo, with a per-box switch back to names | UX / Data | Accepted | 2026-11-04 |
 | DEC-037 | Fill in details on one page; a category box you can type in; amounts in the details form | UX | Accepted | 2026-11-05 |
+| DEC-038 | Where a part is, told as directions: the walk in lines, the box as a small map, the level in words | UX | Accepted | 2026-11-06 |
 
 ---
 

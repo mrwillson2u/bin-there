@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayoutGrid, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
 import { holdsPositions, locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType, tileViews, type TileView } from "../../shared/api";
@@ -20,6 +20,7 @@ import { OutBanner, TakeOutForm } from "../components/TakeOut";
 import { RackSetup, RackView } from "../components/RackView";
 import { PinButton } from "../components/PinButton";
 import { BinChip, Breadcrumbs, Button, Card, inputClass, PositionTag } from "../components/ui";
+import { WhereBlock } from "../components/WhereMap";
 
 type Mode = "idle" | "assign" | "move" | "takeout";
 
@@ -49,6 +50,9 @@ export function LocationPage() {
   const [gridMessage, setGridMessage] = useState<string | null>(null);
   const [arranging, setArranging] = useState(false);
   const [openBin, setOpenBin] = useState<LocationSummary | null>(null);
+  // Opened from a part's directions (DEC-038): that bin is outlined on the grid until one is tapped.
+  const [params] = useSearchParams();
+  const markedId = Number(params.get("bin")) || null;
   // Sticker mode: the full-screen camera + grid for labelling bins (DEC-022).
   const [labelling, setLabelling] = useState(false);
   const [edit, setEdit] = useState<{ name: string } | null>(null);
@@ -251,7 +255,7 @@ export function LocationPage() {
       <BoxGrid
         box={loc}
         arranging={arranging}
-        selectedId={sheetDocked ? openBin.id : null}
+        selectedId={sheetDocked ? openBin.id : openBin ? null : markedId}
         onPlace={(bin, slot) => { setGridMessage(null); place.mutate({ bin, slot }); }}
         onCreate={(binSize, slot) => { setGridMessage(null); addBin.mutate({ binSize, slot }); }}
         onOpen={setOpenBin}
@@ -316,7 +320,7 @@ export function LocationPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <Breadcrumbs path={loc.path} />
+        {loc.type === "bin" ? <WhereBlock path={loc.path} showName={false} className="mb-1" /> : <Breadcrumbs path={loc.path} />}
         {edit !== null ? (
           <form
             className="flex flex-wrap items-center gap-2"
