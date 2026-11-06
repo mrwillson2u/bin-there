@@ -320,8 +320,13 @@ export function BoxGrid({
       : id === seenId
         ? "outline-dashed outline-[3px] outline-offset-0 outline-text"
         : "";
-  /** The chosen bin stands out by the others fading; it and the seen one draw above their neighbours. */
-  const lift = (id: number) => (id === selectedId || id === seenId ? "z-10" : selectedId !== null ? "opacity-50" : "");
+  /**
+   * The chosen bin stands out by the others fading: a dark veil laid over each (not opacity, which
+   * would let the cells behind show through). It and the seen one draw above their neighbours.
+   */
+  const VEIL = "after:pointer-events-none after:absolute after:inset-[1.5px] after:rounded-[6px] after:bg-bg/60 after:content-['']";
+  const faded = (id: number) => selectedId !== null && id !== selectedId && id !== seenId;
+  const lift = (id: number) => (id === selectedId || id === seenId ? "z-10" : faded(id) ? VEIL : "");
   // Screen readers get the full name ("Bin 0042"), plus the contents when the tile shows them.
   const ariaName = (b: Bin, label: string) =>
     (stickers ? `${b.name}, ${b.code ? `sticker ${b.code}` : "no sticker"}` : label === EMPTY ? `${b.name}, empty` : `${label}, ${b.name}`) +
@@ -389,7 +394,7 @@ export function BoxGrid({
           const lifted = drag?.bin.id === b.id;
           const label = binLabel(b);
           return (
-            <div key={b.id} className={`absolute ${lift(b.id)}`} style={style} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined}>
+            <div key={b.id} className={`absolute ${lift(b.id)}`} style={style} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined} data-faded={faded(b.id) || undefined}>
               {arranging ? (
                 <div
                   {...handlers(b)}
@@ -427,7 +432,7 @@ export function BoxGrid({
                   <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, false)} />
                 </div>
               ) : (
-                <div key={b.id} className={`relative ${lift(b.id)}`} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined}>
+                <div key={b.id} className={`relative ${lift(b.id)}`} data-selected={b.id === selectedId || undefined} data-seen={b.id === seenId || undefined} data-faded={faded(b.id) || undefined}>
                   <button type="button" onClick={() => onOpen(b)} style={style} className={`${binClass(b.binSize, !!b.out)} ${ring(b.id)}`} aria-label={ariaName(b, label)}>
                     {stickers ? <StickerLabel bin={b} /> : <TileText bin={b} label={label} photos={photos} tile={shapeOf(b.binSize, false)} />}
                   </button>

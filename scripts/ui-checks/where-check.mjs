@@ -86,14 +86,14 @@ await page.getByRole("link", { name: `Open Grid box 3 with ${here.name} marked` 
 await page.getByRole("heading", { name: "Grid box 3" }).waitFor();
 check(page.url().includes(`bin=${here.id}`), "the map opens the box's page: " + page.url());
 check((await page.locator("[data-selected]").getByRole("button", { name: `9V connector, ${here.name}` }).count()) === 1 && (await page.locator("[data-selected]").count()) === 1, "the bin is outlined on the grid, and only it");
-check((await page.locator(".opacity-50").count()) >= 1, "the other bins sit at half strength while one is marked");
+check((await page.locator("[data-faded]").count()) >= 1 && (await page.locator("[data-faded]").first().evaluate((e) => getComputedStyle(e).opacity)) === "1", "the other bins are veiled while one is marked, without going see-through");
 await page.screenshot({ path: `${shots}/w2-box-marked.png` });
 // Tapping the marked bin opens its pane; closing the pane deselects it.
 await page.getByRole("button", { name: `9V connector, ${here.name}` }).click();
 await page.getByRole("dialog").waitFor();
 await page.getByRole("button", { name: "Close", exact: true }).click();
 await page.waitForTimeout(300);
-check((await page.locator("[data-selected]").count()) === 0 && (await page.locator(".opacity-50").count()) === 0 && !page.url().includes("bin="), "closing the pane deselects the bin: no ring, every bin at full strength, no ?bin in the URL");
+check((await page.locator("[data-selected]").count()) === 0 && (await page.locator("[data-faded]").count()) === 0 && !page.url().includes("bin="), "closing the pane deselects the bin: no ring, every bin at full strength, no ?bin in the URL");
 
 // A bin's own page shows the same directions (no number: the heading is the number).
 await page.goto(`${base}/locations/${here.id}`);
