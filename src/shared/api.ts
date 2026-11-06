@@ -134,6 +134,8 @@ export type LocationSummary = {
   /** For a bin: the photo of the first part in it (A to Z) that has one, and that part's name, for its tile (DEC-036). */
   thumbUrl: string | null;
   thumbName: string | null;
+  /** Every part in the bin with a photo, A to Z, up to six: a tile shows as many as it has cells (DEC-041). */
+  thumbs: { url: string; name: string }[];
 };
 
 /**

@@ -42,6 +42,8 @@ const site = await api("POST", "/locations", { name: "Garage", type: "site" });
 const box = await api("POST", "/locations", { name: "Modules", type: "gridded_box", parentId: site.id });
 const bin = (binSize, x, y, rotated) => api("POST", "/locations", { type: "bin", parentId: box.id, binSize, slot: { x, y, rotated } });
 const [sq, plain, wide, tall, two] = [await bin("1x1", 0, 0), await bin("1x1", 1, 0), await bin("2x1", 2, 0), await bin("2x1", 4, 0, true), await bin("1x1", 0, 1)];
+// Bins with two or more photo parts (DEC-041): a wide one, a 2×2 with two, a 2×2 with three.
+const [pair, quad2, quad3] = [await bin("2x1", 1, 1), await bin("2x2", 0, 2), await bin("2x2", 2, 2)];
 const part = async (name, loc, f) => { const p = await api("POST", "/items", { name, locationId: loc.id, qty: 3 }); if (f) await photo(p.id, f); return p; };
 await part("ESP32", sq, "a");
 await part("M3 nuts", plain);
@@ -49,6 +51,9 @@ await part("Arduino Nano", wide, "b");
 await part("LED strip", tall, "c");
 await part("Buck converter", two, "b");
 await part("Boost converter", two);
+await part("Relay", pair, "a"); await part("Servo", pair, "b");
+await part("Motor", quad2, "a"); await part("Pump", quad2, "c");
+await part("Fan", quad3, "a"); await part("Heater", quad3, "b"); await part("Valve", quad3, "c"); await part("Washer", quad3);
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
@@ -72,6 +77,18 @@ const tImg = await tile(page, tall.name).locator("img").boundingBox(), tTile = a
 check(Math.abs(tImg.width - tImg.height) < 2 && tImg.y - tTile.y <= 4, "tall tile: the square photo sits at the top");
 check((await tile(page, tall.name).locator("img").count()) === 1 && (await tile(page, tall.name).textContent()).includes("LED strip"), "tall tile: photo with the name strip");
 check((await tile(page, two.name).textContent()).trim() === "Buck converter +1", "a bin with two parts names the photo's part and +1");
+const pairTile = tile(page, pair.name);
+const pairImgs = await pairTile.locator("img").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
+check(pairImgs.length === 2 && Math.abs(pairImgs[0].y - pairImgs[1].y) < 1 && pairImgs[1].x > pairImgs[0].x + pairImgs[0].width - 1, "a wide bin with two photo parts shows both side by side");
+check((await pairTile.textContent()).trim() === "Relay · Servo", "…and names them in a strip, like a 1×1: " + (await pairTile.textContent()).trim());
+const q2 = tile(page, quad2.name);
+const q2Imgs = await q2.locator("img").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
+const q2Box = await q2.boundingBox();
+check(q2Imgs.length === 2 && Math.abs(q2Imgs[0].y - q2Imgs[1].y) < 1 && q2Imgs[0].height < q2Box.height * 0.55, "a 2×2 with two photo parts puts them side by side across the top");
+const q2Name = await q2.getByText("Motor · Pump").boundingBox();
+check(q2Name && q2Name.y >= q2Imgs[0].y + q2Imgs[0].height - 1, "…with the names underneath, not over the photos");
+const q3 = tile(page, quad3.name);
+check((await q3.locator("img").count()) === 3 && (await q3.textContent()).trim() === "Fan · Heater · Valve +1", "a 2×2 with three photo parts shows all three and names them in a strip, +1 for the one without: " + (await q3.textContent()).trim());
 await page.screenshot({ path: `${shots}/t1-photos-phone.png` });
 
 // Switch this box to names; it sticks.

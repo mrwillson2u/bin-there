@@ -321,6 +321,15 @@ describe("bin tiles show a photo (DEC-036)", () => {
     // Arduino Nano comes first but has no photo, so the tile uses ESP32's.
     expect([(await tile()).thumbUrl, (await tile()).thumbName]).toEqual([withPhoto.thumbUrl, "ESP32"]);
     expect((await ok<LocationDetail>("GET", `/locations/${b.id}`)).thumbUrl).toBe(withPhoto.thumbUrl);
+    expect((await tile()).thumbs).toEqual([{ url: withPhoto.thumbUrl, name: "ESP32" }]);
+    // Every part with a photo is listed, A to Z, so a bigger tile can show them side by side (DEC-041).
+    const nano = (await ok<ItemDetail[]>("GET", "/items?q=Arduino"))[0]!;
+    const g = new FormData();
+    g.append("photo", new File([new Uint8Array([0xff, 0xd8, 3])], "p.jpg", { type: "image/jpeg" }));
+    g.append("thumb", new File([new Uint8Array([0xff, 0xd8, 4])], "t.jpg", { type: "image/jpeg" }));
+    const nanoPhoto = (await (await api.request(`/items/${nano.id}/photos`, { method: "POST", body: g })).json()) as ItemDetail;
+    expect((await tile()).thumbs.map((t) => t.name)).toEqual(["Arduino Nano", "ESP32"]);
+    expect([(await tile()).thumbUrl, (await tile()).thumbs[0]!.url]).toEqual([nanoPhoto.thumbUrl, nanoPhoto.thumbUrl]);
 
     expect(box.tileView).toBe("photos");
     expect((await ok<LocationDetail>("PATCH", `/locations/${box.id}`, { tileView: "names" })).tileView).toBe("names");

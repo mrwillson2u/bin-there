@@ -22,7 +22,7 @@ const binOutline: Record<BinSize, string> = {
 type Bin = LocationSummary;
 
 /** A bin from the palette that doesn't exist yet. */
-type NewBin = { id: -1; binSize: BinSize; name: string; slot: null; preview: string[]; itemCount: 0 };
+type NewBin = { id: -1; binSize: BinSize; name: string; slot: null; preview: string[]; itemCount: 0; thumbs: [] };
 
 type Drag = {
   bin: Bin | NewBin;
@@ -60,7 +60,7 @@ const EMPTY = "Empty";
 const OUT_CLASS = "grayscale opacity-70 [background-image:repeating-linear-gradient(135deg,rgba(0,0,0,0.38)_0_5px,transparent_5px_10px)]";
 const outWhere = (b: Bin) => (b.out ? (b.out.to?.name ?? b.out.note ?? "") : "");
 
-type TileShape = { shape: "square" | "wide" | "tall"; big: boolean };
+type TileShape = { shape: "square" | "wide" | "tall"; big: boolean; /** The tile in cells: one square photo fits each. */ cols: number; rows: number };
 
 /**
  * What a tile shows: for a bin that's out, "Out" and where it went; else, when the box shows
@@ -70,31 +70,54 @@ type TileShape = { shape: "square" | "wide" | "tall"; big: boolean };
  * otherwise its contents in words, or a quiet "Empty".
  */
 function TileText({ bin, label, photos, tile }: { bin: Bin; label: string; photos?: boolean; tile?: TileShape }) {
-  if (!bin.out && photos && bin.thumbUrl && tile && label !== EMPTY) {
-    const more = bin.itemCount > 1 ? bin.itemCount - 1 : 0;
-    // Name the part whose photo it is (the first with a photo may not be the first A to Z).
-    label = `${itemName(bin.thumbName ?? "")}${more > 0 ? ` +${more}` : ""}`;
+  const thumbs = bin.thumbs ?? [];
+  if (!bin.out && photos && thumbs.length > 0 && tile && label !== EMPTY) {
     const name = "text-left text-[10px] font-medium leading-tight text-white";
-    if (tile.shape === "wide") {
+    const cells = tile.cols * tile.rows;
+    const shown = thumbs.slice(0, Math.max(1, cells));
+    // Name the parts whose photos show (the first with a photo may not be the first A to Z), then how many more.
+    const more = bin.itemCount - shown.length;
+    label = `${shown.map((t) => itemName(t.name)).join(" · ")}${more > 0 ? ` +${more}` : ""}`;
+    if (shown.length === 1) {
+      const url = shown[0]!.url;
+      if (tile.shape === "wide") {
+        return (
+          <span className="pointer-events-none absolute inset-0 flex items-center gap-1.5 overflow-hidden bg-surface">
+            <img src={url} alt="" draggable={false} className="aspect-square h-full shrink-0 object-cover" />
+            <span className={`line-clamp-2 min-w-0 pr-1 ${name}`}>{label}</span>
+          </span>
+        );
+      }
+      if (tile.shape === "tall") {
+        return (
+          <span className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden bg-surface">
+            <img src={url} alt="" draggable={false} className="aspect-square w-full shrink-0 object-cover" />
+            <span className={`line-clamp-3 min-h-0 px-1 pt-1 ${name}`}>{label}</span>
+          </span>
+        );
+      }
       return (
-        <span className="pointer-events-none absolute inset-0 flex items-center gap-1.5 overflow-hidden bg-surface">
-          <img src={bin.thumbUrl} alt="" draggable={false} className="aspect-square h-full shrink-0 object-cover" />
-          <span className={`line-clamp-2 min-w-0 pr-1 ${name}`}>{label}</span>
+        <span className="pointer-events-none absolute inset-0 overflow-hidden bg-surface">
+          <img src={url} alt="" draggable={false} className="h-full w-full object-cover" />
+          <span className={`absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 ${name}`}>{label}</span>
         </span>
       );
     }
-    if (tile.shape === "tall") {
-      return (
-        <span className="pointer-events-none absolute inset-0 flex flex-col overflow-hidden bg-surface">
-          <img src={bin.thumbUrl} alt="" draggable={false} className="aspect-square w-full shrink-0 object-cover" />
-          <span className={`line-clamp-3 min-h-0 px-1 pt-1 ${name}`}>{label}</span>
-        </span>
-      );
-    }
+    // Two or more: one square photo per cell, row by row (DEC-041). Names go in the cells left over
+    // when there's a whole row (or the rest of a one-row tile); else they ride over the bottom like a 1×1's.
+    const left = cells - shown.length;
+    const beside = tile.rows === 1 && left > 0;
+    const below = !beside && left >= tile.cols;
     return (
       <span className="pointer-events-none absolute inset-0 overflow-hidden bg-surface">
-        <img src={bin.thumbUrl} alt="" draggable={false} className="h-full w-full object-cover" />
-        <span className={`absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 ${name}`}>{label}</span>
+        <span className="grid h-full w-full" style={{ gridTemplateColumns: `repeat(${tile.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${tile.rows}, minmax(0, 1fr))` }}>
+          {shown.map((t, k) => (
+            <img key={k} src={t.url} alt="" draggable={false} className="h-full w-full object-cover" />
+          ))}
+          {beside && <span className={`line-clamp-2 self-center px-1 ${name}`} style={{ gridColumn: `span ${left}` }}>{label}</span>}
+          {below && <span className={`line-clamp-3 px-1 pt-1 ${name}`} style={{ gridColumn: `span ${tile.cols}`, gridRow: `span ${Math.floor(left / tile.cols)}` }}>{label}</span>}
+        </span>
+        {!beside && !below && <span className={`absolute inset-x-0 bottom-0 truncate bg-black/60 px-1 py-0.5 ${name}`}>{label}</span>}
       </span>
     );
   }
@@ -276,7 +299,7 @@ export function BoxGrid({
   const shapeOf = (size: BinSize | null, rotated: boolean): TileShape => {
     const fp = footprint(size ?? "1x1", rotated, grid);
     const wide = size === "front_strip" || fp.w > fp.h;
-    return { shape: wide ? "wide" : fp.h > fp.w ? "tall" : "square", big: fp.w >= 2 || cellPx >= 70 };
+    return { shape: wide ? "wide" : fp.h > fp.w ? "tall" : "square", big: fp.w >= 2 || cellPx >= 70, cols: fp.w, rows: size === "front_strip" ? 1 : fp.h };
   };
 
   // No native drag-and-drop on the bins: it would steal the pointer from us.
@@ -311,7 +334,7 @@ export function BoxGrid({
           <p className="text-[13px] text-muted">Drag a new bin onto the grid:</p>
           <div className="flex flex-wrap items-end gap-2" role="group" aria-label="New bins">
             {palette.map((p) => {
-              const fresh: NewBin = { id: -1, binSize: p.size, name: p.label, slot: null, preview: [], itemCount: 0 };
+              const fresh: NewBin = { id: -1, binSize: p.size, name: p.label, slot: null, preview: [], itemCount: 0, thumbs: [] };
               return (
                 <div key={p.label} {...handlers(fresh, p.rotated)} style={pxSize(p.size, p.rotated, palettePx)} className={`cursor-grab ${binClass(p.size)} !text-[10px]`} role="button" aria-label={`New ${p.label} bin`}>
                   <span className="whitespace-nowrap">{p.short}</span>

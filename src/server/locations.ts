@@ -42,15 +42,24 @@ function slotOf(row: SummaryRow): Slot | null {
   return row.gridX !== null && row.gridY !== null ? { x: row.gridX, y: row.gridY, rotated: row.gridRotated } : null;
 }
 
-/** For a bin's tile (DEC-036): the main photo of the first part in it, A to Z, that has a photo. */
-function firstThumb(db: Db, locationId: number): { thumbUrl: string | null; thumbName: string | null } {
-  const row = db.get<{ path: string; thumb_path: string | null; name: string }>(sql`
-    select p.path, p.thumb_path, i.name from photos p join items i on i.id = p.item_id
+type Thumbs = { thumbs: { url: string; name: string }[]; thumbUrl: string | null; thumbName: string | null };
+const noThumbs: Thumbs = { thumbs: [], thumbUrl: null, thumbName: null };
+
+/**
+ * For a bin's tile (DEC-036, DEC-041): the main photo of each part in it that has one, A to Z,
+ * up to six (a front strip can show that many side by side). The first doubles as `thumbUrl`.
+ */
+function thumbsOf(db: Db, locationId: number): Thumbs {
+  const rows = db.all<{ path: string; name: string }>(sql`
+    select i.name, (select coalesce(p.thumb_path, p.path) from photos p where p.item_id = i.id order by p.is_main desc, p.id limit 1) as path
+    from items i
     where i.archived = 0 and (i.id in (select item_id from stock where location_id = ${locationId})
       or i.id in (select item_id from units where location_id = ${locationId} and status <> 'retired'))
-    order by i.name collate nocase, p.is_main desc, p.id
-    limit 1`);
-  return row ? { thumbUrl: photoUrl(row.thumb_path ?? row.path), thumbName: row.name } : { thumbUrl: null, thumbName: null };
+      and exists (select 1 from photos p where p.item_id = i.id)
+    order by i.name collate nocase, i.id
+    limit 6`);
+  const thumbs = rows.map((r) => ({ url: photoUrl(r.path), name: r.name }));
+  return { thumbs, thumbUrl: thumbs[0]?.url ?? null, thumbName: thumbs[0]?.name ?? null };
 }
 
 /** Names of the items kept right here (stock or stickered units), A–Z. */
@@ -80,7 +89,7 @@ function labelsOf(db: Db, cache: Map<number, (string | null)[] | null>, parentId
 function toSummary(
   db: Db,
   { gridX, gridY, gridRotated, outAt, outToId, outNote, parentId, ...row }: SummaryRow &
-    OutRow & { parentId: number | null } & Omit<LocationSummary, "slot" | "itemCount" | "preview" | "out" | "position" | "thumbUrl" | "thumbName">,
+    OutRow & { parentId: number | null } & Omit<LocationSummary, "slot" | "itemCount" | "preview" | "out" | "position" | "thumbUrl" | "thumbName" | "thumbs">,
   labels: Map<number, (string | null)[] | null> = new Map(),
 ): LocationSummary {
   const names = contents(db, row.id);
@@ -91,7 +100,7 @@ function toSummary(
     preview: names.slice(0, 2),
     out: outOf(db, { outAt, outToId, outNote }),
     position: row.rackSlot === null ? null : rackLabel(labelsOf(db, labels, parentId), row.rackSlot),
-    ...(row.type === "bin" && names.length > 0 ? firstThumb(db, row.id) : { thumbUrl: null, thumbName: null }),
+    ...(row.type === "bin" && names.length > 0 ? thumbsOf(db, row.id) : noThumbs),
   };
 }
 
@@ -197,7 +206,7 @@ export function getLocation(db: Db, id: number): LocationDetail {
     slot: slotOf(loc),
     rackSlot: loc.rackSlot,
     position: loc.rackSlot === null ? null : rackLabel(labelsOf(db, new Map(), loc.parentId), loc.rackSlot),
-    ...(loc.type === "bin" && here.length > 0 ? firstThumb(db, loc.id) : { thumbUrl: null, thumbName: null }),
+    ...(loc.type === "bin" && here.length > 0 ? thumbsOf(db, loc.id) : noThumbs),
     tileView: loc.tileView ?? "photos",
     rack: holdsPositions(loc.type) && loc.rackSize ? { size: loc.rackSize, labels: Array.from({ length: loc.rackSize }, (_, i) => loc.rackLabels?.[i] ?? null) } : null,
     parentId: loc.parentId,
