@@ -1208,12 +1208,12 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
-### DEC-041: Quieter grid tiles: colour as the outline, one layout for every shape
+### DEC-041: Quieter grid tiles: colour as the outline, a dark tint inside, names in one type, a veil for the unchosen
 
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-06 |
-| **Status** | Proposed (on dev, for Colin to look at) |
+| **Status** | Accepted (Colin, 2026-11-06, after five rounds on dev) |
 | **Deciders** | Colin (asked for a cleaner, less bold grid); AI (the style) |
 | **Category** | UX |
 
@@ -1276,7 +1276,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-038 | Where a part is, told as directions: a numbered route, the box as a small map, the level in words | UX | Accepted (route form added the same day) | 2026-11-06 |
 | DEC-039 | The AI deploys to ubuntubot itself, after a backup | Process | Accepted | 2026-11-06 |
 | DEC-040 | A dev branch and a dev instance; the full checks gate `main` | Process | Accepted | 2026-11-06 |
-| DEC-041 | Quieter grid tiles: colour as the outline, one layout for every shape | UX | Proposed (on dev) | 2026-11-06 |
+| DEC-041 | Quieter grid tiles: colour as the outline, a dark tint inside, names in one type, a veil for the unchosen | UX | Accepted | 2026-11-06 |
 
 ---
 
