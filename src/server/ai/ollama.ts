@@ -18,7 +18,7 @@ export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch =
         ...(schema ? { format: schema } : {}),
         // Qwen 3 models think out loud for a minute before answering; the answer is what's wanted.
         ...(/^qwen3/i.test(model) ? { think: false } : {}),
-        options: { temperature, num_ctx: 8192 },
+        options: { temperature, num_ctx: 8192, num_predict: 1500 },
       }),
       signal: AbortSignal.timeout(180_000),
     });

@@ -183,7 +183,8 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     "Suggest a value only for a field you can actually support with the pages or the markings; leave a field out rather than guess. Never invent part numbers, prices or links.",
     "For each suggestion, `source` is the URL of the page it came from, or the word photo if it was read off the part. `confidence` is high when a page states it outright for this exact part, medium when it is likely but the match isn't certain, low when it is inferred.",
     "A page marked 'the owner's page for this exact part' is the shop page the owner saved or ordered from: what it says about the part is certain (high), and its price and specifications are this part's.",
-    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory. `url` is the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong.",
+    "An Amazon page lists other products first (sponsored, 'consider these alternative items', 'customers also bought'); this part's own price is the one by its own title, and if that isn't shown, suggest no price.",
+    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong.",
     "`supplierPn` is the number to order it by: for Adafruit or SparkFun that is the product number in the adafru.it or sparkfun.com link, not a lot or date code.",
     ...(input.categoryName ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
     "Put anything the owner should know in `notes` (an unreadable value, two likely matches, a field that needs a meter reading), in plain words, one short sentence each, no greeting and no name.",
@@ -200,6 +201,7 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     pages.length === 0 ? "No pages could be read. Suggest only what the markings and what's known support, and say so in notes." : "",
   ].join("\n");
   const extractRaw = await deps.chat({ messages: [{ role: "user", content: extractPrompt }], schema: extractSchema });
+  log(`extract answer: ${extractRaw.replace(/\s+/g, " ").slice(0, 600)}`);
   const extracted = parseJson<{ identified: string; suggestions: Suggestion[]; notes: string[] }>(extractRaw, { identified: look.likelyPart, suggestions: [], notes: [] });
 
   const labels = new Map(fieldList.map((f) => [f.key, f.label.replace(/ \(.*\)$/, "")]));
@@ -235,22 +237,26 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     const value = clean(s.field, String(s.value ?? ""));
     if (!value || sameAsNow(s.field, value)) continue;
     if (s.field === "category" && !input.categories.includes(value)) continue;
-    const fromPage = pages.some((p) => p.url === s.source);
+    // No photo and no page: the only thing with anything behind it is a category guessed from the name.
+    if (images.length === 0 && pages.length === 0 && s.field !== "category") continue;
+    const page = pageFor(String(s.source ?? ""), pages, images.length > 0);
+    const fromPage = !!page;
     const fromPhoto = !fromPage;
     // Off the photo, a value has to be printed on the part to be sure: a price never is, a link or
     // a part number must be in the markings, and anything else unprinted is at best likely.
-    if (s.field === "price" && fromPhoto) continue;
+    if (s.field === "price" && (fromPhoto || !priceOnPage(value, page!.text))) continue;
     if ((s.field === "url" || s.field === "supplierPn") && fromPhoto && !printed(value)) continue;
     let confidence: Suggestion["confidence"] = s.confidence ?? "low";
+    // Amazon's page shows neighbouring products' prices first, and the model can take one of those.
+    if (s.field === "price" && page && /\bamazon\./i.test(page.url) && confidence === "high") confidence = "medium";
     if (fromPhoto && !printed(value) && confidence === "high") confidence = s.field === "category" ? "high" : "medium";
-    // A page that wasn't read can't be a source; fall back to the first page, or the photo.
-    const source = fromPage ? s.source : s.source === "photo" ? "photo" : (pages[0]?.url ?? "photo");
+    const source = page ? page.url : "photo";
     seen.add(s.field);
     suggestions.push({ field: s.field, label: labels.get(s.field)!, value, source, confidence });
   }
   log(`extract (${elapsed()}): ${suggestions.length} suggestions`);
 
-  notes.push(...(extracted.notes ?? []).filter((n) => typeof n === "string" && n.trim()).slice(0, 5));
+  if (pages.length > 0 || images.length > 0) notes.push(...(extracted.notes ?? []).filter((n) => typeof n === "string" && n.trim()).slice(0, 5));
   if (problems.length > 0 && pages.length === 0) notes.unshift(`The web search didn't answer this time (${uniq(problems)[0]}). Try again in a while; only what's on the part itself is suggested.`);
   return {
     identified: extracted.identified || look.likelyPart,
@@ -280,6 +286,21 @@ async function readDirect(url: string, link: ShopLink | null, deps: Deps): Promi
   return { title, url, text };
 }
 
+/**
+ * Which page a suggestion's `source` means. The model is asked for the page's address but often
+ * writes "the owner's page for this exact part", "Page 2" or, with no photo at all, "photo"; a
+ * page that wasn't read can't be a source either. So: the exact address, else "Page N", else the
+ * first page unless it really means the photo (only possible when there is one), else nothing.
+ */
+function pageFor<P extends { url: string }>(source: string, pages: P[], hasPhoto: boolean): P | null {
+  const exact = pages.find((p) => p.url === source);
+  if (exact) return exact;
+  const n = source.match(/\bpage\s*(\d+)/i);
+  if (n) return pages[Number(n[1]) - 1] ?? pages[0] ?? null;
+  if (/^photo$/i.test(source.trim()) && hasPhoto) return null;
+  return pages[0] ?? null;
+}
+
 const hostOf = (url: string) => {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -287,6 +308,15 @@ const hostOf = (url: string) => {
     return url;
   }
 };
+
+/** A price "from a page" has to be on it: "4.95" matches "$4.95", "4,95" and Amazon's "$ 4 . 95". */
+function priceOnPage(value: string, text: string): boolean {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return false;
+  const digits = text.replace(/(\d)\s*[.,]\s*(\d)/g, "$1.$2");
+  const forms = [n.toFixed(2), String(n), n.toFixed(1), n.toFixed(3), n.toFixed(4)];
+  return forms.some((f) => new RegExp(`(^|[^\\d.])${f.replace(".", "\\.")}(?![\\d])`).test(digits));
+}
 
 /** Letters and digits only, lower case: "adafru.it/1938" and "ADAFRU IT 1938" match. */
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

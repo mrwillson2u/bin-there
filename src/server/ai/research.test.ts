@@ -173,7 +173,7 @@ describe("researchItem", () => {
     });
     f.deps.fetchPage = async (url) => {
       f.fetched.push(url);
-      return url === "https://www.lcsc.com/product-detail/C25804.html" ? "0603WAF1002T5E 10kΩ ±1% 0.1W 0603 chip resistor. $0.0018 each. " + "x".repeat(300) : null;
+      return url === "https://www.lcsc.com/product-detail/C25804.html" ? "0603WAF1002T5E 10kΩ ±1% 0.1W 0603 chip resistor. $1.82 per 100. " + "x".repeat(300) : null;
     };
     const r = await researchItem({ ...input, url: "https://example.com/dead-link", supplier: "LCSC", supplierPn: "C25804" }, f.deps);
     expect(f.fetched).toEqual(["https://example.com/dead-link", "https://www.lcsc.com/product-detail/C25804.html"]);
@@ -210,6 +210,57 @@ describe("researchItem", () => {
     const r2 = await researchItem({ ...input, supplier: "Digi-Key", supplierPn: "1528-1938-ND" }, g.deps);
     expect(g.fetched).toEqual(["https://www.example-supplier.com/lm2596"]);
     expect(r2.notes).toEqual(["Couldn't read the shop page for the part number on record: Digi-Key pages can only be read through its API, and no Digi-Key key is set on this server."]);
+  });
+
+  it("without a photo, 'photo' as a source means the page that was read, and with nothing read either the model's notes are dropped", async () => {
+    const f = fakes({
+      look: { identified: "x", suggestions: [{ field: "name", value: "Pocket screwdriver set", source: "photo", confidence: "medium" }], notes: ["Comes with six bits."] },
+      extract: {},
+    });
+    f.deps.fetchPage = async (url) => (url === "https://www.sparkfun.com/products/12891" ? "Pocket Screwdriver Set TOL-12891 $5.50 " + "x".repeat(300) : null);
+    const r = await researchItem({ ...input, supplier: "SparkFun", supplierPn: "12891", photos: [] }, f.deps);
+    expect(r.suggestions.map((s) => [s.field, s.value, s.source])).toEqual([["url", "https://www.sparkfun.com/products/12891", "https://www.sparkfun.com/products/12891"], ["name", "Pocket screwdriver set", "https://www.sparkfun.com/products/12891"]]);
+    expect(r.notes).toEqual(["Comes with six bits."]);
+    const g = fakes({ look: { identified: "x", suggestions: [], notes: ["The part number 136-ProjectBoard-01 is listed on Mouser's website."] }, extract: {} }, []);
+    const r2 = await researchItem({ ...input, photos: [] }, g.deps);
+    expect(r2.notes).toEqual([]);
+    // ...and nothing but a category can be suggested from a name alone.
+    const h = fakes({ look: { identified: "x", suggestions: [{ field: "name", value: "Project Board", source: "photo", confidence: "medium" }, { field: "supplier", value: "Mouser", source: "photo", confidence: "medium" }, { field: "category", value: "Electronic components", source: "photo", confidence: "low" }], notes: [] }, extract: {} }, []);
+    const r3 = await researchItem({ ...input, name: "Test mouser part", categoryName: null, photos: [] }, h.deps);
+    expect(r3.suggestions.map((s) => s.field)).toEqual(["category"]);
+  });
+
+  it("takes 'the owner's page', 'Page 2' and a photo-less 'photo' as the page they mean, so a price from the page isn't thrown away", async () => {
+    const f = fakes({
+      look: { markings: [], description: "A bag of LEDs", likelyPart: "LED", queries: ["5mm LED"] },
+      extract: { identified: "x", suggestions: [{ field: "price", value: "$4.95", source: "the owner's page for this exact part", confidence: "high" }, { field: "attributes.Voltage", value: "5 V", source: "Page 1", confidence: "high" }, { field: "name", value: "NeoPixel 5mm LED", source: "photo", confidence: "high" }], notes: [] },
+    });
+    f.deps.fetchPage = async (url) => (url === "https://www.adafruit.com/product/1938" ? "NeoPixel Diffused 5mm Through-Hole LED, 5 Pack. $4.95. 5V. " + "x".repeat(300) : null);
+    const r = await researchItem({ ...input, url: "https://www.adafruit.com/product/1938" }, f.deps);
+    // With a photo, "photo" means the photo (and an unprinted name is only likely); the rest is the page.
+    expect(r.suggestions.map((s) => [s.field, s.value, s.confidence, s.source])).toEqual([
+      ["supplier", "Adafruit", "high", "https://www.adafruit.com/product/1938"],
+      ["supplierPn", "1938", "high", "https://www.adafruit.com/product/1938"],
+      ["price", "4.95", "high", "https://www.adafruit.com/product/1938"],
+      ["attributes.Voltage", "5 V", "high", "https://www.adafruit.com/product/1938"],
+      ["name", "NeoPixel 5mm LED", "medium", "photo"],
+    ]);
+  });
+
+  it("a price from a page has to be on that page", async () => {
+    const f = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: ["q1"] },
+      extract: { identified: "x", suggestions: [{ field: "price", value: "0.35", source: "https://www.lcsc.com/product-detail/C25804.html", confidence: "high" }], notes: [] },
+    });
+    f.deps.fetchPage = async (url) => (url === "https://www.lcsc.com/product-detail/C25804.html" ? "0603WAF1002T5E RES 10kΩ ±1% 100mW 0603. " + "x".repeat(300) : null);
+    expect((await researchItem({ ...input, url: "https://www.lcsc.com/product-detail/C25804.html" }, f.deps)).suggestions.map((s) => s.field)).toEqual(["supplier", "supplierPn"]);
+    const g = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: ["q1"] },
+      extract: { identified: "x", suggestions: [{ field: "price", value: "96", source: "https://www.amazon.com/dp/B07TC2BK1X", confidence: "high" }], notes: [] },
+    });
+    g.deps.fetchPage = async (url) => (url === "https://www.amazon.com/dp/B07TC2BK1X" ? "Raspberry Pi 4 Model B (4GB) $96.00 $ 96 . 00 In stock. " + "x".repeat(300) : null);
+    // On Amazon the price is only ever "likely": the page lists other products' prices first.
+    expect((await researchItem({ ...input, url: "https://www.amazon.com/dp/B07TC2BK1X" }, g.deps)).suggestions.map((s) => [s.field, s.value, s.confidence])).toEqual([["supplier", "Amazon", "high"], ["supplierPn", "B07TC2BK1X", "high"], ["price", "96.00", "medium"]]);
   });
 
   it("drops 'None' and friends: the model saying it has nothing is not a value", async () => {
