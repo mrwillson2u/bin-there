@@ -390,6 +390,7 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
     if (other) throw new ApiError(409, "CONFLICT", `${other.name} is already in that position`);
   }
   const rackSize = holdsPositions(input.type) ? (input.rackSize ?? null) : null;
+  const grid = input.type === "gridded_box" ? (input.grid ?? null) : null;
   const name = input.name ?? nextBinName(db);
   const id = db.transaction((tx) => {
     const row = tx
@@ -406,6 +407,8 @@ export function createLocation(db: Db, input: CreateLocation): LocationDetail {
         gridRotated: slot?.rotated ?? false,
         rackSlot,
         rackSize,
+        gridCols: grid?.cols ?? null,
+        gridRows: grid?.rows ?? null,
       })
       .returning({ id: locations.id })
       .get();
@@ -433,7 +436,25 @@ export function updateLocation(db: Db, id: number, input: UpdateLocation): Locat
   const clearOut = moving ? { outAt: null, outToId: null, outNote: null } : {};
   // A position only means something in the place it was given in (DEC-034).
   const parentAfter = input.parentId !== undefined ? input.parentId : before.parentId;
-  const { rackSlot: wantSlot, rackSize: _size, ...fields } = input;
+  const { rackSlot: wantSlot, rackSize: _size, grid: wantGrid, ...fields } = input;
+  // A gridded box's grid can change size as long as every placed bin still fits (DEC-047). A bin
+  // that's out keeps its spot, so it counts too. The front strip just follows the new front row.
+  const resize = wantGrid && before.type === "gridded_box" ? wantGrid : null;
+  const stripsToMove: number[] = [];
+  if (resize) {
+    const stuck: string[] = [];
+    for (const c of before.children) {
+      if (!c.slot) continue;
+      const strip = c.binSize === "front_strip";
+      const slot = strip ? { ...c.slot, y: resize.rows } : c.slot;
+      if (slotProblem(c.binSize, slot, resize, [])) stuck.push(c.name);
+      else if (strip && c.slot.y !== resize.rows) stripsToMove.push(c.id);
+    }
+    if (stuck.length > 0) {
+      throw new ApiError(409, "CONFLICT", `${stuck.join(", ")} wouldn't fit in a ${resize.cols} × ${resize.rows} grid. Move ${stuck.length === 1 ? "it" : "them"} first`);
+    }
+  }
+  const gridSize = resize ? { gridCols: resize.cols, gridRows: resize.rows } : {};
   if (wantSlot !== undefined && wantSlot !== null) {
     requireRack(db, parentAfter, wantSlot);
     const other = occupant(db, parentAfter!, wantSlot, id);
@@ -442,9 +463,10 @@ export function updateLocation(db: Db, id: number, input: UpdateLocation): Locat
   const position = wantSlot !== undefined ? { rackSlot: wantSlot } : moving ? { rackSlot: null } : {};
   db.transaction((tx) => {
     tx.update(locations)
-      .set({ ...fields, ...clearSlot, ...clearOut, ...position, updatedAt: sql`(datetime('now'))` })
+      .set({ ...fields, ...clearSlot, ...clearOut, ...position, ...gridSize, updatedAt: sql`(datetime('now'))` })
       .where(eq(locations.id, id))
       .run();
+    for (const stripId of stripsToMove) tx.update(locations).set({ gridY: resize!.rows }).where(eq(locations.id, stripId)).run();
     if (input.parentId !== undefined && input.parentId !== before.parentId) {
       tx.insert(events)
         .values({ type: "move", locationId: id, fromLocationId: before.parentId, toLocationId: input.parentId })

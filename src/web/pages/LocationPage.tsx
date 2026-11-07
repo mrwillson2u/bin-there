@@ -23,7 +23,7 @@ import { PinButton } from "../components/PinButton";
 import { BinChip, Breadcrumbs, Button, Card, inputClass, PositionTag } from "../components/ui";
 import { WhereBlock } from "../components/WhereMap";
 
-type Mode = "idle" | "assign" | "move" | "takeout";
+type Mode = "idle" | "assign" | "move" | "takeout" | "resize";
 
 /** Sites and racks mostly hold other locations; everything else mostly holds parts. */
 const holdsPlaces = (t: LocationType) => t === "site" || t === "rack";
@@ -88,6 +88,17 @@ export function LocationPage() {
     mutationFn: (parentId: number) =>
       api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { parentId } }),
     onSuccess: (l) => done(`Moved to ${l.path.at(-2)?.name ?? "?"}`),
+    onError: fail,
+  });
+  // A gridded box's grid size (DEC-047); the server refuses if a placed bin wouldn't fit.
+  const [gridDraft, setGridDraft] = useState({ cols: "", rows: "" });
+  const resize = useMutation({
+    mutationFn: (grid: { cols: number; rows: number }) => api<LocationDetail>(`/locations/${id}`, { method: "PATCH", body: { grid } }),
+    onSuccess: (l) => {
+      setMode("idle");
+      toast.show({ message: `Grid is now ${l.grid?.cols} × ${l.grid?.rows}` });
+      refresh();
+    },
     onError: fail,
   });
   const rename = useMutation({
@@ -383,6 +394,38 @@ export function LocationPage() {
             </Button>
           )}
         </div>
+
+        {isGrid && loc.grid && (
+          <div className="flex items-center gap-3">
+            <LayoutGrid size={18} className="shrink-0 text-muted" />
+            <span className="min-w-0 flex-1 text-sm">
+              Grid <span className="font-mono">{loc.grid.cols} × {loc.grid.rows}</span>
+              <span className="text-muted"> plus the front strip</span>
+            </span>
+            {mode === "idle" && (
+              <Button onClick={() => { setMessage(null); setGridDraft({ cols: String(loc.grid!.cols), rows: String(loc.grid!.rows) }); setMode("resize"); }}>
+                Change size
+              </Button>
+            )}
+          </div>
+        )}
+        {mode === "resize" && (
+          <form
+            className="flex flex-wrap items-center gap-2"
+            aria-label="Grid size"
+            onSubmit={(e) => {
+              e.preventDefault();
+              resize.mutate({ cols: Number(gridDraft.cols), rows: Number(gridDraft.rows) });
+            }}
+          >
+            <input className={`${inputClass} w-20 text-center`} value={gridDraft.cols} onChange={(e) => setGridDraft({ ...gridDraft, cols: e.target.value.replace(/\D/g, "") })} inputMode="numeric" aria-label="Cells across" autoFocus />
+            <span className="text-muted">×</span>
+            <input className={`${inputClass} w-20 text-center`} value={gridDraft.rows} onChange={(e) => setGridDraft({ ...gridDraft, rows: e.target.value.replace(/\D/g, "") })} inputMode="numeric" aria-label="Rows down" />
+            <Button variant="primary" type="submit" disabled={!(Number(gridDraft.cols) >= 1 && Number(gridDraft.rows) >= 1) || resize.isPending}>Save</Button>
+            <Button type="button" variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>
+            <span className="w-full text-[13px] text-muted">Up to 12 across and 8 down. Bins already placed must still fit.</span>
+          </form>
+        )}
 
         {mode === "assign" && (
           <ScanTarget

@@ -198,5 +198,37 @@ const hit = page.getByRole("link", { name: /^Heat-set inserts/ });
 await hit.waitFor();
 check((await hit.textContent()).replace(/\u00a0/g, " ").includes("4Box 3"), "a part's path shows its box's position: " + (await hit.textContent()).replace(/\u00a0/g, " "));
 
+// A gridded box's grid size (DEC-047): shown on its page, changed there if every placed bin still fits, and set on the form.
+const sized = await api("POST", "/locations", { name: "Sized box", type: "gridded_box", parentId: gridRack.id, grid: { cols: 4, rows: 3 } });
+const corner = await api("POST", "/locations", { type: "bin", parentId: sized.id, binSize: "1x1", slot: { x: 3, y: 2 } });
+const strip = await api("POST", "/locations", { type: "bin", parentId: sized.id, binSize: "front_strip", slot: { x: 0, y: 3 } });
+await page.goto(`${base}/locations/${sized.id}`);
+await page.getByText("Grid 4 × 3").waitFor();
+await page.getByRole("button", { name: "Change size" }).click();
+await page.getByLabel("Cells across").fill("3");
+await page.getByLabel("Rows down").fill("3");
+await page.getByRole("button", { name: "Save" }).click();
+await page.getByRole("alert").filter({ hasText: "wouldn't fit in a 3 × 3 grid" }).waitFor();
+check((await page.getByRole("alert").textContent()).includes(corner.name), "shrinking under a placed bin is refused, naming the bin: " + (await page.getByRole("alert").textContent()));
+await page.screenshot({ path: `${shots}/p-grid-size.png` });
+await page.getByLabel("Cells across").fill("5");
+await page.getByLabel("Rows down").fill("4");
+await page.getByRole("button", { name: "Save" }).click();
+await page.getByRole("status").filter({ hasText: "Grid is now 5 × 4" }).waitFor();
+const after = await api("GET", `/locations/${sized.id}`);
+check(after.grid.cols === 5 && after.grid.rows === 4, "the grid is 5 × 4");
+check(after.children.find((c) => c.id === strip.id).slot.y === 4, "the front strip followed the new front row");
+check((await page.getByRole("group", { name: "Grid of Sized box" }).count()) === 1, "the grid is drawn at the new size");
+await page.goto(`${base}/locations/new?parent=${gridRack.id}`);
+await page.getByLabel("Cells across").waitFor();
+check((await page.getByLabel("Cells across").getAttribute("placeholder")) === "6" && (await page.getByLabel("Rows down").getAttribute("placeholder")) === "4", "the form offers the grid size, 6 × 4 unless changed");
+await page.getByLabel("Cells across").fill("8");
+await page.getByLabel("Rows down").fill("2");
+await page.getByLabel("Name", { exact: true }).fill("Wide box");
+await page.getByRole("button", { name: "Save location" }).click();
+await page.getByRole("heading", { name: "Wide box" }).waitFor();
+await page.getByText("Grid 8 × 2").waitFor();
+check(true, "a new box made 8 × 2 on the form");
+
 await browser.close();
 server.kill();

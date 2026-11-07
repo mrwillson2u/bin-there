@@ -608,3 +608,30 @@ describe("live updates (DEC-046)", () => {
     await stream.close();
   });
 });
+
+describe("grid size (DEC-047)", () => {
+  it("defaults to the Allit case and takes a size on create", async () => {
+    const plain = await create({ name: "Box", type: "gridded_box" });
+    expect(plain.grid).toEqual({ cols: 6, rows: 4 });
+    const sized = await create({ name: "Small", type: "gridded_box", grid: { cols: 4, rows: 3 } });
+    expect(sized.grid).toEqual({ cols: 4, rows: 3 });
+    expect((await call("POST", "/locations", { name: "Huge", type: "gridded_box", parentId: site.id, grid: { cols: 13, rows: 3 } })).status).toBe(400);
+  });
+
+  it("changes size only if every placed bin still fits, and the strip follows the front", async () => {
+    const box = await create({ name: "Box", type: "gridded_box", grid: { cols: 4, rows: 3 } });
+    const corner = await create({ type: "bin", parentId: box.id, binSize: "2x1", slot: { x: 2, y: 2 } });
+    const strip = await create({ type: "bin", parentId: box.id, binSize: "front_strip", slot: { x: 0, y: 3 } });
+    const shrink = await call<{ error: { message: string } }>("PATCH", `/locations/${box.id}`, { grid: { cols: 3, rows: 3 } });
+    expect(shrink.status).toBe(409);
+    expect(shrink.json.error.message).toContain(corner.name);
+    expect((await call("PATCH", `/locations/${box.id}`, { grid: { cols: 4, rows: 2 } })).status).toBe(409);
+    const grown = (await call<LocationDetail>("PATCH", `/locations/${box.id}`, { grid: { cols: 6, rows: 5 } })).json;
+    expect(grown.grid).toEqual({ cols: 6, rows: 5 });
+    expect(grown.children.find((c) => c.id === strip.id)?.slot).toEqual({ x: 0, y: 5, rotated: false });
+    expect(grown.children.find((c) => c.id === corner.id)?.slot).toEqual({ x: 2, y: 2, rotated: false });
+    // A bin that's out keeps its spot, so it still counts.
+    await call("POST", `/locations/${corner.id}/take-out`, { note: "on the bench" });
+    expect((await call("PATCH", `/locations/${box.id}`, { grid: { cols: 3, rows: 5 } })).status).toBe(409);
+  });
+});

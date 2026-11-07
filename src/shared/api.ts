@@ -85,6 +85,8 @@ export const rackSizeSchema = z.object({ size: z.number().int().min(1).max(200).
 export const rackLabelsSchema = z.object({ labels: z.array(z.string().trim().max(20).nullable().transform((v) => v || null)).max(200) });
 export const rackSlotSchema = z.object({ slot: rackSlot.nullable() });
 
+export const gridSchema = z.object({ cols: z.number().int().min(1).max(12), rows: z.number().int().min(1).max(8) });
+
 export const createLocationSchema = z.object({
   /** Optional for a bin: left out, it gets the next ID in the whole system ("Bin 0042", DEC-023). Everything else needs one. */
   name: z.string().trim().min(1).max(100).optional(),
@@ -101,6 +103,8 @@ export const createLocationSchema = z.object({
   rackSlot: rackSlot.nullable().optional(),
   /** For a gridded box: tiles show photos or names (DEC-036). */
   tileView: z.enum(tileViews).optional(),
+  /** For a gridded box: its grid in cells, across × down (default 6 × 4, the Allit case; DEC-047). */
+  grid: gridSchema.optional(),
 });
 export type CreateLocation = z.infer<typeof createLocationSchema>;
 

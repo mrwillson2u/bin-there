@@ -1,13 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, ChevronRight, LogOut, Pencil, Plus, QrCode, X } from "lucide-react";
-import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSummary, ScanResult } from "../../shared/api";
+import { Camera, ChevronRight, LogOut, MoveRight, Pencil, Plus, QrCode, X } from "lucide-react";
+import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSummary, ScanResult, StockResult } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
 import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
-import { StockControl } from "./StockControl";
+import { StockControl, useStockMutation } from "./StockControl";
+import { PickLocation } from "./PickLocation";
 import { QtyBadge } from "./ItemList";
 import { PhotoSpot } from "./PhotoSpot";
 import { useToast } from "./Toast";
@@ -49,6 +50,8 @@ export function BinSheet({
   const { data: detail } = useQuery({ queryKey: ["location", bin.id], queryFn: () => api<LocationDetail>(`/locations/${bin.id}`) });
   const [adding, setAdding] = useState(false);
   const [takingOut, setTakingOut] = useState(false);
+  /** A part being moved out of this bin: the pane shows where-is-it-going (DEC-047). */
+  const [moving, setMoving] = useState<LocationItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** An unused sticker scanned while the sheet is open: offered for this bin, never put on silently. */
   const [newSticker, setNewSticker] = useState<string | null>(null);
@@ -58,6 +61,7 @@ export function BinSheet({
   useEffect(() => {
     setAdding(false);
     setTakingOut(false);
+    setMoving(null);
     setError(null);
     setNewSticker(null);
   }, [bin.id]);
@@ -144,9 +148,9 @@ export function BinSheet({
       ) : items.length === 0 ? (
         <p className="-mt-1 text-sm text-muted">Nothing in it yet.</p>
       ) : items.length === 1 ? (
-        <OnePart item={items[0]!} bin={bin} />
+        <OnePart item={items[0]!} bin={bin} onMove={() => { setError(null); setMoving(items[0]!); }} />
       ) : (
-        <PartList items={items} bin={bin} />
+        <PartList items={items} bin={bin} onMove={(i) => { setError(null); setMoving(i); }} />
       )}
 
       {detail !== undefined &&
@@ -158,6 +162,8 @@ export function BinSheet({
           />
         ) : takingOut ? (
           <TakeOutForm bin={bin} onDone={() => setTakingOut(false)} onCancel={() => setTakingOut(false)} />
+        ) : moving ? (
+          <MovePart item={moving} bin={bin} box={box} onDone={() => setMoving(null)} />
         ) : items.length === 0 || adding ? (
           <AddPart bin={bin} first={items.length === 0} onDone={() => setAdding(false)} onCancel={items.length > 0 ? () => setAdding(false) : undefined} />
         ) : (
@@ -174,7 +180,7 @@ export function BinSheet({
           </div>
         ))}
       {/* A deliberate button, on an empty bin too, so the scan target only shows when a scan will write (DEC-044). The code itself stays off the pane (DEC-024). */}
-      {detail !== undefined && !settingSticker && !takingOut && (
+      {detail !== undefined && !settingSticker && !takingOut && !moving && (
         <Button variant="ghost" className="self-start px-1 text-[13px]" onClick={() => { setError(null); setSettingSticker(true); }}>
           <QrCode size={16} /> {bin.code ? "Replace sticker" : "Set sticker"}
         </Button>
@@ -208,7 +214,7 @@ export function BinSheet({
 }
 
 /** The usual case: one kind of part in the bin. Its photo, name and count, and ways to fix them. */
-export function OnePart({ item: i, bin }: { item: LocationItem; bin: LocationSummary }) {
+export function OnePart({ item: i, bin, onMove }: { item: LocationItem; bin: LocationSummary; onMove?: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [draft, setDraft] = useState<string | null>(null);
@@ -260,6 +266,11 @@ export function OnePart({ item: i, bin }: { item: LocationItem; bin: LocationSum
             <Link to={`/items/${i.itemId}/edit`} className={`text-sm ${i.needsDetails ? "text-warn" : "text-accent"}`}>
               {i.needsDetails ? "Add details" : "Edit details"}
             </Link>
+            {i.hasStock && onMove && (
+              <button type="button" onClick={onMove} className="inline-flex min-h-8 items-center gap-1 text-sm text-accent">
+                <MoveRight size={16} /> Move
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -272,8 +283,39 @@ export function OnePart({ item: i, bin }: { item: LocationItem; bin: LocationSum
   );
 }
 
+/** Moving a part (or some of it) out of this bin: scan where it's going, or pick from the list, which opens beside this bin (DEC-047). */
+function MovePart({ item, bin, box, onDone }: { item: LocationItem; bin: LocationSummary; box: LocationDetail; onDone: () => void }) {
+  const handlers = useStockMutation();
+  const [qty, setQty] = useState("");
+  const partial = item.tracking === "exact" && item.qty !== null && item.qty > 1;
+  const move = useMutation({
+    mutationFn: (to: { id: number; name: string }) =>
+      api<StockResult>("/stock/move", {
+        method: "POST",
+        body: { itemId: item.itemId, fromLocationId: bin.id, toLocationId: to.id, qty: qty ? Number(qty) : undefined },
+      }),
+    ...handlers((_, to: { name: string }) => `Moved ${itemName(item.name)} to ${to.name}`),
+    onSettled: onDone,
+  });
+  return (
+    <PickLocation
+      title={`Move ${itemName(item.name)} from ${bin.name}: scan where it's going`}
+      near={[...box.path, { id: bin.id, name: bin.name }]}
+      onPick={(l) => move.mutate(l)}
+      onCancel={onDone}
+    >
+      {partial && (
+        <label className="flex items-center gap-2 text-sm text-muted">
+          How many?
+          <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder={`all ${item.qty}`} className={`${inputClass} w-28 text-center font-mono`} aria-label="How many to move" />
+        </label>
+      )}
+    </PickLocation>
+  );
+}
+
 /** Two or more parts: a row each, with a photo (or a button to take one) and the count. */
-function PartList({ items, bin }: { items: LocationItem[]; bin: LocationSummary }) {
+function PartList({ items, bin, onMove }: { items: LocationItem[]; bin: LocationSummary; onMove: (item: LocationItem) => void }) {
   return (
     <ul className="divide-y divide-border rounded-2xl border border-border">
       {items.map((i) => {
@@ -290,6 +332,11 @@ function PartList({ items, bin }: { items: LocationItem[]; bin: LocationSummary 
               {i.units > 0 && <Badge tone="info">{i.units} stickered</Badge>}
               {i.tracking === "exact" ? stock : null}
               {!i.hasStock && i.units === 0 && <QtyBadge qty={i.qty} level={i.level} units={i.units} tracking={i.tracking} />}
+              {i.hasStock && (
+                <button type="button" onClick={() => onMove(i)} aria-label={`Move ${itemName(i.name)}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-accent">
+                  <MoveRight size={18} />
+                </button>
+              )}
             </div>
             {i.tracking === "level" && stock}
           </li>

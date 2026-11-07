@@ -15,6 +15,7 @@ import {
   type LocationSummary,
   type LocationType,
 } from "../../shared/api";
+import { DEFAULT_GRID } from "../../shared/grid";
 import { api } from "../api";
 import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
@@ -60,6 +61,13 @@ export function LocationFormPage() {
   const [binSize, setBinSize] = useState<BinSize>("1x1");
   // Racks and shelves: how many numbered positions (DEC-034). From an empty position: which one it goes in.
   const [rackSize, setRackSize] = useState("");
+  // Gridded boxes: cells across and down (DEC-047). Blank means the Allit case, 6 × 4.
+  const [grid, setGrid] = useState({ cols: "", rows: "" });
+  const gridValue = () => {
+    const cols = Math.min(12, Math.max(1, Number(grid.cols) || DEFAULT_GRID.cols));
+    const rows = Math.min(8, Math.max(1, Number(grid.rows) || DEFAULT_GRID.rows));
+    return { cols, rows };
+  };
   const slotParam = params.get("slot");
   const rackSlot = fixedParent !== null && slotParam !== null && /^\d+$/.test(slotParam) ? Number(slotParam) : null;
   const [code, setCode] = useState(params.get("code") ?? "");
@@ -82,6 +90,7 @@ export function LocationFormPage() {
           binSize: type === "bin" ? binSize : null,
           ...(holdsPositions(type) && Number(rackSize) >= 1 ? { rackSize: Math.min(200, Number(rackSize)) } : {}),
           ...(rackSlot !== null ? { rackSlot } : {}),
+          ...(type === "gridded_box" ? { grid: gridValue() } : {}),
         },
       }),
     onSuccess: (loc) => {
@@ -178,6 +187,17 @@ export function LocationFormPage() {
             placeholder="e.g. 12"
           />
           <span className="text-[13px] text-muted">If it has numbered slots, how many. They're numbered 1, 2, 3… and you can rename them.</span>
+        </Field>
+      )}
+
+      {type === "gridded_box" && (
+        <Field label="Grid size">
+          <div className="flex items-center gap-2">
+            <input className={`${inputClass} w-20 text-center`} value={grid.cols} onChange={(e) => setGrid({ ...grid, cols: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder={String(DEFAULT_GRID.cols)} aria-label="Cells across" />
+            <span className="text-muted">×</span>
+            <input className={`${inputClass} w-20 text-center`} value={grid.rows} onChange={(e) => setGrid({ ...grid, rows: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder={String(DEFAULT_GRID.rows)} aria-label="Rows down" />
+          </div>
+          <span className="text-[13px] text-muted">Cells across × rows down, not counting the front strip. The Allit case is 6 × 4. You can change it later on the box's page.</span>
         </Field>
       )}
 

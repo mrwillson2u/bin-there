@@ -1337,6 +1337,23 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-047: Three small reaches: the count under the name, Move in the bin pane, a box's grid size
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted (Colin, Q59) |
+| **Deciders** | Colin |
+| **Category** | UX / Data |
+
+**Context:** Three things the story walk and the flow review kept flagging. On a phone the part page's count sat below the photo and the route, out of reach without scrolling. The bin pane had no way to move a part out of the bin. And a gridded box was always the Allit case's 6 × 4: nothing let you say otherwise, on the form or later.
+
+**Decision:** **(1)** The part page shows one count row per place it's in, right under the name and type and above the photos: "In Bin 0001 − 40 +" (or Plenty / Low / Out). The Where card keeps the route, Home and Move, without a second copy of the count. **(2)** Every part in the bin pane has a Move: it opens the same "scan where it's going, or pick from the list" as the part page, with the list opening beside this bin, and a "How many?" box when there's more than one. **(3)** A gridded box has a grid size: cells across × rows down (1 to 12 × 1 to 8), not counting the front strip; 6 × 4 unless changed. The form asks for it, and the box's page shows it with Change size. The server refuses a size a placed bin wouldn't fit in, naming the bin, and counts bins that are out (their spot is saved). The front strip follows the new front row.
+
+**Consequences:** `ItemPage.tsx` (`Header`, `PlaceCard`), `BinSheet.tsx` (`MovePart`, Move buttons), `LocationFormPage.tsx`, `LocationPage.tsx`, `gridSchema` and `grid` on create/update in `src/shared/api.ts`, `createLocation`/`updateLocation` in `locations.ts`; `fill-check.mjs`, `pages-check.mjs`, server tests. The walk's "Use one visible without scrolling" and "pane has a way to move the part" notes read true now.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1387,6 +1404,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-044 | One scan language: a scan colour, a scan target on every scanning screen, the bar as the status | UX | Accepted | 2026-11-06 |
 | DEC-045 | The name is written "Bin→There", with the arrow | Product | Accepted | 2026-11-06 |
 | DEC-046 | Screens update themselves when another device changes something | UX / Architecture | Accepted | 2026-11-06 |
+| DEC-047 | The count under the name, Move in the bin pane, a box's grid size | UX / Data | Accepted | 2026-11-06 |
 
 ---
 

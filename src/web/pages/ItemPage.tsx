@@ -147,8 +147,9 @@ export function ItemPage() {
   );
 }
 
-/** Name first, then the photos (DEC-031). */
+/** Name first, then the count for each place it's in, then the photos (DEC-031, DEC-047). */
 function Header({ item }: { item: ItemDetail }) {
+  const stocked = item.places.filter((p) => p.hasStock);
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start gap-3">
@@ -163,6 +164,17 @@ function Header({ item }: { item: ItemDetail }) {
           <Pencil size={18} /> Edit
         </Link>
       </div>
+      {/* The count sits above the photos so it's in reach on a phone without scrolling. */}
+      {stocked.map((p) => (
+        <div key={p.locationId} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border px-3 py-2" data-count-row>
+          <span className="min-w-0 flex-1 truncate text-sm">
+            <span className="text-muted">In </span>
+            {p.path.at(-1)?.name}
+            {p.out && <span className="text-muted"> (bin out)</span>}
+          </span>
+          <StockControl itemId={item.id} locationId={p.locationId} placeName={p.path.at(-1)?.name ?? ""} tracking={item.tracking} qty={p.qty} level={p.level} stale={p.stale} compact />
+        </div>
+      ))}
       <PartPhotos item={item} />
     </div>
   );
@@ -194,17 +206,6 @@ function PlaceCard({ item, place, onMove }: { item: ItemDetail; place: Place; on
           <House size={16} /> {place.isHome ? "Home" : "Make home"}
         </button>
       </div>
-      {place.hasStock && (
-        <StockControl
-          itemId={item.id}
-          locationId={place.locationId}
-          placeName={name}
-          tracking={item.tracking}
-          qty={place.qty}
-          level={place.level}
-          stale={place.stale}
-        />
-      )}
       <div className="flex items-center gap-2">
         {place.units > 0 && <Badge tone="info">{place.units} stickered</Badge>}
         <span className="flex-1" />

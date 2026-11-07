@@ -168,6 +168,21 @@ await offer.waitFor({ state: "detached" });
 check((await api("GET", `/locations/${b[0].id}`)).code === "BIN0001", "'Not now' leaves the bin's sticker alone");
 check(!(await sheet().textContent()).includes("BIN0001"), "the pane doesn't show the sticker code");
 
+// Move a part out of the bin from the pane (DEC-047): scan where it's going, or pick from the list, which opens beside this bin.
+await sheet().getByRole("button", { name: "Move M3 washers" }).click();
+await sheet().getByText("Move M3 washers from Bin 0001: scan where it's going").waitFor();
+await sheet().getByRole("button", { name: "Pick from list" }).click();
+await sheet().getByText("Inside Screws box").waitFor();
+check((await sheet().getByText("Bin 0001 (here now)").count()) === 1, "the list opens beside this bin, marked 'here now'");
+await page.screenshot({ path: `${shots}/f6c-move-from-pane.png` });
+await sheet().getByRole("button", { name: "Choose Bin 0002" }).click();
+await toast("Moved M3 washers to Bin 0002");
+await sheet().getByRole("link", { name: "Open M3 hex nuts" }).waitFor();
+check((await api("GET", `/locations/${b[1].id}`)).items.some((i) => i.name === "M3 washers"), "the washers are in Bin 0002 now");
+check((await sheet().getByRole("button", { name: "Move", exact: true }).count()) === 1, "one part left: the pane still offers Move");
+await api("POST", "/stock/move", { itemId: (await api("GET", `/locations/${b[1].id}`)).items[0].itemId, fromLocationId: b[1].id, toLocationId: b[0].id });
+await sheet().getByRole("listitem").nth(1).waitFor();
+
 // Scan another bin's sticker: the pane switches to it.
 await api("POST", `/locations/${b[1].id}/code`, { code: "BIN0002" });
 await scan("BIN0002");
