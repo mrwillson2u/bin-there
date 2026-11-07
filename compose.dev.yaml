@@ -1,7 +1,15 @@
-# The dev instance (DEC-040): the `dev` branch running beside the live app on ubuntubot, from
-# ~/bin-there-dev, on port 3001, against a throwaway copy of the live data
-# (scripts/dev-data-refresh.sh). No backups: nothing here is worth keeping.
+# The dev instance (DEC-040, DEC-050): the development folder ~/bin-there on ubuntubot, on
+# whatever branch is being worked on (usually `dev`), on port 3001, against a throwaway copy
+# of the live data (scripts/dev-data-refresh.sh). No backups: nothing here is worth keeping.
+# The AI data fill (DEC-048, DEC-049) runs here too: its own Ollama container on the GPU with
+# the models in a named volume, the web search going to the SearXNG already on the host, and
+# the shop API keys read from a `.env` beside this file (compose reads it by itself):
+#   MOUSER_API_KEY=…            from mouser.com/api-hub (Search API)
+#   DIGIKEY_CLIENT_ID=…         from developer.digikey.com (an app with Product Information V4)
+#   DIGIKEY_CLIENT_SECRET=…
 #   docker compose -f compose.dev.yaml up -d --build
+#   docker exec bin-there-ollama ollama pull gemma3:4b      # once, or whatever AI_MODEL is
+# The live app is ~/bin-there-prod (compose.yaml), which never runs the AI until it ships.
 name: bin-there-dev
 services:
   bin-there-dev:
@@ -12,5 +20,35 @@ services:
       - "127.0.0.1:3001:3000"
     environment:
       TZ: ${TZ:-UTC}
+      AI_URL: http://ollama:11434
+      AI_MODEL: ${AI_MODEL:-gemma3:4b}
+      SEARCH_URL: ${SEARCH_URL:-http://host.docker.internal:8989}
+      MOUSER_API_KEY: ${MOUSER_API_KEY:-}
+      DIGIKEY_CLIENT_ID: ${DIGIKEY_CLIENT_ID:-}
+      DIGIKEY_CLIENT_SECRET: ${DIGIKEY_CLIENT_SECRET:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/data
+    depends_on:
+      - ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bin-there-ollama
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11435:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+volumes:
+  ollama-models:
+    # The volume the ai instance pulled gemma3:4b into (DEC-048); kept so nothing downloads again.
+    name: bin-there-ai_ollama-models
+    external: true

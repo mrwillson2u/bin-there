@@ -1394,6 +1394,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** With a link pasted in, the look-up needs no search engine and no photo and takes one page read plus one model call: the common case is fast and sure. The cost is two keys Colin registers for once. An Amazon price wants a glance before Use; LCSC shows prices only by script, so none comes from it; LCSC links must be the product page (its search page is scripts). The web search and the photo reading stay as the fallback for a part with no link and nothing on record. Honest limit: no website is guaranteed readable forever; the six are covered today by plain pages or official APIs, and anything else that refuses says so instead of guessing. Not built: reading a page shared from the phone's own browser (the universal path when a site refuses the server); worth it if a seventh shop appears.
 
+### DEC-050: Two folders on the server, production and development; no folder per branch
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-07 |
+| **Status** | Accepted (Colin, Q65) |
+| **Deciders** | Colin |
+| **Category** | Process |
+
+**Context:** The AI experiment got a third checkout (`~/bin-there-ai`, a git worktree of the dev clone) because the live app's folder can only have one branch checked out and the dev folder was busy with `dev`. Colin asked why a separate folder rather than a branch, and then: "let's make a production folder rather than making a bunch of random development folders". The folders had grown by accretion: `~/bin-there` (live, `main`), `~/bin-there-dev` (`dev`), `~/bin-there-ai` (`ai`), each with its own container.
+
+**Decision:** Two folders and no others. **`~/bin-there-prod`** is production: only ever `main`, the live container `bin-there` on port 3000, the real data and backups; it is only ever touched to deploy. **`~/bin-there`** is development: one checkout where branches are switched freely (`dev`, an experiment branch, whatever is being worked on); the dev instance runs from it on port 3001 (`compose.dev.yaml`), which now also carries the AI data fill's Ollama container and shop API keys, so an experiment branch needs no instance of its own: switch to it and rebuild the dev instance. The `ai` branch was merged into `dev` (a fast-forward; the feature stays off on any instance without `AI_URL`), `compose.ai.yaml` and the ai folder and container are gone, and the downloaded model's volume is reused by name. Done 2026-11-07 after a backup: the live container was stopped, the folder renamed, the container started again from the new path (same image, same data, same port, so Tailscale and the phone saw a minute's outage and nothing else), then the dev folder renamed to `~/bin-there`.
+
+**Consequences:** One rule to remember: edit in `~/bin-there`, deploy from `~/bin-there-prod`. The compose project for production is now named after its folder (`bin-there-prod`), which changes nothing for the container or its name. The dev data refresh script's guard now checks for the `~/bin-there` folder. Anyone opening `~/bin-there` in an editor is in the development folder, which is what they want. The old port 8445 Tailscale mapping (the ai instance) is dead and can be turned off; 8444 still reaches the dev instance.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1446,7 +1461,8 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-046 | Screens update themselves when another device changes something | UX / Architecture | Accepted | 2026-11-06 |
 | DEC-047 | The count under the name, Move in the bin pane, a box's grid size | UX / Data | Accepted | 2026-11-06 |
 | DEC-048 | AI data fill as an experiment on the `ai` branch: a local model reads the photos, looks the part up, suggests details | Product / Architecture | Experiment (not on main) | 2026-11-06 |
-| DEC-049 | The AI reads the shop's own page first (the link, or supplier + part number); Mouser and Digi-Key through their APIs | Product / Architecture | Accepted (on `ai`) | 2026-11-06 |
+| DEC-049 | The AI reads the shop's own page first (the link, or supplier + part number); Mouser and Digi-Key through their APIs | Product / Architecture | Accepted (on `dev`) | 2026-11-06 |
+| DEC-050 | Two folders on the server, production and development; no folder per branch | Process | Accepted | 2026-11-07 |
 
 ---
 

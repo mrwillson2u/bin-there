@@ -7,7 +7,8 @@ One Docker container on the Ubuntu server, reached over HTTPS through Tailscale 
 
 1. **Tailscale HTTPS:** in the Tailscale admin console → DNS, make sure **MagicDNS** and
    **HTTPS Certificates** are enabled. The iPhone camera only works over HTTPS.
-2. **Get the code onto the server:** `git clone git@github.com:mrwillson2u/bin-there.git ~/bin-there`.
+2. **Get the code onto the server:** `git clone git@github.com:mrwillson2u/bin-there.git ~/bin-there-prod`
+   (the production folder, DEC-050; development happens in `~/bin-there`, see below).
 3. **Backup folder:** create it and tell compose where it is. ubuntubot has no separate
    data drive (the other partitions are Windows/BitLocker), so for now it's in the home folder:
    ```bash
@@ -22,8 +23,8 @@ The app has been running on the Mac (`macbip-pro`) with its data in `./data`. To
 
 ```bash
 # On the Mac: stop the app so the database is quiet, then copy code + data to the server.
-# (The Mac folder is still named stack-n-track; it lands as ~/bin-there on the server.)
-rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/stack-n-track/ <server>:~/bin-there/
+# (The Mac folder is still named stack-n-track; it landed as ~/bin-there on the server, renamed ~/bin-there-prod on 2026-11-07.)
+rsync -av --exclude node_modules --exclude dist --exclude backups ~/Projects/stack-n-track/ <server>:~/bin-there-prod/
 # On the Mac: stop serving the old copy over Tailscale.
 /Applications/Tailscale.app/Contents/MacOS/Tailscale serve reset
 ```
@@ -35,7 +36,7 @@ Then follow "Deploy / update" below on the server. The server gets its own Tails
 ## Deploy / update
 
 ```bash
-cd ~/bin-there
+cd ~/bin-there-prod           # production: only ever main, only ever touched to deploy
 git pull                      # if using git
 docker compose up -d --build  # builds, runs tests, starts on 127.0.0.1:3000
 sudo tailscale serve --bg --https=8443 3000   # one time; port 443 is taken by Wazuh on ubuntubot
@@ -46,20 +47,21 @@ Open that URL on the iPhone (with Tailscale on). In Safari: Share → **Add to H
 It then opens full-screen like an app, and the app itself loads from the phone's cache even on a
 weak signal (stock data always comes fresh from the server).
 
-## Dev instance (DEC-040)
+## Development folder and dev instance (DEC-040, DEC-050)
 
-An `ai` checkout (`~/bin-there-ai`, branch `ai`, `compose.ai.yaml`, port 3002) runs the AI data fill experiment
-with its own Ollama container on the GPU (DEC-048); it is never merged to `main` without the full gate.
-
-A second checkout on the `dev` branch runs beside the live app, on port 3001, against a
-throwaway copy of the live data. Visual changes go here first; `main` only moves when the full
-checks pass.
+Two folders on the server, nothing else: `~/bin-there-prod` is production (above) and
+`~/bin-there` is development. The development folder is one checkout where branches are
+switched freely (`dev`, an experiment branch, whatever is being worked on); the dev instance
+runs from it beside the live app, on port 3001, against a throwaway copy of the live data, with
+the AI data fill's model container (DEC-048) and the shop API keys from its `.env`. Visual
+changes go here first; `main` only moves when the full checks pass.
 
 ```bash
-git clone --branch dev git@github.com:mrwillson2u/bin-there.git ~/bin-there-dev
-cd ~/bin-there-dev
-echo "TZ=$(cat /etc/timezone)" > .env
+git clone --branch dev git@github.com:mrwillson2u/bin-there.git ~/bin-there
+cd ~/bin-there
+echo "TZ=$(cat /etc/timezone)" > .env               # plus MOUSER_API_KEY=… and the Digi-Key pair, see compose.dev.yaml
 scripts/dev-data-refresh.sh                       # copies the newest backup in, builds, starts
+docker exec bin-there-ollama ollama pull gemma3:4b
 sudo tailscale serve --bg --https=8444 3001       # one time; then https://ubuntubot.<tailnet>.ts.net:8444
 ```
 
@@ -90,7 +92,7 @@ amber if the last backup failed or is more than a day and a half old.
 ### Restore
 
 ```bash
-cd ~/bin-there
+cd ~/bin-there-prod
 docker compose down
 mv data data.broken-$(date +%F)                         # keep the old copy, just in case
 mkdir -p data

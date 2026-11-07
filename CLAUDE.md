@@ -10,14 +10,16 @@ live data, verify before claiming done). This file does not restate them; it onl
 and code architecture. Current state, where things run, and what's next are in the **Handoff**
 section of `framework/AI-Context.md`. Deploy and restore steps are in `DEPLOY.md`.
 
-## This checkout may be the live server
+## Two folders on the server: production and development
 
-`~/bin-there` on `ubuntubot` is the production checkout: the `bin-there` Docker container runs from
-it and `./data` is the live database and photos. Check `hostname` before running anything. On
-ubuntubot, do not run `npm run dev`, `npm start`, or tests that write to `./data`; `node_modules`
-is deliberately absent there (the image installs its own). Develop in `~/bin-there-dev` (branch `dev`, its own
-container on :3001 via `compose.dev.yaml`, throwaway data; DEC-040) or in a copy with its own `DATA_DIR`,
-and take a backup before any redeploy of the live app (see `AGENTS.md`).
+On `ubuntubot` (check `hostname` and `pwd` before running anything), `~/bin-there-prod` is production:
+only ever `main`, the `bin-there` Docker container runs from it and its `./data` is the live database
+and photos; it is only ever touched to deploy (DEC-050). `~/bin-there` is development: one checkout
+where branches are switched freely (usually `dev`), with the dev instance (`compose.dev.yaml`: container
+`bin-there-dev` on :3001 plus the AI's Ollama container, throwaway data; DEC-040). Never make a third
+folder for a branch. On ubuntubot, do not run `npm run dev`, `npm start`, or tests that write to
+`./data`; `node_modules` is deliberately absent there (the image installs its own); run checks on a
+copy with its own `DATA_DIR`. Take a backup before any redeploy of the live app (see `AGENTS.md`).
 
 ## Commands
 
@@ -44,7 +46,7 @@ PORT=3011 DATA_DIR=/tmp/bt-test npm start
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`
 (default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`, and on the
-`ai` branch `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG),
+`dev` branch (not yet on `main`) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG),
 `MOUSER_API_KEY`, `DIGIKEY_CLIENT_ID` + `DIGIKEY_CLIENT_SECRET` (shop APIs, DEC-049).
 
 After a schema change, run `npm run db:generate` and check the migration against an old-shaped
@@ -80,7 +82,7 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.
-  - `ai/` (DEC-048, `ai` branch): `research.ts` is the data-fill pipeline (look at photos → read the part's
+  - `ai/` (DEC-048, on `dev`, not yet on `main`): `research.ts` is the data-fill pipeline (look at photos → read the part's
     own page → search only if that fails → extract), taking `chat`, `search`, `fetchPage`, `shops` and
     `readPhoto` as arguments so tests use fakes; `ollama.ts` and `search.ts` are the real ones (Ollama chat
     with a JSON schema, SearXNG + page text). `shops.ts` knows the six shops' links and page addresses
