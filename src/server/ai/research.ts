@@ -248,8 +248,12 @@ function describeKnown(input: ResearchInput): string {
   return lines.join("\n");
 }
 
+/** "None", "N/A", "unknown": the model saying it has nothing, which is not a value. */
+const PLACEHOLDER = /^(none|n\/a|na|null|unknown|not (specified|available|found|known)|unspecified|-+|\?+)$/i;
+
 function clean(field: string, value: string): string {
   let v = value.trim();
+  if (PLACEHOLDER.test(v)) return "";
   if (field === "price") {
     const m = v.replace(/,/g, "").match(/\d+(\.\d+)?/);
     if (!m) return "";

@@ -132,6 +132,14 @@ describe("researchItem", () => {
     expect(ada.prompts[1]!.content).toContain("NeoPixel Diffused 5mm Through-Hole LED");
   });
 
+  it("drops 'None' and friends: the model saying it has nothing is not a value", async () => {
+    const f = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: [] },
+      extract: { identified: "x", suggestions: [{ field: "supplier", value: "None", source: "photo", confidence: "low" }, { field: "supplierPn", value: "N/A", source: "photo", confidence: "low" }, { field: "attributes.Interface", value: "unknown", source: "photo", confidence: "low" }], notes: [] },
+    }, []);
+    expect((await researchItem({ ...input, photos: ["a.jpg"] }, f.deps)).suggestions).toEqual([]);
+  });
+
   it("reads product links off labels", () => {
     expect(labelLinks(["RasPi stacking headers", "http://adafru.it/1112", "adafru.it/1112"])).toEqual([{ supplier: "Adafruit", productNumber: "1112", url: "https://www.adafruit.com/product/1112" }]);
     expect(labelLinks(["https://www.sparkfun.com/products/13678"])).toEqual([{ supplier: "SparkFun", productNumber: "13678", url: "https://www.sparkfun.com/products/13678" }]);
