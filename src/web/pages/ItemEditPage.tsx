@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Sparkles, Trash2, X } from "lucide-react";
 import {
   itemKindLabels,
   itemKinds,
@@ -15,12 +15,15 @@ import {
   type StockResult,
   type TrackingMode,
   type UpdateItem,
+  type AiFill,
+  type Suggestion,
 } from "../../shared/api";
 import { api } from "../api";
 import { CategoryPicker, useCreateCategory } from "../components/CategoryPicker";
 import { LevelButtons } from "../components/StockControl";
 import { useToast } from "../components/Toast";
 import { Button, Field, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
+import { AiSuggestions, useAiStatus } from "../components/AiSuggestions";
 
 /** An amount as the form holds it: a typed count ("" = not counted) or a level. */
 type Amount = string;
@@ -72,6 +75,31 @@ export function ItemForm({
   const [notes, setNotes] = useState(item.notes ?? "");
   const [lowThreshold, setLowThreshold] = useState(item.lowThreshold?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
+  // AI data fill (DEC-048): which fields hold a value the AI suggested, and where it came from.
+  // Typing in one of those fields by hand takes the mark off.
+  const [aiFields, setAiFields] = useState<Record<string, AiFill>>(item.aiFields ?? {});
+  const ai = useAiStatus();
+  const byHand = (field: string) =>
+    setAiFields((f) => {
+      if (!(field in f)) return f;
+      const { [field]: _gone, ...rest } = f;
+      return rest;
+    });
+  const useSuggestion = (s: Suggestion) => {
+    const at = new Date().toISOString();
+    if (s.field === "name") setName(s.value);
+    else if (s.field === "category") {
+      const c = categories.find((x) => x.name === s.value);
+      if (!c) return;
+      setCategoryId(c.id);
+    } else if (s.field === "supplier") setSupplier(s.value);
+    else if (s.field === "supplierPn") setSupplierPn(s.value);
+    else if (s.field === "price") setPrice(s.value);
+    else if (s.field === "url") setUrl(s.value);
+    else if (s.field.startsWith("attributes.")) setValue(s.field.slice(11), s.value);
+    else return;
+    setAiFields((f) => ({ ...f, [s.field]: { source: s.source, at } }));
+  };
   // How much is in each place (bulk stock only; stickered units count themselves).
   const stocked = item.places.filter((p) => p.hasStock);
   const [amounts, setAmounts] = useState<Record<number, Amount>>(() => Object.fromEntries(stocked.map((p) => [p.locationId, amountOf(p, item.tracking)])));
@@ -126,6 +154,7 @@ export function ItemForm({
         url: url.trim() || null,
         notes: notes.trim() || null,
         lowThreshold: tracking === "exact" && lowThreshold.trim() ? Number(lowThreshold) : null,
+        aiFields,
       };
       let saved = await api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body });
       // Then the amounts that were changed here, each a recount (in the log, undoable from Activity).
@@ -200,8 +229,12 @@ export function ItemForm({
         </Link>
       )}
 
+      {ai?.enabled && (
+        <AiSuggestions item={item} used={aiFields} onUse={useSuggestion} />
+      )}
+
       <Field label="Name">
-        <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="e.g. M3 × 10 socket cap screw" autoFocus={!item.name} />
+        <input value={name} onChange={(e) => { setName(e.target.value); byHand("name"); }} className={inputClass} placeholder="e.g. M3 × 10 socket cap screw" autoFocus={!item.name} />
       </Field>
 
       <div className="flex flex-col gap-1.5">
@@ -209,7 +242,7 @@ export function ItemForm({
         <CategoryPicker
           categories={categories}
           value={categoryId}
-          onChange={(c) => setCategoryId(c?.id ?? null)}
+          onChange={(c) => { setCategoryId(c?.id ?? null); byHand("category"); }}
           onCreate={(n) => createCategory(n, { defaultKind: kind, defaultTracking: tracking })}
           allowNone
         />
@@ -262,7 +295,7 @@ export function ItemForm({
           <div className="grid grid-cols-2 gap-3">
             {category.fieldDefs.map((f) => (
               <Field key={f.key} label={f.label}>
-                <input value={value(f.key)} onChange={(e) => setValue(f.key, e.target.value)} className={inputClass} />
+                <input value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={inputClass} />
               </Field>
             ))}
           </div>
@@ -299,17 +332,17 @@ export function ItemForm({
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Price">
-          <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} className={inputClass} placeholder="0.00" />
+          <input inputMode="decimal" value={price} onChange={(e) => { setPrice(e.target.value); byHand("price"); }} className={inputClass} placeholder="0.00" />
         </Field>
         <Field label="Supplier">
-          <input value={supplier} onChange={(e) => setSupplier(e.target.value)} className={inputClass} placeholder="DigiKey, Amazon…" />
+          <input value={supplier} onChange={(e) => { setSupplier(e.target.value); byHand("supplier"); }} className={inputClass} placeholder="DigiKey, Amazon…" />
         </Field>
       </div>
       <Field label="Supplier part #">
-        <input value={supplierPn} onChange={(e) => setSupplierPn(e.target.value)} className={`${inputClass} font-mono`} />
+        <input value={supplierPn} onChange={(e) => { setSupplierPn(e.target.value); byHand("supplierPn"); }} className={`${inputClass} font-mono`} />
       </Field>
       <Field label="Link">
-        <input type="url" inputMode="url" value={url} onChange={(e) => setUrl(e.target.value)} className={inputClass} placeholder="https://" />
+        <input type="url" inputMode="url" value={url} onChange={(e) => { setUrl(e.target.value); byHand("url"); }} className={inputClass} placeholder="https://" />
       </Field>
       <Field label="Notes">
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={`${inputClass} py-2`} />

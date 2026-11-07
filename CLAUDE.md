@@ -43,7 +43,8 @@ PORT=3011 DATA_DIR=/tmp/bt-test npm start
 ```
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`
-(default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`.
+(default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`, and on the
+`ai` branch `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG).
 
 After a schema change, run `npm run db:generate` and check the migration against an old-shaped
 database; the "migrations" test in `src/server/app.test.ts` shows how.
@@ -78,6 +79,11 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.
+  - `ai/` (DEC-048, `ai` branch): `research.ts` is the data-fill pipeline (look at photos → search → extract),
+    taking `chat`, `search`, `fetchPage` and `readPhoto` as arguments so tests use fakes; `ollama.ts` and
+    `search.ts` are the real ones (Ollama chat with a JSON schema, SearXNG + page text). On only when
+    `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`). The AI never writes: `POST /items/:id/research`
+    returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time).
   - `changes.ts`: live updates (DEC-046). A middleware in `app.ts` bumps `Changes` after every
     successful non-GET request (backups excepted) with the writer's `X-Client` header;
     `GET /api/changes` streams them as server-sent events. Any new write route gets this for free.

@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { openDb } from "./db/client";
-import { createApi } from "./app";
+import { createApi, type AiConfig } from "./app";
 import { msUntilHour, scheduleBackups, type BackupConfig } from "./backup";
 import { scheduleHousekeeping } from "./housekeeping";
 
@@ -24,8 +24,14 @@ else console.log("backups disabled: set BACKUP_DIR to enable");
 // Items deleted over a month ago are removed for good, an hour after the backup.
 scheduleHousekeeping(db, photoDir, msUntilHour, (Number(process.env.BACKUP_HOUR ?? 3) + 1) % 24);
 
+// AI data fill (DEC-048): off unless AI_URL points at an Ollama server. SEARCH_URL is a SearXNG.
+const ai: AiConfig | undefined = process.env.AI_URL
+  ? { url: process.env.AI_URL, model: process.env.AI_MODEL ?? "gemma3:4b", searchUrl: process.env.SEARCH_URL || null }
+  : undefined;
+console.log(ai ? `AI data fill on: ${ai.model} at ${ai.url}, search ${ai.searchUrl ?? "off"}` : "AI data fill off: set AI_URL to enable");
+
 const app = new Hono();
-app.route("/api", createApi(db, { photoDir, backup }));
+app.route("/api", createApi(db, { photoDir, backup, ai }));
 app.use("/*", serveStatic({ root: "./dist/web" }));
 // SPA fallback: client-side routes get index.html.
 app.get("*", serveStatic({ path: "./dist/web/index.html" }));

@@ -52,6 +52,9 @@ import { listProjects, returnFromProject } from "./projects";
 import { listPins, setPinned } from "./pins";
 import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
 import { Changes } from "./changes";
+import { ollamaChat, ollamaHasModel } from "./ai/ollama";
+import { pageFetcher, searxng } from "./ai/search";
+import { researchItem } from "./ai/research";
 import {
   adjustSchema,
   assignCodeSchema,
@@ -77,7 +80,9 @@ import {
   takeOutSchema,
   updateItemSchema,
   updateLocationSchema,
+  type AiStatus,
   type BackupInfo,
+  type ResearchResult,
   type ScanResult,
   type StockResult,
   type Stats,
@@ -86,7 +91,10 @@ import {
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const PHOTO_FILE = /^[\w-]+\.jpg$/;
 
-export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfig }) {
+/** AI data fill (DEC-048): off unless AI_URL is set. `fetch` can be swapped for tests. */
+export type AiConfig = { url: string; model: string; searchUrl: string | null; fetch?: typeof fetch };
+
+export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfig; ai?: AiConfig }) {
   mkdirSync(opts.photoDir, { recursive: true });
   const api = new Hono();
   api.onError((err, c) => errorResponse(c, err));
@@ -185,6 +193,42 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.get("/items/needs-details", (c) => c.json(listNeedsDetails(db)));
   api.get("/review", (c) => c.json(listStale(db)));
   api.get("/items/:id", (c) => c.json(getItem(db, intParam(c.req.param("id")))));
+
+  // AI data fill (DEC-048): look the part up and suggest details. Writes nothing; the screen
+  // offers the suggestions and the accepted ones come back through PATCH with `aiFields`.
+  api.get("/ai/status", async (c) => {
+    const ai = opts.ai;
+    const modelReady = ai ? await ollamaHasModel(ai.url, ai.model, ai.fetch) : false;
+    return c.json<AiStatus>({ enabled: !!ai, model: ai?.model ?? null, modelReady, search: !!ai?.searchUrl });
+  });
+  api.post("/items/:id/research", async (c) => {
+    const ai = opts.ai;
+    if (!ai) throw new ApiError(400, "VALIDATION", "AI isn't set up on this server (AI_URL)");
+    const item = getItem(db, intParam(c.req.param("id")));
+    const f = ai.fetch ?? fetch;
+    const result = await researchItem(
+      {
+        name: item.name,
+        categoryName: item.categoryName,
+        fields: item.fieldDefs.map((d) => ({ key: d.key, label: d.label })),
+        attributes: item.attributes,
+        supplier: item.supplier,
+        supplierPn: item.supplierPn,
+        notes: item.notes,
+        // Photo URLs are /api/photos/<file>; the file sits in the photo folder.
+        photos: item.photos.map((p) => p.url.slice(p.url.lastIndexOf("/") + 1)),
+        categories: listCategories(db).map((cat) => cat.name),
+      },
+      {
+        chat: ollamaChat(ai.url, ai.model, f),
+        search: ai.searchUrl ? searxng(ai.searchUrl, f) : async () => [],
+        fetchPage: pageFetcher(f),
+        readPhoto: (file) => (PHOTO_FILE.test(file) ? readFile(join(opts.photoDir, file)).then((b) => b.toString("base64")).catch(() => null) : Promise.resolve(null)),
+        log: (line) => console.log(`[ai] item ${item.id}: ${line}`),
+      },
+    );
+    return c.json<ResearchResult>(result);
+  });
   api.post("/items", async (c) => {
     const input = parseBody(createItemSchema, await c.req.json());
     return c.json(createItem(db, input), 201);

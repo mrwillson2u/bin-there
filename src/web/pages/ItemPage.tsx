@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode } from "lucide-react";
+import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, Sparkles } from "lucide-react";
 import {
   itemKindLabels,
   trackingLabels,
@@ -330,12 +330,28 @@ function AddUnit({ item, done }: { item: ItemDetail; done: () => void }) {
 
 function Details({ item }: { item: ItemDetail }) {
   const labels = new Map(item.fieldDefs.map((f) => [f.key, f.label]));
+  // A detail the AI filled in wears a small mark with where it came from (DEC-048).
+  const ai = item.aiFields ?? {};
+  const mark = (field: string, node: React.ReactNode) => {
+    const fill = ai[field];
+    if (!fill) return node;
+    const from = fill.source === "photo" ? "the photo" : (() => { try { return new URL(fill.source).hostname.replace(/^www\./, ""); } catch { return fill.source; } })();
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        {node}
+        <span className="inline-flex items-center gap-0.5 rounded-full border border-accent/50 px-1.5 text-[11px] text-accent" title={`Filled in by AI from ${from}`} data-ai-mark={field}>
+          <Sparkles size={10} /> AI
+        </span>
+      </span>
+    );
+  };
   const rows: [string, React.ReactNode][] = [
-    ...Object.entries(item.attributes).map(([k, v]) => [labels.get(k) ?? k, v] as [string, string]),
-    ...(item.price !== null ? [["Price", `$${item.price.toFixed(2)}`] as [string, string]] : []),
-    ...(item.supplier ? [["Supplier", item.supplier] as [string, string]] : []),
-    ...(item.supplierPn ? [["Supplier part #", <span className="font-mono">{item.supplierPn}</span>] as [string, React.ReactNode]] : []),
+    ...Object.entries(item.attributes).map(([k, v]) => [labels.get(k) ?? k, mark(`attributes.${k}`, v)] as [string, React.ReactNode]),
+    ...(item.price !== null ? [["Price", mark("price", `$${item.price.toFixed(2)}`)] as [string, React.ReactNode]] : []),
+    ...(item.supplier ? [["Supplier", mark("supplier", item.supplier)] as [string, React.ReactNode]] : []),
+    ...(item.supplierPn ? [["Supplier part #", mark("supplierPn", <span className="font-mono">{item.supplierPn}</span>)] as [string, React.ReactNode]] : []),
   ];
+  const aiSources = [...new Set(Object.values(ai).map((f) => f.source))];
   if (rows.length === 0 && !item.url && !item.notes) return null;
   return (
     <section className="flex flex-col gap-2">
@@ -352,11 +368,26 @@ function Details({ item }: { item: ItemDetail }) {
           </dl>
         )}
         {item.url && (
-          <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-accent">
-            <ExternalLink size={16} /> Product link
-          </a>
+          mark("url", (
+            <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-accent">
+              <ExternalLink size={16} /> Product link
+            </a>
+          ))
         )}
         {item.notes && <p className="whitespace-pre-wrap text-sm">{item.notes}</p>}
+        {aiSources.length > 0 && (
+          <p className="text-[12px] text-muted" data-ai-note>
+            <Sparkles size={11} className="mr-1 inline text-accent" aria-hidden />
+            Details marked AI were filled in by AI from{" "}
+            {aiSources.map((src, i) => (
+              <span key={src}>
+                {i > 0 && ", "}
+                {src === "photo" ? "the photo" : <a href={src} target="_blank" rel="noreferrer" className="text-accent">{(() => { try { return new URL(src).hostname.replace(/^www\./, ""); } catch { return src; } })()}</a>}
+              </span>
+            ))}
+            . Check them against the part.
+          </p>
+        )}
       </Card>
     </section>
   );

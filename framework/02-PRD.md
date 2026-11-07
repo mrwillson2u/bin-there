@@ -166,7 +166,7 @@ Bin→There (written with the arrow, DEC-045) is a self-hosted, mobile-first web
 
 ## Open Questions
 
-- AI features vs. $0 running cost: local model or paid API? (Post-ship, decide before building.)
+- ~~AI features vs. $0 running cost: local model or paid API?~~ Resolved for data fill: a local model (Ollama on the GTX 1080 Ti) and the self-hosted SearXNG, as an experiment on the `ai` branch (DEC-048).
 - ~~Which item fields are required before an item leaves "Needs details"?~~ Resolved: DEC-007.
 
 ---
@@ -196,6 +196,7 @@ Bin→There (written with the arrow, DEC-045) is a self-hosted, mobile-first web
 | 2026-11-04 | AI | Post-ship: racks and shelves get a size and numbered positions (1, 2, 3… by default, renameable); tap an empty position to fill it (from the rack, a scan, elsewhere, or a new box); Arrange to drag boxes between positions, change the size and rename; replaces the typed positions (DEC-034) |
 | 2026-11-04 | AI | Post-ship: dropping a box in a rack moves the ones in between along instead of swapping, and the boxes slide into place while you drag (DEC-035) |
 | 2026-11-04 | AI | Post-ship: gridded-box tiles show the part's photo framed in the bin's colour (name strip on big tiles, thumbnail beside or above the name on wide and tall ones), with a per-box "Tiles show: Photos / Names" switch (DEC-036) |
+| 2026-11-06 | AI | Experiment on the `ai` branch (not on main): AI data fill with a local model that reads the part's photos, searches the web through SearXNG and suggests details with sources; used values are marked AI on the part's page (DEC-048) |
 | 2026-11-06 | AI | Post-ship: the part page's count sits under the name above the photos; Move on every part in the bin pane; a gridded box's grid size on the form and its page, refused if a placed bin wouldn't fit (DEC-047) |
 | 2026-11-06 | AI | Post-ship: screens update themselves when another device changes something, over a server-sent change stream, and refetch on coming back into view (DEC-046) |
 | 2026-11-06 | AI | Post-ship: one scan language: a device-wide scanning setting, a magenta scan target wherever a scan does something, the bar as the scan status, the camera never opening to scan on a scanner-only device (DEC-044) |

@@ -89,6 +89,9 @@ export const items = sqliteTable("items", {
   needsDetails: integer("needs_details", { mode: "boolean" }).notNull().default(false),
   lowThreshold: integer("low_threshold"),
   notes: text("notes"),
+  // Which details were filled in by AI and where from (DEC-048): keys like "price",
+  // "supplier", "attributes.Value"; each with the page (or "photo") and when.
+  aiFields: text("ai_fields", { mode: "json" }).$type<Record<string, { source: string; at: string }>>().notNull().default({}),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   ...timestamps,
 });

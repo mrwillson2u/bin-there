@@ -111,6 +111,9 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | POST | `/api/events/:id/undo` | Undo a recent action |
 | GET | `/api/health` | Health check |
 | PATCH | `/api/locations/:id` with `grid: { cols, rows }` | A gridded box's grid size (1–12 × 1–8); `409 CONFLICT` naming any placed bin that wouldn't fit; the front strip follows the new front row (DEC-047). `grid` is also taken on create |
+| GET | `/api/ai/status` | `{ enabled, model, modelReady, search }`: AI data fill is on when `AI_URL` is set (DEC-048; `ai` branch) |
+| POST | `/api/items/:id/research` | AI data fill: `ResearchResult` with `identified`, `markings`, `queries`, `sources`, `suggestions[]` (`field`, `label`, `value`, `source`, `confidence`) and `notes`. Writes nothing; `400` when AI isn't set up. Takes 10–60 s |
+| PATCH | `/api/items/:id` with `aiFields` | Which details were filled in by AI and where from: `{ "<field>": { source, at } }`, replaced whole (DEC-048) |
 | GET | `/api/changes` | Server-sent events: a `change` event `{ version, by }` first (where the server is now) and then one per successful write; `by` is the writer's `X-Client` header, which every write from the app sends, so a screen can ignore its own echo (DEC-046) |
 | any | `/api/*` (unknown) | JSON `404 NOT_FOUND`, never the web app's page |
 | GET / POST | `/api/backup` | Last backup status / run a backup now (DEC-008) |

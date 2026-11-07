@@ -1354,6 +1354,27 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-048: AI data fill, as an experiment on the `ai` branch: a local model reads the photos and looks the part up, and suggests details
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted as an experiment (Colin, Q59); not on `main` |
+| **Deciders** | Colin |
+| **Category** | Product / Architecture |
+
+**Context:** Filling in a part's details by hand is the slow part of the inventory, and Colin doesn't want to have to type a long part number first: the app should work out what the part is from what it already has, the name, the category, the notes and above all the photos. The PRD's open question was local model or paid API, against the $0 running cost rule. The server has a GTX 1080 Ti with about 5.5 GB free, Ollama already installed (though its system service runs CPU-only), the Docker GPU runtime (Frigate uses it), and a SearXNG meta-search already running on port 8989.
+
+**Decision:** Build it on a separate `ai` branch with its own checkout (`~/bin-there-ai`), its own instance (`compose.ai.yaml`, port 3002, throwaway data) and its own Ollama container on the GPU (models in a named volume, port 11435), so `main` and `dev` are untouched and nothing costs money or leaves the house except the web searches. One small local model does both the looking and the reading: `gemma3:4b` (vision-capable, 3.4 GB) by default, set by `AI_MODEL`. The feature is off unless `AI_URL` is set; `SEARCH_URL` points at SearXNG.
+
+The pipeline is three steps on the server (`src/server/ai/`): **look** (the photos and what's known go to the model: read every printed marking exactly, say what it likely is, propose two or three searches), **search** (SearXNG, stopping once there's enough; suppliers' and makers' pages first; up to four pages boiled down to text), **extract** (the model fills the category's fields, supplier, part number, price and link from the pages and markings, each with its source and a confidence). Rules that the code enforces, not just the prompt: a price only ever from a page that was read; a link from the photo only if it's printed on the part; a category only from the list; a field that isn't one of the part's fields is dropped; a suggestion naming a page that wasn't read is pointed at one that was. **Nothing is written by the AI.** The details form gets a "Suggest details with AI" button; suggestions show with "sure / likely / a guess" and a link to where each came from; Use (or Use all) puts them in the form; saving records them in `items.ai_fields` with the source and time (migration 0018). The part's page marks those details "AI" with the page they came from, and typing over one by hand drops the mark.
+
+**What the first real run showed (2026-11-06, four of Colin's parts):** reading the photos works and is fast, about 10 s a part on the GPU: it read "806-KPPX-4P" off a Kycon connector bag, the Adafruit product number and link off a NeoPixel bag, "JST XH" off a bare connector with no name. The web search failed on every run: SearXNG's engines were all suspended or asking for CAPTCHAs after twelve queries in forty seconds, and with no pages the model invented prices and links and called them "from the photo". That's why the price rule and the link rule above exist, why queries stop early, and why the result now says plainly when the search didn't answer. Honest expectations: markings, supplier, product number and category will usually be right; prices and specs depend on the search working; resistor and capacitor values printed in code are not readable by this model.
+
+**Consequences:** `src/server/ai/{ollama,search,research}.ts` (pipeline with injectable pieces, unit-tested with fakes), `GET /api/ai/status`, `POST /api/items/:id/research`, `aiFields` on `PATCH /api/items/:id`, `AiSuggestions.tsx`, marks in `ItemPage.tsx`, `ai-check.mjs` (a fake model and search in the check itself), `compose.ai.yaml`. Follow-ups if it earns its keep: a sparkle on each Fill in details row, running it for every part on the list in one go, and SearXNG engines that block less (its settings are Colin's, outside this repo).
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1405,6 +1426,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-045 | The name is written "Bin→There", with the arrow | Product | Accepted | 2026-11-06 |
 | DEC-046 | Screens update themselves when another device changes something | UX / Architecture | Accepted | 2026-11-06 |
 | DEC-047 | The count under the name, Move in the bin pane, a box's grid size | UX / Data | Accepted | 2026-11-06 |
+| DEC-048 | AI data fill as an experiment on the `ai` branch: a local model reads the photos, looks the part up, suggests details | Product / Architecture | Experiment (not on main) | 2026-11-06 |
 
 ---
 

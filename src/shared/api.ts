@@ -233,6 +233,10 @@ export const createItemSchema = z.object({
 });
 export type CreateItem = z.infer<typeof createItemSchema>;
 
+/** A detail filled in by AI (DEC-048): the page it came from (or "photo"), and when. */
+export type AiFill = { source: string; at: string };
+export const aiFieldsSchema = z.record(z.string().min(1).max(60), z.object({ source: z.string().max(1000), at: z.string().max(40) }));
+
 export const updateItemSchema = z
   .object({
     name: z.string().trim().min(1).max(200),
@@ -252,8 +256,45 @@ export const updateItemSchema = z
      * (DEC-007, Q47). true keeps it there regardless.
      */
     needsDetails: z.boolean(),
+    /** Which details were filled in by AI and where from (DEC-048); the whole map, replaced. */
+    aiFields: aiFieldsSchema,
   })
   .partial();
+
+// ---- AI data fill (DEC-048) ----
+
+export type AiStatus = {
+  /** AI_URL is set. */
+  enabled: boolean;
+  model: string | null;
+  /** The model is downloaded and the server answers. */
+  modelReady: boolean;
+  /** SEARCH_URL is set. */
+  search: boolean;
+};
+
+export type Suggestion = {
+  /** "name", "category", "supplier", "supplierPn", "price", "url", or "attributes.<key>". */
+  field: string;
+  label: string;
+  value: string;
+  /** Where it came from: a page URL, or "photo" for something read off the part. */
+  source: string;
+  confidence: "high" | "medium" | "low";
+};
+
+export type ResearchResult = {
+  /** What the model thinks the part is, in a sentence. */
+  identified: string;
+  /** Text read off the part's photos (markings, labels, silkscreen). */
+  markings: string[];
+  queries: string[];
+  /** Pages that were read. */
+  sources: { title: string; url: string }[];
+  suggestions: Suggestion[];
+  /** Anything to tell Colin: "couldn't read the value", "two likely matches"... */
+  notes: string[];
+};
 export type UpdateItem = z.infer<typeof updateItemSchema>;
 
 export const setHomesSchema = z.object({ locationIds: z.array(id).max(50) });
@@ -453,6 +494,8 @@ export type EventView = {
 
 export type ItemDetail = ItemSummary & {
   fieldDefs: FieldDef[];
+  /** Which details were filled in by AI and where from (DEC-048). */
+  aiFields: Record<string, AiFill>;
   attributes: Record<string, string>;
   price: number | null;
   supplier: string | null;

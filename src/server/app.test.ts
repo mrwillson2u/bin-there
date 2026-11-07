@@ -635,3 +635,61 @@ describe("grid size (DEC-047)", () => {
     expect((await call("PATCH", `/locations/${box.id}`, { grid: { cols: 3, rows: 5 } })).status).toBe(409);
   });
 });
+
+describe("AI data fill (DEC-048)", () => {
+  it("is off without AI_URL: status says so and research is refused", async () => {
+    const status = await call<{ enabled: boolean; modelReady: boolean; search: boolean }>("GET", "/ai/status");
+    expect(status.json).toEqual({ enabled: false, model: null, modelReady: false, search: false });
+    const tote = await create({ name: "Tote", type: "tote" });
+    const item = (await call<{ id: number }>("POST", "/items", { name: "Zip ties", locationId: tote.id })).json;
+    const r = await call<{ error: { message: string } }>("POST", `/items/${item.id}/research`);
+    expect(r.status).toBe(400);
+    expect(r.json.error.message).toContain("AI isn't set up");
+  });
+
+  it("keeps which details were filled in by AI, and the mark goes when the form drops it", async () => {
+    const tote = await create({ name: "Tote", type: "tote" });
+    const item = (await call<{ id: number }>("POST", "/items", { name: "Buck converter", locationId: tote.id })).json;
+    const filled = await call<{ aiFields: Record<string, { source: string; at: string }>; price: number | null }>("PATCH", `/items/${item.id}`, {
+      price: 2.49,
+      supplier: "Example Supplier",
+      aiFields: { price: { source: "https://www.example-supplier.com/lm2596", at: "2026-11-06T20:00:00.000Z" }, supplier: { source: "https://www.example-supplier.com/lm2596", at: "2026-11-06T20:00:00.000Z" } },
+    });
+    expect(filled.status).toBe(200);
+    expect(Object.keys(filled.json.aiFields).sort()).toEqual(["price", "supplier"]);
+    expect(filled.json.price).toBe(2.49);
+    const byHand = await call<{ aiFields: Record<string, unknown> }>("PATCH", `/items/${item.id}`, { price: 2.5, aiFields: { supplier: { source: "https://www.example-supplier.com/lm2596", at: "2026-11-06T20:00:00.000Z" } } });
+    expect(Object.keys(byHand.json.aiFields)).toEqual(["supplier"]);
+    expect((await call("PATCH", `/items/${item.id}`, { aiFields: { price: { source: "x".repeat(1001), at: "now" } } })).status).toBe(400);
+  });
+
+  it("answers the status and research with a model and search behind a fake fetch", async () => {
+    const calls: string[] = [];
+    const fakeFetch = (async (u: URL | string | Request, init?: RequestInit) => {
+      const url = String(u);
+      calls.push(url);
+      if (url.endsWith("/api/tags")) return new Response(JSON.stringify({ models: [{ name: "gemma3:4b" }] }));
+      if (url.endsWith("/api/chat")) {
+        const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+        const first = !body.messages[0]!.content.startsWith("You fill in");
+        return new Response(JSON.stringify({ message: { content: JSON.stringify(first
+          ? { markings: [], description: "a bag of ties", likelyPart: "Nylon cable ties", queries: ["nylon cable ties 100mm"] }
+          : { identified: "Nylon cable ties, 100 mm", suggestions: [{ field: "supplier", value: "Example Supplier", source: "https://www.example-supplier.com/ties", confidence: "high" }], notes: [] }) } }));
+      }
+      if (url.includes("/search?")) return new Response(JSON.stringify({ results: [{ title: "Ties", url: "https://www.example-supplier.com/ties", content: "" }] }));
+      return new Response("<p>Nylon cable ties, 100 mm, bag of 100. " + "x".repeat(300) + "</p>", { headers: { "content-type": "text/html" } });
+    }) as typeof fetch;
+    const aiApi = createApi(openDb(":memory:"), { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")), ai: { url: "http://ollama:11434", model: "gemma3:4b", searchUrl: "http://searx:8080", fetch: fakeFetch } });
+    const status = await (await aiApi.request("/ai/status")).json();
+    expect(status).toEqual({ enabled: true, model: "gemma3:4b", modelReady: true, search: true });
+    const site2 = (await (await aiApi.request("/locations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Garage", type: "site" }) })).json()) as { id: number };
+    const item = (await (await aiApi.request("/items", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Zip ties", locationId: site2.id }) })).json()) as { id: number };
+    const res = await aiApi.request(`/items/${item.id}/research`, { method: "POST" });
+    expect(res.status).toBe(200);
+    const r = (await res.json()) as { identified: string; suggestions: { field: string; value: string }[]; sources: { url: string }[] };
+    expect(r.identified).toBe("Nylon cable ties, 100 mm");
+    expect(r.suggestions).toEqual([{ field: "supplier", label: "Supplier", value: "Example Supplier", source: "https://www.example-supplier.com/ties", confidence: "high" }]);
+    expect(r.sources.map((s) => s.url)).toEqual(["https://www.example-supplier.com/ties"]);
+    expect(calls.some((c) => c.includes("q=nylon+cable+ties+100mm"))).toBe(true);
+  });
+});

@@ -48,6 +48,9 @@ weak signal (stock data always comes fresh from the server).
 
 ## Dev instance (DEC-040)
 
+An `ai` checkout (`~/bin-there-ai`, branch `ai`, `compose.ai.yaml`, port 3002) runs the AI data fill experiment
+with its own Ollama container on the GPU (DEC-048); it is never merged to `main` without the full gate.
+
 A second checkout on the `dev` branch runs beside the live app, on port 3001, against a
 throwaway copy of the live data. Visual changes go here first; `main` only moves when the full
 checks pass.

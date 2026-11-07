@@ -1,0 +1,42 @@
+# The AI experiment (DEC-048): the `ai` branch running beside the live and dev apps on
+# ubuntubot, from ~/bin-there-ai, on port 3002, against a throwaway copy of the dev data, with
+# its own Ollama container on the GPU (models in a named volume) and the web search going to
+# the SearXNG already running on the host. Nothing here is worth keeping.
+#   docker compose -f compose.ai.yaml up -d --build
+#   docker exec bin-there-ollama ollama pull gemma3:4b      # once, or whatever AI_MODEL is
+name: bin-there-ai
+services:
+  bin-there-ai:
+    build: .
+    container_name: bin-there-ai
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      TZ: ${TZ:-UTC}
+      AI_URL: http://ollama:11434
+      AI_MODEL: ${AI_MODEL:-gemma3:4b}
+      SEARCH_URL: ${SEARCH_URL:-http://host.docker.internal:8989}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/data
+    depends_on:
+      - ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bin-there-ollama
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11435:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+volumes:
+  ollama-models:
