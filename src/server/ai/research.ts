@@ -5,19 +5,24 @@
 //
 // Three steps: LOOK (the photos alone go to the model: read the markings, say what it looks
 // like, propose searches; what's already on record is kept out of this call so the model can't
-// echo a known part number back as something it "read"), SEARCH (SearXNG, then fetch a few
-// pages), EXTRACT (fill the fields from the pages, the markings and what's known).
-// The pieces (chat, search, fetch, photo bytes) are passed in so the pipeline can be tested
-// without a model or the internet.
+// echo a known part number back as something it "read"), READ (the link on record, the shop
+// page for the supplier and part number on record, and any address printed on the part, in that
+// order; only when none of those can be read does the web search run and a few hits get
+// fetched; DEC-049), EXTRACT (fill the fields from the pages, the markings and what's known).
+// The pieces (chat, search, fetch, shop APIs, photo bytes) are passed in so the pipeline can be
+// tested without a model or the internet.
 
 import type { ResearchResult, Suggestion } from "../../shared/api";
 import type { Chat, ChatMessage } from "./ollama";
 import type { FetchPage, Hit, Search } from "./search";
+import { PLAIN_SHOPS, shopFromUrl, shopPage, type Shop, type ShopLink, type ShopReader } from "./shops";
 
 export type Deps = {
   chat: Chat;
   search: Search;
   fetchPage: FetchPage;
+  /** Readers for the shops whose pages can't be fetched (Mouser, Digi-Key): present only when a key is set. */
+  shops?: Partial<Record<Shop, ShopReader>>;
   /** The photo as base64 JPEG, or null if it can't be read. */
   readPhoto: (file: string) => Promise<string | null>;
   log?: (line: string) => void;
@@ -25,6 +30,8 @@ export type Deps = {
 
 export type ResearchInput = {
   name: string;
+  /** The link on record: the page for this exact part, read first. */
+  url: string | null;
   categoryName: string | null;
   /** The category's fields, label by key, so the model fills the ones that exist. */
   fields: { key: string; label: string }[];
@@ -85,36 +92,60 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   look.queries = uniq([...(input.supplierPn ? [input.supplierPn] : []), ...(look.queries ?? []), input.name].filter((q) => q && q.trim().length > 1)).slice(0, 3);
   log(`look (${elapsed()}): ${look.likelyPart} | markings ${look.markings.length} | queries ${look.queries.join(" / ")}`);
 
-  // A web address printed on the part (Adafruit and SparkFun bags carry one) is the best page
-  // there is: fetched straight away, no search engine needed. Their product number is the number
-  // in that address, whatever else the label says.
+  // READ: the pages that name this exact part, no search engine needed. The link on record
+  // first (the owner's own), then the shop page for the supplier and part number on record, then
+  // a web address printed on the part (Adafruit and SparkFun bags carry one; its product number
+  // is the number in that address, whatever else the label says). A link to one of the known
+  // shops also settles the supplier and its product number.
   const labelled = labelLinks(look.markings);
-  const direct: Hit[] = labelled.map((l) => ({ title: l.url, url: l.url, snippet: "printed on the part" }));
+  const direct: { title: string; url: string; link: ShopLink | null; why: string }[] = [];
+  const addDirect = (url: string | null, why: string) => {
+    const u = (url ?? "").trim();
+    if (!/^https?:\/\/\S+$/.test(u) || direct.some((d) => d.url === u)) return;
+    const link = shopFromUrl(u);
+    direct.push({ title: link ? `${link.shop}${link.productNumber ? ` ${link.productNumber}` : ""}` : u, url: u, link, why });
+  };
+  addDirect(input.url, "the link on record");
+  addDirect(shopPage(input.supplier, input.supplierPn)?.url ?? null, "the shop page for the part number on record");
+  for (const l of labelled) addDirect(l.url, "printed on the part");
 
-  // SEARCH: a few queries (stopping once there's enough to read, so the engines aren't hammered),
-  // then up to 4 pages, suppliers and makers first.
-  const hits: Hit[] = [];
+  const pages: { title: string; url: string; text: string; own: boolean }[] = [];
   const problems: string[] = [];
-  for (const q of look.queries) {
-    if (hits.length >= 6) break;
+  const notes: string[] = [];
+  for (const d of direct) {
     try {
-      for (const h of await deps.search(q)) if (!hits.some((x) => x.url === h.url)) hits.push(h);
+      const page = await readDirect(d.url, d.link, deps);
+      if (page) pages.push({ ...page, own: true });
+      else notes.push(`Couldn't read ${d.why} (${hostOf(d.url)}).`);
     } catch (e) {
-      log(`search failed for "${q}": ${(e as Error).message}`);
-      problems.push((e as Error).message);
+      notes.push(`Couldn't read ${d.why}: ${(e as Error).message}`);
+      log(`read failed for ${d.url}: ${(e as Error).message}`);
     }
   }
-  const ranked = [
-    ...direct,
-    ...hits.filter((h) => !BAD_HOSTS.test(h.url)).sort((a, b) => Number(GOOD_HOSTS.test(b.url)) - Number(GOOD_HOSTS.test(a.url))),
-  ];
-  const pages: { title: string; url: string; text: string }[] = [];
-  for (const h of ranked) {
-    if (pages.length >= 4) break;
-    const text = await deps.fetchPage(h.url);
-    if (text && text.length > 200) pages.push({ title: h.title, url: h.url, text });
+  log(`read (${elapsed()}): ${direct.length} direct links, ${pages.length} read`);
+
+  // SEARCH, only when nothing direct could be read: a few queries (stopping once there's enough
+  // to read, so the engines aren't hammered), then up to 4 pages, suppliers and makers first.
+  const hits: Hit[] = [];
+  if (pages.length === 0) {
+    for (const q of look.queries) {
+      if (hits.length >= 6) break;
+      try {
+        for (const h of await deps.search(q)) if (!hits.some((x) => x.url === h.url)) hits.push(h);
+      } catch (e) {
+        log(`search failed for "${q}": ${(e as Error).message}`);
+        problems.push((e as Error).message);
+      }
+    }
+    const ranked = hits.filter((h) => !BAD_HOSTS.test(h.url)).sort((a, b) => Number(GOOD_HOSTS.test(b.url)) - Number(GOOD_HOSTS.test(a.url)));
+    for (const h of ranked) {
+      if (pages.length >= 4) break;
+      const link = shopFromUrl(h.url);
+      const page = await readDirect(h.url, link, deps).catch(() => null);
+      if (page) pages.push({ ...page, title: h.title, own: false });
+    }
+    log(`search (${elapsed()}): ${hits.length} hits, ${pages.length} pages read`);
   }
-  log(`search (${elapsed()}): ${hits.length} hits, ${pages.length} pages read`);
 
   // EXTRACT: fill the fields from the pages (and the markings), each with its source.
   const fieldList = [
@@ -151,6 +182,7 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     "You fill in the details of one part in a garage inventory, from pages found on the web and from text read off the part itself.",
     "Suggest a value only for a field you can actually support with the pages or the markings; leave a field out rather than guess. Never invent part numbers, prices or links.",
     "For each suggestion, `source` is the URL of the page it came from, or the word photo if it was read off the part. `confidence` is high when a page states it outright for this exact part, medium when it is likely but the match isn't certain, low when it is inferred.",
+    "A page marked 'the owner's page for this exact part' is the shop page the owner saved or ordered from: what it says about the part is certain (high), and its price and specifications are this part's.",
     "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory. `url` is the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong.",
     "`supplierPn` is the number to order it by: for Adafruit or SparkFun that is the product number in the adafru.it or sparkfun.com link, not a lot or date code.",
     ...(input.categoryName ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
@@ -164,7 +196,7 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
       ? `What the photos showed: ${look.description}. Likely part from the photos alone: ${look.likelyPart}. Text read off the part: ${look.markings.join(" | ") || "none printed"}.`
       : "There is no photo.",
     "",
-    ...pages.flatMap((p, i) => [`--- Page ${i + 1}: ${p.title}`, `URL: ${p.url}`, p.text, ""]),
+    ...pages.flatMap((p, i) => [`--- Page ${i + 1}: ${p.title}${p.own ? " (the owner's page for this exact part)" : ""}`, `URL: ${p.url}`, p.text, ""]),
     pages.length === 0 ? "No pages could be read. Suggest only what the markings and what's known support, and say so in notes." : "",
   ].join("\n");
   const extractRaw = await deps.chat({ messages: [{ role: "user", content: extractPrompt }], schema: extractSchema });
@@ -174,23 +206,34 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   const seen = new Set<string>();
   const suggestions: Suggestion[] = [];
   const printed = (value: string) => look.markings.some((m) => squash(m).includes(squash(value)) && squash(value).length >= 3);
-  // The printed address decides supplier, product number and link; the model doesn't get a say.
-  const label = labelled[0];
-  if (label && labels.has("supplier")) {
+  // What's on record already isn't a suggestion.
+  const current: Record<string, string> = {
+    name: input.name,
+    supplier: input.supplier ?? "",
+    supplierPn: input.supplierPn ?? "",
+    url: input.url ?? "",
+    ...Object.fromEntries(Object.entries(input.attributes).map(([k, v]) => [`attributes.${k}`, v])),
+  };
+  const sameAsNow = (field: string, value: string) => (current[field] ?? "").trim().toLowerCase() === value.trim().toLowerCase();
+  // A known shop's page that was read decides supplier, product number and link; the model
+  // doesn't get a say. A printed address counts as read off the photo.
+  const settled = direct.find((d) => d.link?.productNumber && pages.some((p) => p.url === d.url));
+  if (settled?.link) {
     for (const s of [
-      { field: "supplier", value: label.supplier },
-      { field: "supplierPn", value: label.productNumber },
-      { field: "url", value: label.url },
+      { field: "supplier", value: settled.link.shop },
+      { field: "supplierPn", value: settled.link.productNumber! },
+      { field: "url", value: settled.url },
     ]) {
       if (!labels.has(s.field)) continue;
       seen.add(s.field);
-      suggestions.push({ field: s.field, label: labels.get(s.field)!, value: s.value, source: "photo", confidence: "high" });
+      if (sameAsNow(s.field, s.value)) continue;
+      suggestions.push({ field: s.field, label: labels.get(s.field)!, value: s.value, source: settled.why === "printed on the part" ? "photo" : settled.url, confidence: "high" });
     }
   }
   for (const s of extracted.suggestions ?? []) {
     if (!labels.has(s.field) || seen.has(s.field)) continue;
     const value = clean(s.field, String(s.value ?? ""));
-    if (!value) continue;
+    if (!value || sameAsNow(s.field, value)) continue;
     if (s.field === "category" && !input.categories.includes(value)) continue;
     const fromPage = pages.some((p) => p.url === s.source);
     const fromPhoto = !fromPage;
@@ -200,8 +243,6 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     if ((s.field === "url" || s.field === "supplierPn") && fromPhoto && !printed(value)) continue;
     let confidence: Suggestion["confidence"] = s.confidence ?? "low";
     if (fromPhoto && !printed(value) && confidence === "high") confidence = s.field === "category" ? "high" : "medium";
-    if (s.field === "name" && value.toLowerCase() === input.name.trim().toLowerCase()) continue;
-    if (s.field.startsWith("attributes.") && (input.attributes[s.field.slice(11)] ?? "").trim() === value) continue;
     // A page that wasn't read can't be a source; fall back to the first page, or the photo.
     const source = fromPage ? s.source : s.source === "photo" ? "photo" : (pages[0]?.url ?? "photo");
     seen.add(s.field);
@@ -209,7 +250,7 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   }
   log(`extract (${elapsed()}): ${suggestions.length} suggestions`);
 
-  const notes = (extracted.notes ?? []).filter((n) => typeof n === "string" && n.trim()).slice(0, 5);
+  notes.push(...(extracted.notes ?? []).filter((n) => typeof n === "string" && n.trim()).slice(0, 5));
   if (problems.length > 0 && pages.length === 0) notes.unshift(`The web search didn't answer this time (${uniq(problems)[0]}). Try again in a while; only what's on the part itself is suggested.`);
   return {
     identified: extracted.identified || look.likelyPart,
@@ -217,9 +258,35 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     queries: look.queries,
     sources: pages.map((p) => ({ title: p.title, url: p.url })),
     suggestions,
-    notes,
+    notes: uniq(notes),
   };
 }
+
+/**
+ * One page as the model will read it: a shop that refuses fetches goes through its API reader
+ * (and throws a plain-words reason when there's no key), anything else is fetched. The page
+ * keeps the address it was asked by, so the record's link stays the link.
+ */
+async function readDirect(url: string, link: ShopLink | null, deps: Deps): Promise<{ title: string; url: string; text: string } | null> {
+  if (link && !PLAIN_SHOPS.has(link.shop)) {
+    const reader = deps.shops?.[link.shop];
+    if (!reader) throw new Error(`${link.shop} pages can only be read through its API, and no ${link.shop} key is set on this server.`);
+    const page = await reader(link);
+    return page && page.text.length > 40 ? { title: page.title, url, text: page.text } : null;
+  }
+  const text = await deps.fetchPage(url);
+  if (!text || text.length <= 200) return null;
+  const title = link ? `${link.shop}${link.productNumber ? ` ${link.productNumber}` : ""}` : hostOf(url);
+  return { title, url, text };
+}
+
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+};
 
 /** Letters and digits only, lower case: "adafru.it/1938" and "ADAFRU IT 1938" match. */
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");

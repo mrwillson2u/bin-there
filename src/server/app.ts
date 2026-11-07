@@ -55,6 +55,8 @@ import { Changes } from "./changes";
 import { ollamaChat, ollamaHasModel } from "./ai/ollama";
 import { pageFetcher, searxng } from "./ai/search";
 import { researchItem } from "./ai/research";
+import { mouserReader } from "./ai/mouser";
+import { digikeyReader } from "./ai/digikey";
 import {
   adjustSchema,
   assignCodeSchema,
@@ -91,8 +93,18 @@ import {
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 const PHOTO_FILE = /^[\w-]+\.jpg$/;
 
-/** AI data fill (DEC-048): off unless AI_URL is set. `fetch` can be swapped for tests. */
-export type AiConfig = { url: string; model: string; searchUrl: string | null; fetch?: typeof fetch };
+/**
+ * AI data fill (DEC-048): off unless AI_URL is set. `fetch` can be swapped for tests. The shop
+ * keys (DEC-049) turn on Mouser's and Digi-Key's APIs, the only way those two can be read.
+ */
+export type AiConfig = {
+  url: string;
+  model: string;
+  searchUrl: string | null;
+  mouserKey?: string | null;
+  digikey?: { clientId: string; clientSecret: string } | null;
+  fetch?: typeof fetch;
+};
 
 export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfig; ai?: AiConfig }) {
   mkdirSync(opts.photoDir, { recursive: true });
@@ -199,7 +211,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.get("/ai/status", async (c) => {
     const ai = opts.ai;
     const modelReady = ai ? await ollamaHasModel(ai.url, ai.model, ai.fetch) : false;
-    return c.json<AiStatus>({ enabled: !!ai, model: ai?.model ?? null, modelReady, search: !!ai?.searchUrl });
+    return c.json<AiStatus>({ enabled: !!ai, model: ai?.model ?? null, modelReady, search: !!ai?.searchUrl, shops: { mouser: !!ai?.mouserKey, digikey: !!ai?.digikey } });
   });
   api.post("/items/:id/research", async (c) => {
     const ai = opts.ai;
@@ -209,6 +221,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const result = await researchItem(
       {
         name: item.name,
+        url: item.url,
         categoryName: item.categoryName,
         fields: item.fieldDefs.map((d) => ({ key: d.key, label: d.label })),
         attributes: item.attributes,
@@ -223,6 +236,10 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
         chat: ollamaChat(ai.url, ai.model, f),
         search: ai.searchUrl ? searxng(ai.searchUrl, f) : async () => [],
         fetchPage: pageFetcher(f),
+        shops: {
+          ...(ai.mouserKey ? { Mouser: mouserReader(ai.mouserKey, f) } : {}),
+          ...(ai.digikey ? { "Digi-Key": digikeyReader(ai.digikey.clientId, ai.digikey.clientSecret, f) } : {}),
+        },
         readPhoto: (file) => (PHOTO_FILE.test(file) ? readFile(join(opts.photoDir, file)).then((b) => b.toString("base64")).catch(() => null) : Promise.resolve(null)),
         log: (line) => console.log(`[ai] item ${item.id}: ${line}`),
       },

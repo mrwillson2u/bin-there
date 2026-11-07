@@ -27,7 +27,7 @@ export function searxng(url: string, fetchImpl: typeof fetch = fetch): Search {
 }
 
 const MAX_PAGE_BYTES = 1_500_000;
-export const MAX_PAGE_CHARS = 6000;
+export const MAX_PAGE_CHARS = 7000;
 
 /** The page as plain text, cut to what a small model can read; null if it can't be fetched or isn't a page. */
 export function pageFetcher(fetchImpl: typeof fetch = fetch): FetchPage {
@@ -50,13 +50,18 @@ export function pageFetcher(fetchImpl: typeof fetch = fetch): FetchPage {
   };
 }
 
-/** Good-enough HTML to text: scripts, styles and tags out, entities in, whitespace squeezed. */
+/**
+ * Good-enough HTML to text: scripts, styles, menus, headers, footers and tags out, entities in,
+ * whitespace squeezed. Shop pages open with hundreds of menu links; dropping them leaves room
+ * for the part itself within the characters the model gets.
+ */
 export function htmlToText(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
     .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<(nav|header|footer|aside)\b[\s\S]*?<\/\1>/gi, " ")
     .replace(/<(br|p|div|li|tr|h[1-6]|table|section|article)\b[^>]*>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")

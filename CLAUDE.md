@@ -44,7 +44,8 @@ PORT=3011 DATA_DIR=/tmp/bt-test npm start
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`
 (default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`, and on the
-`ai` branch `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG).
+`ai` branch `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG),
+`MOUSER_API_KEY`, `DIGIKEY_CLIENT_ID` + `DIGIKEY_CLIENT_SECRET` (shop APIs, DEC-049).
 
 After a schema change, run `npm run db:generate` and check the migration against an old-shaped
 database; the "migrations" test in `src/server/app.test.ts` shows how.
@@ -79,10 +80,12 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.
-  - `ai/` (DEC-048, `ai` branch): `research.ts` is the data-fill pipeline (look at photos → search → extract),
-    taking `chat`, `search`, `fetchPage` and `readPhoto` as arguments so tests use fakes; `ollama.ts` and
-    `search.ts` are the real ones (Ollama chat with a JSON schema, SearXNG + page text). On only when
-    `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`). The AI never writes: `POST /items/:id/research`
+  - `ai/` (DEC-048, `ai` branch): `research.ts` is the data-fill pipeline (look at photos → read the part's
+    own page → search only if that fails → extract), taking `chat`, `search`, `fetchPage`, `shops` and
+    `readPhoto` as arguments so tests use fakes; `ollama.ts` and `search.ts` are the real ones (Ollama chat
+    with a JSON schema, SearXNG + page text). `shops.ts` knows the six shops' links and page addresses
+    (DEC-049); `mouser.ts` and `digikey.ts` read those two through their APIs when a key is set. On only when
+    `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`, the shop keys). The AI never writes: `POST /items/:id/research`
     returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time).
   - `changes.ts`: live updates (DEC-046). A middleware in `app.ts` bumps `Changes` after every
     successful non-GET request (backups excepted) with the writer's `X-Client` header;

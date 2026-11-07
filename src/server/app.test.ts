@@ -639,7 +639,7 @@ describe("grid size (DEC-047)", () => {
 describe("AI data fill (DEC-048)", () => {
   it("is off without AI_URL: status says so and research is refused", async () => {
     const status = await call<{ enabled: boolean; modelReady: boolean; search: boolean }>("GET", "/ai/status");
-    expect(status.json).toEqual({ enabled: false, model: null, modelReady: false, search: false });
+    expect(status.json).toEqual({ enabled: false, model: null, modelReady: false, search: false, shops: { mouser: false, digikey: false } });
     const tote = await create({ name: "Tote", type: "tote" });
     const item = (await call<{ id: number }>("POST", "/items", { name: "Zip ties", locationId: tote.id })).json;
     const r = await call<{ error: { message: string } }>("POST", `/items/${item.id}/research`);
@@ -681,7 +681,7 @@ describe("AI data fill (DEC-048)", () => {
     }) as typeof fetch;
     const aiApi = createApi(openDb(":memory:"), { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")), ai: { url: "http://ollama:11434", model: "gemma3:4b", searchUrl: "http://searx:8080", fetch: fakeFetch } });
     const status = await (await aiApi.request("/ai/status")).json();
-    expect(status).toEqual({ enabled: true, model: "gemma3:4b", modelReady: true, search: true });
+    expect(status).toEqual({ enabled: true, model: "gemma3:4b", modelReady: true, search: true, shops: { mouser: false, digikey: false } });
     const site2 = (await (await aiApi.request("/locations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Garage", type: "site" }) })).json()) as { id: number };
     const item = (await (await aiApi.request("/items", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "Zip ties", locationId: site2.id }) })).json()) as { id: number };
     const res = await aiApi.request(`/items/${item.id}/research`, { method: "POST" });

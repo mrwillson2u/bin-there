@@ -24,6 +24,7 @@ const [, , app, dataDir, shots] = process.argv;
 const base = "http://127.0.0.1:3011";
 // The fake Ollama + SearXNG + supplier page, all one little server.
 let voltageKey = "voltage"; // the Modules & boards category's Voltage field key, read once the app is up
+let searches = 0;
 const fake = createServer(async (req, res) => {
   const url = new URL(req.url, "http://fake");
   let body = ""; for await (const chunk of req) body += chunk;
@@ -43,7 +44,7 @@ const fake = createServer(async (req, res) => {
       { field: "url", value: "http://127.0.0.1:3012/page/lm2596", source: "http://127.0.0.1:3012/page/lm2596", confidence: "high" },
     ], notes: ["The output voltage is set by the trimmer; measure it."] }) } });
   }
-  if (url.pathname === "/search") return json({ results: [{ title: "LM2596 module", url: "http://127.0.0.1:3012/page/lm2596", content: "3A step-down" }] });
+  if (url.pathname === "/search") { searches++; return json({ results: [{ title: "LM2596 module", url: "http://127.0.0.1:3012/page/lm2596", content: "3A step-down" }] }); }
   if (url.pathname.startsWith("/page/")) { res.setHeader("content-type", "text/html"); return res.end("<h1>LM2596 DC-DC buck module</h1><p>Input 4-40V, output 1.25-37V, 3A. Price $2.49.</p>" + "<p>x</p>".repeat(100)); }
   res.statusCode = 404; res.end("no");
 });
@@ -127,6 +128,20 @@ await page.getByRole("button", { name: "Save" }).click();
 await page.getByRole("heading", { name: "LM2596 buck converter module" }).waitFor();
 const again = await api("GET", `/items/${item.id}`);
 check(!("price" in again.aiFields) && "url" in again.aiFields, "a price typed by hand loses its AI mark; the link keeps it");
+
+// A part with the shop's link on record (DEC-049): the link is read and the search isn't run;
+// the link itself isn't suggested back, the rest comes from its page.
+const before = searches;
+const linked = await api("POST", "/items", { name: "Buck converter 2", locationId: tote.id, qty: 1, categoryId: modules.id });
+await api("PATCH", `/items/${linked.id}`, { url: "http://127.0.0.1:3012/page/lm2596" });
+await page.goto(`${base}/items/${linked.id}/edit`);
+await page.getByRole("button", { name: "Suggest details with AI" }).click();
+await page.getByText("It looks like:").waitFor({ timeout: 20000 });
+const panel2 = page.getByRole("region", { name: "AI suggestions" });
+check(searches === before, "with a link on record the web search isn't used: " + (searches - before) + " searches");
+check((await panel2.getByRole("button", { name: /^Use Link/ }).count()) === 0 && (await panel2.getByRole("button", { name: "Use Price: 2.49" }).count()) === 1, "the link on record isn't suggested back; the price from its page is");
+check((await panel2.getByRole("link", { name: /127\.0\.0\.1/ }).count()) >= 1, "the page read is listed");
+await page.screenshot({ path: `${shots}/ai-4-linked.png`, fullPage: true });
 
 await browser.close();
 server.kill();

@@ -1377,6 +1377,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 ---
 
+### DEC-049: The AI reads the shop's own page first: the link on record, or the page for the supplier and part number; Mouser and Digi-Key through their APIs
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted (Colin, Q61); on the `ai` branch with DEC-048 |
+| **Deciders** | Colin |
+| **Category** | Product / Architecture |
+
+**Context:** Colin asked whether, instead of the AI guessing from photos and a web search, he could just supply the purchasing link and have it get the details from that, or from a few specific sources, and said he didn't want the feature unless every shop he buys from could be covered. His shops are Mouser, Digi-Key, Amazon, Adafruit, SparkFun and LCSC. Tested from ubuntubot on the home connection: Amazon, Adafruit, SparkFun and LCSC serve their product pages to a plain fetch (title, prices and specifications readable). Digi-Key answers a plain fetch with a Cloudflare bot check and Mouser refuses outright; both offer free official APIs for exactly this (a key from mouser.com/api-hub; an app at developer.digikey.com for the Product Information API v4). A headless browser on the server would have got Digi-Key's page, but that is building around a bot check the shop put there on purpose; the APIs are the intended door and give cleaner data (price breaks, a parameter table, the datasheet). SearXNG's search engines were suspended through the whole session, which made the point: the web search is the fragile part, and reading one known page is the reliable part.
+
+**Decision:** The look-up reads the part's own page first and searches only when it can't. In order: the **link on record** (the owner's own), the **shop page built from the supplier and part number on record** when the shop is one of the six (`src/server/ai/shops.ts`: Adafruit `product/N`, SparkFun `products/N`, LCSC `product-detail/C….html`, Amazon `dp/ASIN`; Digi-Key and Mouser by part number through their API), then a **web address printed on the part** (DEC-048). If any of those is read, the web search is skipped; if none is, the search runs as before. A link to one of the six shops names the product, and that settles the supplier and its product number without asking the model. Mouser and Digi-Key links are read through their APIs (`mouser.ts`, `digikey.ts`), on when `MOUSER_API_KEY` and `DIGIKEY_CLIENT_ID` + `DIGIKEY_CLIENT_SECRET` are set (in a `.env` beside `compose.ai.yaml`; `GET /api/ai/status` reports `shops.mouser` and `shops.digikey`); without a key, the result says plainly that the shop can only be read through its API and no key is set, and the search takes over. The page the owner saved is told to the model as "the owner's page for this exact part", so what it says is rated sure; what's already on record (name, supplier, number, link, a filled field) is never suggested back. Page text drops menus, headers and footers so the part itself fits in what the model reads.
+
+**Consequences:** With a link pasted in, the look-up needs no search engine and no photo and takes one page read plus one model call: the common case is fast and sure. The cost is two keys Colin registers for once. Amazon pages are long and the price sometimes sits beyond what the model reads; LCSC links must be the product page (its search page is scripts). The web search and the photo reading stay as the fallback for a part with no link and nothing on record. Honest limit: no website is guaranteed readable forever; the six are covered today by plain pages or official APIs, and anything else that refuses says so instead of guessing. Not built: reading a page shared from the phone's own browser (the universal path when a site refuses the server); worth it if a seventh shop appears.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1429,6 +1444,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-046 | Screens update themselves when another device changes something | UX / Architecture | Accepted | 2026-11-06 |
 | DEC-047 | The count under the name, Move in the bin pane, a box's grid size | UX / Data | Accepted | 2026-11-06 |
 | DEC-048 | AI data fill as an experiment on the `ai` branch: a local model reads the photos, looks the part up, suggests details | Product / Architecture | Experiment (not on main) | 2026-11-06 |
+| DEC-049 | The AI reads the shop's own page first (the link, or supplier + part number); Mouser and Digi-Key through their APIs | Product / Architecture | Accepted (on `ai`) | 2026-11-06 |
 
 ---
 

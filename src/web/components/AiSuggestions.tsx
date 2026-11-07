@@ -50,8 +50,8 @@ export function AiSuggestions({ item, used, onUse }: { item: ItemDetail; used: R
           {status?.modelReady === false
             ? `The model (${status.model}) isn't downloaded yet.`
             : research.isPending
-              ? "Reading the photos, searching the web, filling in what it finds. About a minute."
-              : "Reads the photos and looks the part up. Nothing is saved until you press Use."}
+              ? "Reading the shop page, or the photos and the web, and filling in what it finds. About a minute."
+              : "Reads the shop page in Link (or finds it from Supplier and Supplier part #), else the photos and the web. Nothing is saved until you press Use."}
         </span>
       </div>
       {research.isError && <p className="text-sm text-danger" role="alert">{(research.error as Error).message}</p>}

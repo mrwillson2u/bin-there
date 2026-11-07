@@ -271,6 +271,8 @@ export type AiStatus = {
   modelReady: boolean;
   /** SEARCH_URL is set. */
   search: boolean;
+  /** The shops that can only be read through their API, and whether a key is set for each (DEC-049). */
+  shops: { mouser: boolean; digikey: boolean };
 };
 
 export type Suggestion = {

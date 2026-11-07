@@ -6,6 +6,7 @@ import { labelLinks, researchItem, type Deps, type ResearchInput } from "./resea
 
 const input: ResearchInput = {
   name: "Buck converter",
+  url: null,
   categoryName: "Modules & boards",
   fields: [{ key: "Interface", label: "Interface" }, { key: "Voltage", label: "Voltage" }],
   attributes: { Interface: "" },
@@ -123,13 +124,92 @@ describe("researchItem", () => {
     }, []);
     ada.deps.fetchPage = async (url) => (url === "https://www.adafruit.com/product/1938" ? "NeoPixel Diffused 5mm Through-Hole LED, 5 Pack. $4.95. " + "x".repeat(300) : null);
     const r2 = await researchItem({ ...input, name: "", supplierPn: null, photos: ["a.jpg"] }, ada.deps);
-    expect(r2.sources).toEqual([{ title: "https://www.adafruit.com/product/1938", url: "https://www.adafruit.com/product/1938" }]);
+    expect(ada.searched).toEqual([]); // the printed link was read, so no search
+    expect(r2.sources).toEqual([{ title: "Adafruit 1938", url: "https://www.adafruit.com/product/1938" }]);
     expect(r2.suggestions.map((s) => [s.field, s.value, s.confidence, s.source])).toEqual([
       ["supplier", "Adafruit", "high", "photo"],
       ["supplierPn", "1938", "high", "photo"],
       ["url", "https://www.adafruit.com/product/1938", "high", "photo"],
     ]);
     expect(ada.prompts[1]!.content).toContain("NeoPixel Diffused 5mm Through-Hole LED");
+  });
+
+  it("reads the link on record first and skips the search; a known shop's link settles supplier and number; what's on record isn't suggested (DEC-049)", async () => {
+    const f = fakes({
+      look: { markings: [], description: "A bag of LEDs", likelyPart: "LED", queries: ["5mm RGB LED"] },
+      extract: {
+        identified: "NeoPixel 5 mm LED, pack of 5",
+        suggestions: [
+          { field: "price", value: "4.95", source: "https://www.adafruit.com/product/1938", confidence: "high" },
+          { field: "supplier", value: "Adafruit Industries", source: "https://www.adafruit.com/product/1938", confidence: "high" }, // settled by the link: ignored
+          { field: "name", value: "NeoPixel 5mm LED", source: "https://www.adafruit.com/product/1938", confidence: "high" }, // same as now, case apart: dropped
+          { field: "attributes.Voltage", value: "5 V", source: "https://www.adafruit.com/product/1938", confidence: "high" },
+        ],
+        notes: [],
+      },
+    });
+    f.deps.fetchPage = async (url) => {
+      f.fetched.push(url);
+      return url === "https://www.adafruit.com/product/1938" ? "NeoPixel Diffused 5mm Through-Hole LED, 5 Pack. $4.95. 5V. " + "x".repeat(300) : null;
+    };
+    const r = await researchItem({ ...input, name: "neopixel 5mm led", url: "https://www.adafruit.com/product/1938", supplier: "Adafruit" }, f.deps);
+    expect(f.fetched).toEqual(["https://www.adafruit.com/product/1938"]);
+    expect(f.searched).toEqual([]);
+    expect(f.prompts[1]!.content).toContain("--- Page 1: Adafruit 1938 (the owner's page for this exact part)");
+    expect(r.sources).toEqual([{ title: "Adafruit 1938", url: "https://www.adafruit.com/product/1938" }]);
+    // Supplier and link are on record already; the product number is new and comes from the link.
+    expect(r.suggestions.map((s) => [s.field, s.value, s.confidence, s.source])).toEqual([
+      ["supplierPn", "1938", "high", "https://www.adafruit.com/product/1938"],
+      ["price", "4.95", "high", "https://www.adafruit.com/product/1938"],
+      ["attributes.Voltage", "5 V", "high", "https://www.adafruit.com/product/1938"],
+    ]);
+    expect(r.notes).toEqual([]);
+  });
+
+  it("finds the shop page from the supplier and part number on record, and falls back to the search with a note when a link can't be read", async () => {
+    const f = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: ["q"] },
+      extract: { identified: "x", suggestions: [{ field: "price", value: "1.82", source: "https://www.lcsc.com/product-detail/C25804.html", confidence: "high" }], notes: [] },
+    });
+    f.deps.fetchPage = async (url) => {
+      f.fetched.push(url);
+      return url === "https://www.lcsc.com/product-detail/C25804.html" ? "0603WAF1002T5E 10kΩ ±1% 0.1W 0603 chip resistor. $0.0018 each. " + "x".repeat(300) : null;
+    };
+    const r = await researchItem({ ...input, url: "https://example.com/dead-link", supplier: "LCSC", supplierPn: "C25804" }, f.deps);
+    expect(f.fetched).toEqual(["https://example.com/dead-link", "https://www.lcsc.com/product-detail/C25804.html"]);
+    expect(f.searched).toEqual([]);
+    expect(r.notes).toEqual(["Couldn't read the link on record (example.com)."]);
+    expect(r.suggestions.map((s) => [s.field, s.value])).toEqual([["url", "https://www.lcsc.com/product-detail/C25804.html"], ["price", "1.82"]]);
+    // Nothing direct readable at all: the search runs as before.
+    const g = fakes({ look: { markings: [], description: "", likelyPart: "x", queries: ["LM2596 module"] }, extract: { identified: "x", suggestions: [], notes: [] } });
+    const r2 = await researchItem({ ...input, url: "https://example.com/dead-link" }, g.deps);
+    expect(g.searched).toEqual(["LM2596 module", "Buck converter"]);
+    expect(r2.notes).toEqual(["Couldn't read the link on record (example.com)."]);
+  });
+
+  it("reads Mouser and Digi-Key through their API readers, and says so when there's no key", async () => {
+    const f = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: ["q"] },
+      extract: { identified: "x", suggestions: [{ field: "price", value: "4.95", source: "https://www.mouser.com/ProductDetail/485-1938", confidence: "high" }], notes: [] },
+    });
+    const asked: string[] = [];
+    f.deps.shops = { Mouser: async (link) => { asked.push(`${link.productNumber}/${link.makerPn}`); return { title: "Mouser: NeoPixel", url: "https://www.mouser.com/ProductDetail/Adafruit/1938?qs=x", text: "Mouser part number: 485-1938\nPrice (USD): $4.95 each at 1+\n" + "x".repeat(100) }; } };
+    const r = await researchItem({ ...input, url: "https://www.mouser.com/ProductDetail/485-1938" }, f.deps);
+    expect(asked).toEqual(["485-1938/null"]);
+    expect(f.fetched).toEqual([]);
+    expect(f.searched).toEqual([]);
+    expect(r.sources).toEqual([{ title: "Mouser: NeoPixel", url: "https://www.mouser.com/ProductDetail/485-1938" }]);
+    expect(f.prompts[1]!.content).toContain("Mouser part number: 485-1938");
+    expect(r.suggestions.map((s) => [s.field, s.value, s.source])).toEqual([
+      ["supplier", "Mouser", "https://www.mouser.com/ProductDetail/485-1938"],
+      ["supplierPn", "485-1938", "https://www.mouser.com/ProductDetail/485-1938"],
+      ["price", "4.95", "https://www.mouser.com/ProductDetail/485-1938"],
+    ]);
+    // No key: the link is reported, nothing is fetched from mouser.com, the search takes over.
+    const g = fakes({ look: { markings: [], description: "", likelyPart: "x", queries: ["q"] }, extract: { identified: "x", suggestions: [], notes: [] } });
+    const r2 = await researchItem({ ...input, supplier: "Digi-Key", supplierPn: "1528-1938-ND" }, g.deps);
+    expect(g.fetched).toEqual(["https://www.example-supplier.com/lm2596"]);
+    expect(r2.notes).toEqual(["Couldn't read the shop page for the part number on record: Digi-Key pages can only be read through its API, and no Digi-Key key is set on this server."]);
   });
 
   it("drops 'None' and friends: the model saying it has nothing is not a value", async () => {
