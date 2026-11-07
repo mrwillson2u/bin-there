@@ -3,8 +3,10 @@
 // details. It never writes: the screen shows the suggestions and Colin accepts them one by one,
 // and whatever is accepted is marked as filled in by AI with where it came from.
 //
-// Three steps, each one model call: LOOK (read the photos and markings, decide what to search
-// for), SEARCH (SearXNG, then fetch a few pages), EXTRACT (fill the fields from the pages).
+// Three steps: LOOK (the photos alone go to the model: read the markings, say what it looks
+// like, propose searches; what's already on record is kept out of this call so the model can't
+// echo a known part number back as something it "read"), SEARCH (SearXNG, then fetch a few
+// pages), EXTRACT (fill the fields from the pages, the markings and what's known).
 // The pieces (chat, search, fetch, photo bytes) are passed in so the pipeline can be tested
 // without a model or the internet.
 
@@ -56,30 +58,38 @@ const BAD_HOSTS = /youtube|facebook|reddit|pinterest|tiktok|instagram|twitter|x\
 export async function researchItem(input: ResearchInput, deps: Deps): Promise<ResearchResult> {
   const log = deps.log ?? (() => {});
   const known = describeKnown(input);
+  const t0 = Date.now();
+  const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
 
-  // LOOK: photos (up to 3) and what's known, to decide what this is and what to search for.
+  // LOOK: the photos (up to 3) on their own. Nothing known goes in, so every marking that comes
+  // back was read off the picture (or made up, which the search will show up). No photo, no look.
   const images: string[] = [];
   for (const file of input.photos.slice(0, 3)) {
     const b64 = await deps.readPhoto(file);
     if (b64) images.push(b64);
   }
-  const lookPrompt = [
-    "You identify parts and components in a garage or electronics workshop inventory.",
-    images.length > 0
-      ? "Look at the photo(s) of one part. Read every piece of printed text exactly as written (chip markings, labels, silkscreen, model numbers, values), listing each as one string in `markings`. Don't guess at characters you can't read; leave them out."
-      : "There is no photo. Work from what is known.",
-    "Say what the part most likely is in `likelyPart` (a specific product or part number if you can tell, otherwise a type), describe it in one sentence in `description`,",
-    "and give 2 or 3 web search queries in `queries` that would find its supplier or datasheet page: the most specific one first (a part number if there is one), then a broader one.",
-    "Known so far:",
-    known,
-  ].join("\n");
-  const lookRaw = await deps.chat({
-    messages: [{ role: "user", content: lookPrompt, ...(images.length ? { images } : {}) }],
-    schema: LOOK_SCHEMA,
-  });
-  const look = parseJson<Look>(lookRaw, { markings: [], description: "", likelyPart: input.name, queries: [] });
-  look.queries = uniq([...(look.queries ?? []), ...(input.supplierPn ? [input.supplierPn] : []), input.name].filter((q) => q && q.trim().length > 1)).slice(0, 3);
-  log(`look: ${look.likelyPart} | markings ${look.markings.length} | queries ${look.queries.join(" / ")}`);
+  let look: Look = { markings: [], description: "", likelyPart: input.name, queries: [] };
+  if (images.length > 0) {
+    const lookPrompt = [
+      "You identify parts and components in a garage or electronics workshop inventory. These are photo(s) of one part, and you know nothing else about it.",
+      "`markings`: every piece of text actually printed on the part, its label or its bag, exactly as written, one string each (model numbers, values, web addresses, brand names you can see). Only text you can see. If nothing is printed, leave it empty. Never list a brand, a type or a part number you merely recognise or expect: that is not a marking.",
+      "`description`: one sentence saying what you see (what kind of part, how many pins or leads, colour, size clues).",
+      "`likelyPart`: what it most likely is: a specific product if a marking names one, otherwise just the kind of part.",
+      "`queries`: 2 or 3 web searches that would find its supplier or datasheet page, built from the markings and what you see: the most specific first. Don't put a part number in a query unless it's in the markings.",
+    ].join("\n");
+    const lookRaw = await deps.chat({ messages: [{ role: "user", content: lookPrompt, images }], schema: LOOK_SCHEMA });
+    look = parseJson<Look>(lookRaw, look);
+    look.markings = (look.markings ?? []).filter((m) => typeof m === "string" && m.trim()).map((m) => m.trim());
+  }
+  // What's on record searches too: a known part number first, the name last.
+  look.queries = uniq([...(input.supplierPn ? [input.supplierPn] : []), ...(look.queries ?? []), input.name].filter((q) => q && q.trim().length > 1)).slice(0, 3);
+  log(`look (${elapsed()}): ${look.likelyPart} | markings ${look.markings.length} | queries ${look.queries.join(" / ")}`);
+
+  // A web address printed on the part (Adafruit and SparkFun bags carry one) is the best page
+  // there is: fetched straight away, no search engine needed. Their product number is the number
+  // in that address, whatever else the label says.
+  const labelled = labelLinks(look.markings);
+  const direct: Hit[] = labelled.map((l) => ({ title: l.url, url: l.url, snippet: "printed on the part" }));
 
   // SEARCH: a few queries (stopping once there's enough to read, so the engines aren't hammered),
   // then up to 4 pages, suppliers and makers first.
@@ -94,16 +104,17 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
       problems.push((e as Error).message);
     }
   }
-  const ranked = hits
-    .filter((h) => !BAD_HOSTS.test(h.url))
-    .sort((a, b) => Number(GOOD_HOSTS.test(b.url)) - Number(GOOD_HOSTS.test(a.url)));
+  const ranked = [
+    ...direct,
+    ...hits.filter((h) => !BAD_HOSTS.test(h.url)).sort((a, b) => Number(GOOD_HOSTS.test(b.url)) - Number(GOOD_HOSTS.test(a.url))),
+  ];
   const pages: { title: string; url: string; text: string }[] = [];
   for (const h of ranked) {
     if (pages.length >= 4) break;
     const text = await deps.fetchPage(h.url);
     if (text && text.length > 200) pages.push({ title: h.title, url: h.url, text });
   }
-  log(`search: ${hits.length} hits, ${pages.length} pages read`);
+  log(`search (${elapsed()}): ${hits.length} hits, ${pages.length} pages read`);
 
   // EXTRACT: fill the fields from the pages (and the markings), each with its source.
   const fieldList = [
@@ -149,7 +160,9 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     "",
     "Known so far:",
     known,
-    `What the photos showed: ${look.description || "no photo"}. Likely part: ${look.likelyPart}. Markings: ${look.markings.join(" | ") || "none"}.`,
+    images.length > 0
+      ? `What the photos showed: ${look.description}. Likely part from the photos alone: ${look.likelyPart}. Text read off the part: ${look.markings.join(" | ") || "none printed"}.`
+      : "There is no photo.",
     "",
     ...pages.flatMap((p, i) => [`--- Page ${i + 1}: ${p.title}`, `URL: ${p.url}`, p.text, ""]),
     pages.length === 0 ? "No pages could be read. Suggest only what the markings and what's known support, and say so in notes." : "",
@@ -160,23 +173,41 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   const labels = new Map(fieldList.map((f) => [f.key, f.label.replace(/ \(.*\)$/, "")]));
   const seen = new Set<string>();
   const suggestions: Suggestion[] = [];
+  const printed = (value: string) => look.markings.some((m) => squash(m).includes(squash(value)) && squash(value).length >= 3);
+  // The printed address decides supplier, product number and link; the model doesn't get a say.
+  const label = labelled[0];
+  if (label && labels.has("supplier")) {
+    for (const s of [
+      { field: "supplier", value: label.supplier },
+      { field: "supplierPn", value: label.productNumber },
+      { field: "url", value: label.url },
+    ]) {
+      if (!labels.has(s.field)) continue;
+      seen.add(s.field);
+      suggestions.push({ field: s.field, label: labels.get(s.field)!, value: s.value, source: "photo", confidence: "high" });
+    }
+  }
   for (const s of extracted.suggestions ?? []) {
     if (!labels.has(s.field) || seen.has(s.field)) continue;
     const value = clean(s.field, String(s.value ?? ""));
     if (!value) continue;
     if (s.field === "category" && !input.categories.includes(value)) continue;
-    // A price can only come from a page that was read. A link from the photo must be printed on the part.
     const fromPage = pages.some((p) => p.url === s.source);
-    if (s.field === "price" && !fromPage) continue;
-    if (s.field === "url" && !fromPage && !look.markings.some((m) => m.includes(value.replace(/^https?:\/\//, "").replace(/\/$/, "")))) continue;
+    const fromPhoto = !fromPage;
+    // Off the photo, a value has to be printed on the part to be sure: a price never is, a link or
+    // a part number must be in the markings, and anything else unprinted is at best likely.
+    if (s.field === "price" && fromPhoto) continue;
+    if ((s.field === "url" || s.field === "supplierPn") && fromPhoto && !printed(value)) continue;
+    let confidence: Suggestion["confidence"] = s.confidence ?? "low";
+    if (fromPhoto && !printed(value) && confidence === "high") confidence = s.field === "category" ? "high" : "medium";
     if (s.field === "name" && value.toLowerCase() === input.name.trim().toLowerCase()) continue;
     if (s.field.startsWith("attributes.") && (input.attributes[s.field.slice(11)] ?? "").trim() === value) continue;
     // A page that wasn't read can't be a source; fall back to the first page, or the photo.
-    const source = pages.some((p) => p.url === s.source) ? s.source : s.source === "photo" ? "photo" : (pages[0]?.url ?? "photo");
+    const source = fromPage ? s.source : s.source === "photo" ? "photo" : (pages[0]?.url ?? "photo");
     seen.add(s.field);
-    suggestions.push({ field: s.field, label: labels.get(s.field)!, value, source, confidence: s.confidence ?? "low" });
+    suggestions.push({ field: s.field, label: labels.get(s.field)!, value, source, confidence });
   }
-  log(`extract: ${suggestions.length} suggestions`);
+  log(`extract (${elapsed()}): ${suggestions.length} suggestions`);
 
   const notes = (extracted.notes ?? []).filter((n) => typeof n === "string" && n.trim()).slice(0, 5);
   if (problems.length > 0 && pages.length === 0) notes.unshift(`The web search didn't answer this time (${uniq(problems)[0]}). Try again in a while; only what's on the part itself is suggested.`);
@@ -188,6 +219,21 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     suggestions,
     notes,
   };
+}
+
+/** Letters and digits only, lower case: "adafru.it/1938" and "ADAFRU IT 1938" match. */
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Product links printed on a bag: Adafruit's adafru.it/NNNN and SparkFun's sparkfun.com/products/NNNNN. */
+export function labelLinks(markings: string[]): { supplier: string; productNumber: string; url: string }[] {
+  const out: { supplier: string; productNumber: string; url: string }[] = [];
+  for (const m of markings) {
+    const ada = m.match(/adafru\.it\/(\d{2,6})/i) ?? m.match(/adafruit\.com\/products?\/(\d{2,6})/i);
+    if (ada) out.push({ supplier: "Adafruit", productNumber: ada[1]!, url: `https://www.adafruit.com/product/${ada[1]}` });
+    const spark = m.match(/sparkfun\.com\/products\/(\d{3,6})/i);
+    if (spark) out.push({ supplier: "SparkFun", productNumber: spark[1]!, url: `https://www.sparkfun.com/products/${spark[1]}` });
+  }
+  return out.filter((l, i) => out.findIndex((o) => o.url === l.url) === i);
 }
 
 function describeKnown(input: ResearchInput): string {

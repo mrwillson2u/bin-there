@@ -3,6 +3,8 @@
 // typing over a used value, saving, and the AI marks on the part's page. Without AI_URL the
 // button isn't there.
 import { createServer } from "node:http";
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 // Safety: never point this at the real data. It runs its own server on port 3011
@@ -64,6 +66,14 @@ voltageKey = modules.fieldDefs.find((f) => f.label === "Voltage").key;
 // No category yet: the AI may suggest one. The fields it can fill are the category's, so the
 // part gets its category first (as Fill in details would) and the AI fills Voltage.
 const item = await api("POST", "/items", { name: "Buck converter", locationId: tote.id, qty: 3, categoryId: modules.id });
+// A photo on the part: without one the photo-reading step is skipped (and the fake model's markings with it).
+execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=800x600", "-frames:v", "1", `${shots}/part.jpg`]);
+{
+  const jpg = new Blob([readFileSync(`${shots}/part.jpg`)], { type: "image/jpeg" });
+  const form = new FormData(); form.append("photo", jpg, "photo.jpg"); form.append("thumb", jpg, "thumb.jpg");
+  const r = await fetch(`${base}/api/items/${item.id}/photos`, { method: "POST", body: form });
+  if (!r.ok) throw new Error("photo upload failed " + r.status);
+}
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });

@@ -690,6 +690,6 @@ describe("AI data fill (DEC-048)", () => {
     expect(r.identified).toBe("Nylon cable ties, 100 mm");
     expect(r.suggestions).toEqual([{ field: "supplier", label: "Supplier", value: "Example Supplier", source: "https://www.example-supplier.com/ties", confidence: "high" }]);
     expect(r.sources.map((s) => s.url)).toEqual(["https://www.example-supplier.com/ties"]);
-    expect(calls.some((c) => c.includes("q=nylon+cable+ties+100mm"))).toBe(true);
+    expect(calls.some((c) => c.includes("q=Zip+ties"))).toBe(true); // no photo, so no look step: the name is searched
   });
 });
