@@ -78,6 +78,9 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.
+  - `changes.ts`: live updates (DEC-046). A middleware in `app.ts` bumps `Changes` after every
+    successful non-GET request (backups excepted) with the writer's `X-Client` header;
+    `GET /api/changes` streams them as server-sent events. Any new write route gets this for free.
 
 **Undo invariant.** Every stock mutation writes one row to `events` in the same transaction, with
 `undoData` holding the rows as they were before. Undo restores that snapshot and marks the event
@@ -105,7 +108,10 @@ the server uses them to validate `PUT /locations/:id/slot` (and `slot` on create
 ### Web (`src/web/`)
 
 - React 19, React Router, TanStack Query, Tailwind v4. `api.ts` is a thin `fetch` wrapper that
-  throws `RequestError`; pages use `useQuery`/`useMutation` and invalidate queries after writes.
+  throws `RequestError` and sends this tab's `clientId` as `X-Client` on every write; pages use
+  `useQuery`/`useMutation` and invalidate queries after writes. `live.ts` (`useLiveUpdates`, mounted
+  once in `App`) listens on `/api/changes` and invalidates every query when another device or tab
+  writes, ignoring this tab's own echo; queries also refetch on window focus and reconnect (DEC-046).
 - `App.tsx` holds the routes and the shell (bottom bar on phones, sidebar at `lg`). Each screen sits
   inside `ScreenErrorBoundary` (DEC-029). Write effects with a block body: an effect must return
   nothing or a clean-up function, and newer browsers' `scrollTo` returns a Promise.

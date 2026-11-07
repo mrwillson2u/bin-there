@@ -4,6 +4,7 @@ import { Archive, Boxes, History, ScanLine, Search, Settings, Warehouse } from "
 import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
+import { useLiveUpdates } from "./live";
 import { cameraAllowed, scannerExpected, useScanMethod } from "./settings";
 import { InventoryPage } from "./pages/InventoryPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -26,6 +27,7 @@ import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 export function App() {
   const navigate = useNavigate();
   const [scanError, setScanError] = useState<string | null>(null);
+  useLiveUpdates();
 
   // Default scan behavior (J7): open whatever was scanned.
   const openScanned = useCallback(

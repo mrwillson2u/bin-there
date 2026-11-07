@@ -1320,6 +1320,23 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 
 ---
 
+### DEC-046: Screens update themselves when another device changes something
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-06 |
+| **Status** | Accepted (Colin, Q58) |
+| **Deciders** | Colin |
+| **Category** | UX / Architecture |
+
+**Context:** Colin switches between the desktop and the phone. A screen left open kept showing what it loaded until he did something on that device, because the app never refetched on its own (window-focus refetching was off and nothing told open screens that the data had changed).
+
+**Decision:** Two layers, both on. **(1)** Coming back to a tab, or getting the network back, refetches whatever is on screen (TanStack Query's focus and reconnect refetching, now on). **(2)** The server streams a tiny "something changed" ping over server-sent events at `GET /api/changes`: every write that succeeds bumps a version number and the ping carries it, with the writer's per-tab id (`X-Client` header on every write). Each open screen holds one stream and refetches all its queries when the version moves, ignoring its own echo because it already refreshed itself after the write. The first message after a (re)connect says where the server is now, so a phone that slept through changes catches up when the browser reconnects the stream. A comment every 25 s keeps proxies from closing a quiet stream. Backups don't count as a change.
+
+**Consequences:** `src/server/changes.ts`, the `/changes` route and the bump middleware in `app.ts`, `src/web/live.ts` (`useLiveUpdates`, `clientId`), the `X-Client` header in `api.ts`, `main.tsx` defaults; `scripts/ui-checks/live-check.mjs` (two browser contexts as two devices). Through Tailscale Serve and the container the stream is plain HTTP, no extra ports. No polling: a quiet app costs one idle connection per open tab.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1369,6 +1386,7 @@ Asked again (Q47), he kept the needs-details rule: a part needs a name **and** a
 | DEC-043 | A Settings screen: how the Stickers screen starts, the beep, appearance | UX | Accepted | 2026-11-06 |
 | DEC-044 | One scan language: a scan colour, a scan target on every scanning screen, the bar as the status | UX | Accepted | 2026-11-06 |
 | DEC-045 | The name is written "Bin→There", with the arrow | Product | Accepted | 2026-11-06 |
+| DEC-046 | Screens update themselves when another device changes something | UX / Architecture | Accepted | 2026-11-06 |
 
 ---
 

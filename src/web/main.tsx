@@ -8,8 +8,9 @@ import "./index.css";
 
 installTheme();
 
+// Coming back to a tab or getting the network back refetches what's on screen (DEC-046).
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: true, refetchOnReconnect: true } },
 });
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {

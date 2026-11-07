@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { eq } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { locations, units } from "./db/schema";
@@ -50,6 +51,7 @@ import { putBack } from "./putback";
 import { listProjects, returnFromProject } from "./projects";
 import { listPins, setPinned } from "./pins";
 import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
+import { Changes } from "./changes";
 import {
   adjustSchema,
   assignCodeSchema,
@@ -89,6 +91,14 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   const api = new Hono();
   api.onError((err, c) => errorResponse(c, err));
 
+  // Live updates (DEC-046): any write that succeeds bumps the change version, and open screens
+  // hear about it on /changes. Backups don't change what a screen shows.
+  const changes = new Changes();
+  api.use("*", async (c, next) => {
+    await next();
+    if (c.req.method !== "GET" && c.res.ok && !c.req.path.endsWith("/backup")) changes.bump(c.req.header("x-client") ?? null);
+  });
+
   const intParam = (v: string | undefined) => {
     const n = Number(v);
     if (!Number.isInteger(n) || n <= 0) throw new ApiError(400, "VALIDATION", `Bad id ${v}`);
@@ -96,6 +106,21 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   };
 
   api.get("/health", (c) => c.json({ ok: true }));
+  api.get("/changes", (c) => {
+    c.header("X-Accel-Buffering", "no");
+    return streamSSE(c, async (stream) => {
+      const send = (change: { version: number; by: string | null }) =>
+        stream.writeSSE({ event: "change", data: JSON.stringify(change) }).catch(() => {});
+      await send({ version: changes.version, by: null });
+      const unsubscribe = changes.subscribe(send);
+      // A comment every 25 s keeps proxies from closing a quiet stream.
+      const keepAlive = setInterval(() => stream.write(": ping\n\n").catch(() => {}), 25_000);
+      keepAlive.unref();
+      await new Promise<void>((done) => stream.onAbort(done));
+      clearInterval(keepAlive);
+      unsubscribe();
+    });
+  });
   api.get("/stats", (c) =>
     c.json({ needsDetails: countNeedsDetails(db), checkedOut: listCheckedOut(db).length, stale: listStale(db).length, low: listLow(db).length } satisfies Stats),
   );

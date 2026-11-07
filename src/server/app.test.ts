@@ -554,3 +554,57 @@ describe("gridded box layout", () => {
     expect(kids.find((c) => c.id === empty.id)).toMatchObject({ itemCount: 0, preview: [] });
   });
 });
+
+describe("live updates (DEC-046)", () => {
+  /** Opens the change stream and returns a reader of its events, one JSON object per "change". */
+  async function listen() {
+    const res = await api.request("/changes");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffered = "";
+    const next = async (): Promise<{ version: number; by: string | null }> => {
+      for (;;) {
+        const at = buffered.indexOf("\n\n");
+        if (at >= 0) {
+          const block = buffered.slice(0, at);
+          buffered = buffered.slice(at + 2);
+          if (block.startsWith(":")) continue; // keep-alive comment
+          const data = block.split("\n").find((l) => l.startsWith("data: "))!.slice(6);
+          return JSON.parse(data);
+        }
+        const { value, done } = await reader.read();
+        if (done) throw new Error("stream ended");
+        buffered += decoder.decode(value);
+      }
+    };
+    return { next, close: () => reader.cancel() };
+  }
+
+  it("says where the server is now, then one change per write, naming the writer", async () => {
+    const stream = await listen();
+    expect(await stream.next()).toEqual({ version: 1, by: null }); // the Garage site from setup
+    const tote = await create({ name: "Tote", type: "tote" });
+    expect(await stream.next()).toEqual({ version: 2, by: null });
+    await api.request("/items", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Client": "phone-1" },
+      body: JSON.stringify({ name: "Zip ties", locationId: tote.id, qty: 5 }),
+    });
+    expect(await stream.next()).toEqual({ version: 3, by: "phone-1" });
+    await stream.close();
+  });
+
+  it("stays quiet for reads, failed writes and backups", async () => {
+    const stream = await listen();
+    expect(await stream.next()).toEqual({ version: 1, by: null });
+    await call("GET", "/locations");
+    expect((await call("POST", "/locations", { name: "", type: "nope" })).status).toBe(400);
+    expect((await call("POST", "/backup")).status).toBe(400); // backups aren't set up in tests, and never count anyway
+    const tote = await create({ name: "Tote", type: "tote" });
+    expect(tote.id).toBeGreaterThan(0);
+    expect(await stream.next()).toEqual({ version: 2, by: null }); // the first thing heard is the real write
+    await stream.close();
+  });
+});
