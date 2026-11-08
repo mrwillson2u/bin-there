@@ -19,6 +19,7 @@ describe("shopFromUrl", () => {
     expect(shopFromUrl("https://www.amazon.ca/gp/product/b07tc2bk1x")).toMatchObject({ shop: "Amazon", productNumber: "B07TC2BK1X", url: "https://www.amazon.ca/dp/B07TC2BK1X" });
     expect(shopFromUrl("https://www.digikey.com/en/products/detail/adafruit-industries-llc/1938/5154662")).toEqual({ shop: "Digi-Key", productNumber: null, makerPn: "1938", url: "https://www.digikey.com/en/products/detail/adafruit-industries-llc/1938/5154662" });
     expect(shopFromUrl("https://www.digikey.com/en/products/detail/texas-instruments/LM2596S-ADJ%2FNOPB/366911")).toMatchObject({ shop: "Digi-Key", makerPn: "LM2596S-ADJ/NOPB" });
+    expect(shopFromUrl("https://www.digikey.com/en/products/result?keywords=1528-1938-ND")).toMatchObject({ shop: "Digi-Key", productNumber: "1528-1938-ND", makerPn: null });
     expect(shopFromUrl("https://www.mouser.com/ProductDetail/Adafruit/1938?qs=abc")).toMatchObject({ shop: "Mouser", productNumber: null, makerPn: "1938" });
     expect(shopFromUrl("https://www.mouser.com/ProductDetail/485-1938")).toMatchObject({ shop: "Mouser", productNumber: "485-1938", makerPn: null });
     expect(shopFromUrl("https://www.adafruit.com/category/168")).toBeNull();
@@ -105,7 +106,11 @@ describe("digikeyReader", () => {
       asked.push({ url, headers: (init?.headers ?? {}) as Record<string, string>, body: init?.body ? String(init.body) : undefined });
       if (url.endsWith("/oauth2/token")) return new Response(JSON.stringify({ access_token: "TOK", expires_in: 599 }));
       if (url.includes("/productdetails")) return new Response(JSON.stringify({ Product: product }));
-      return new Response(JSON.stringify({ Products: [{ ...product, ManufacturerProductNumber: "1938-X" }, product] }));
+      // What Digi-Key really answers for "1938": thousands of loose matches, two exact ones from different makers.
+      return new Response(JSON.stringify({
+        ExactMatches: [{ ...product, Manufacturer: { Name: "Keystone Electronics" }, ProductVariations: [{ DigiKeyProductNumber: "36-1938-ND" }] }, product],
+        Products: [{ ...product, Manufacturer: { Name: "Molex" }, ManufacturerProductNumber: "5011938000" }],
+      }));
     }) as typeof fetch);
     const page = await read({ shop: "Digi-Key", productNumber: "1528-1938-ND", makerPn: null, url: "https://www.digikey.com/en/products/result?keywords=1528-1938-ND" });
     expect(asked[0]!.body).toBe("client_id=ID&client_secret=SECRET&grant_type=client_credentials");
@@ -120,8 +125,12 @@ describe("digikeyReader", () => {
     const byMaker = await read({ shop: "Digi-Key", productNumber: null, makerPn: "1938", url: "https://www.digikey.com/en/products/detail/adafruit-industries-llc/1938/5154662" });
     expect(asked).toHaveLength(3);
     expect(asked[2]!.url).toBe("https://api.digikey.com/products/v4/search/keyword");
-    expect(JSON.parse(asked[2]!.body!)).toEqual({ Keywords: "1938", Limit: 3, Offset: 0 });
-    expect(byMaker!.text).toContain("Manufacturer part number: 1938\n");
+    expect(JSON.parse(asked[2]!.body!)).toEqual({ Keywords: "1938", Limit: 10, Offset: 0 });
+    expect(byMaker!.text).toContain("Manufacturer: Adafruit Industries LLC\n");
+    expect(byMaker!.text).toContain("Digi-Key part number: 1528-1938-ND\n");
+    // The link's maker has no exact match: no page, rather than someone else's part.
+    const wrongMaker = await read({ shop: "Digi-Key", productNumber: null, makerPn: "1938", url: "https://www.digikey.com/en/products/detail/molex/1938/1" });
+    expect(wrongMaker).toBeNull();
   });
   it("says why when the key is refused", async () => {
     const read = digikeyReader("ID", "BAD", (async () => new Response("no", { status: 401 })) as typeof fetch);

@@ -99,14 +99,15 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   // shops also settles the supplier and its product number.
   const labelled = labelLinks(look.markings);
   const direct: { title: string; url: string; link: ShopLink | null; why: string }[] = [];
-  const addDirect = (url: string | null, why: string) => {
+  const addDirect = (url: string | null, why: string, known?: ShopLink | null) => {
     const u = (url ?? "").trim();
     if (!/^https?:\/\/\S+$/.test(u) || direct.some((d) => d.url === u)) return;
-    const link = shopFromUrl(u);
+    const link = known ?? shopFromUrl(u);
     direct.push({ title: link ? `${link.shop}${link.productNumber ? ` ${link.productNumber}` : ""}` : u, url: u, link, why });
   };
   addDirect(input.url, "the link on record");
-  addDirect(shopPage(input.supplier, input.supplierPn)?.url ?? null, "the shop page for the part number on record");
+  const onRecord = shopPage(input.supplier, input.supplierPn);
+  addDirect(onRecord?.url ?? null, "the shop page for the part number on record", onRecord);
   for (const l of labelled) addDirect(l.url, "printed on the part");
 
   const pages: { title: string; url: string; text: string; own: boolean }[] = [];

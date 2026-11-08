@@ -56,9 +56,10 @@ export function shopFromUrl(raw: string): ShopLink | null {
     return { shop: "Amazon", productNumber: asin, makerPn: null, url: `https://www.${host.includes("amazon.") ? host : "amazon.com"}/dp/${asin}` };
   }
   if (host.endsWith("digikey.com") || host.endsWith("digikey.ca")) {
-    // /en/products/detail/<maker>/<maker part number>/<id>
+    // /en/products/detail/<maker>/<maker part number>/<id>, or a search link /products/result?keywords=<part number>
     const m = path.match(/\/products\/detail\/[^/]+\/([^/]+)\/\d+/);
-    return { shop: "Digi-Key", productNumber: null, makerPn: m ? dec(m[1]!) : null, url: u.toString() };
+    const kw = (u.searchParams.get("keywords") ?? "").trim();
+    return { shop: "Digi-Key", productNumber: !m && kw ? kw : null, makerPn: m ? dec(m[1]!) : null, url: u.toString() };
   }
   if (host.endsWith("mouser.com") || host.endsWith("mouser.ca")) {
     // /ProductDetail/<maker>/<maker part number>?qs=… or /ProductDetail/<Mouser part number>

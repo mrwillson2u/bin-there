@@ -205,6 +205,17 @@ describe("researchItem", () => {
       ["supplierPn", "485-1938", "https://www.mouser.com/ProductDetail/485-1938"],
       ["price", "4.95", "https://www.mouser.com/ProductDetail/485-1938"],
     ]);
+    // Supplier + part number on record: the Digi-Key reader is asked by that number (the page built for it is a search link).
+    const dk = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: ["q"] },
+      extract: { identified: "x", suggestions: [{ field: "price", value: "99.95", source: "page 1", confidence: "high" }], notes: [] },
+    });
+    const dkAsked: string[] = [];
+    dk.deps.shops = { "Digi-Key": async (link) => { dkAsked.push(`${link.productNumber}/${link.makerPn}`); return { title: "Digi-Key: SMT TEST SOCKET", url: "https://www.digikey.com/en/products/detail/adafruit-industries-llc/1241/6827055", text: "Digi-Key part number: 1528-1938-ND\nPrice (USD): $99.95 each at 1+\n" + "x".repeat(100) }; } };
+    const r3 = await researchItem({ ...input, supplier: "Digi-Key", supplierPn: "1528-1938-ND" }, dk.deps);
+    expect(dkAsked).toEqual(["1528-1938-ND/null"]);
+    expect(dk.searched).toEqual([]);
+    expect(r3.suggestions.map((s) => [s.field, s.value])).toContainEqual(["price", "99.95"]);
     // No key: the link is reported, nothing is fetched from mouser.com, the search takes over.
     const g = fakes({ look: { markings: [], description: "", likelyPart: "x", queries: ["q"] }, extract: { identified: "x", suggestions: [], notes: [] } });
     const r2 = await researchItem({ ...input, supplier: "Digi-Key", supplierPn: "1528-1938-ND" }, g.deps);

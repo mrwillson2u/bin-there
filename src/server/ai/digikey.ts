@@ -55,21 +55,37 @@ export function digikeyReader(clientId: string, clientSecret: string, fetchImpl:
         if (!res.ok) throw new Error(`Digi-Key answered ${res.status}`);
         product = ((await res.json()) as { Product?: DkProduct }).Product;
       } else {
+        // A maker's number such as "1938" matches thousands of Digi-Key parts; the answer's ExactMatches
+        // are the ones whose maker number is exactly that, and the link's maker slug picks among them.
+        // No exact match for that maker means no page at all: a wrong part is worse than none.
         const res = await fetchImpl(`${API}/products/v4/search/keyword`, {
           method: "POST",
           headers: { ...(await headers()), "Content-Type": "application/json" },
-          body: JSON.stringify({ Keywords: lookFor, Limit: 3, Offset: 0 }),
+          body: JSON.stringify({ Keywords: lookFor, Limit: 10, Offset: 0 }),
           signal: AbortSignal.timeout(20_000),
         });
         if (!res.ok) throw new Error(`Digi-Key answered ${res.status}`);
-        const products = ((await res.json()) as { Products?: DkProduct[] }).Products ?? [];
-        product = products.find((p) => (p.ManufacturerProductNumber ?? "").toLowerCase() === lookFor.toLowerCase()) ?? products[0];
+        const data = (await res.json()) as { ExactMatches?: DkProduct[]; Products?: DkProduct[] };
+        const maker = makerSlug(link.url);
+        const candidates = [...(data.ExactMatches ?? []), ...(data.Products ?? [])].filter((p) => (p.ManufacturerProductNumber ?? "").toLowerCase() === lookFor.toLowerCase());
+        product = (maker ? candidates.find((p) => slug(p.Manufacturer?.Name ?? "") === maker) : undefined) ?? (maker ? undefined : candidates[0]);
       }
       return product ? digikeyPage(product, link.url) : null;
     } catch (e) {
       throw new Error(`Digi-Key lookup failed: ${(e as Error).message}`);
     }
   };
+}
+
+/** The maker's slug in a Digi-Key detail link: /products/detail/adafruit-industries-llc/1938/6827082 → "adafruit-industries-llc". */
+function makerSlug(url: string): string | null {
+  const m = url.match(/\/products\/detail\/([^/]+)\/[^/]+\/\d+/);
+  return m ? m[1]!.toLowerCase() : null;
+}
+
+/** Digi-Key's slug for a maker's name: "Adafruit Industries LLC" → "adafruit-industries-llc". */
+function slug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 export function digikeyPage(p: DkProduct, fallbackUrl: string): ShopPage {
