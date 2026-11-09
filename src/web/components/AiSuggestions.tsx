@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, ExternalLink, Sparkles } from "lucide-react";
-import type { AiFill, AiStatus, ItemDetail, ResearchResult, Suggestion } from "../../shared/api";
+import type { AiFill, AiStatus, ItemDetail, ResearchRequest, ResearchResult, Suggestion } from "../../shared/api";
 import { api } from "../api";
 import { Button } from "./ui";
 
@@ -31,11 +31,13 @@ const confidenceTone: Record<Suggestion["confidence"], string> = {
 };
 const confidenceWord: Record<Suggestion["confidence"], string> = { high: "sure", medium: "likely", low: "a guess" };
 
-export function AiSuggestions({ item, used, onUse }: { item: ItemDetail; used: Record<string, AiFill>; onUse: (s: Suggestion) => void }) {
+// `form` is what the form holds right now (name, link, supplier, part number): the look-up uses
+// that, not the saved record, so a link pasted in a moment ago is read without saving first.
+export function AiSuggestions({ item, form, used, onUse }: { item: ItemDetail; form?: ResearchRequest; used: Record<string, AiFill>; onUse: (s: Suggestion) => void }) {
   const status = useAiStatus();
   const [result, setResult] = useState<ResearchResult | null>(null);
   const research = useMutation({
-    mutationFn: () => api<ResearchResult>(`/items/${item.id}/research`, { method: "POST" }),
+    mutationFn: () => api<ResearchResult>(`/items/${item.id}/research`, { method: "POST", body: form ?? {} }),
     onSuccess: setResult,
   });
   const usedHere = (s: Suggestion) => used[s.field] !== undefined && used[s.field]!.source === s.source;

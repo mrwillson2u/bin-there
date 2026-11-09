@@ -143,6 +143,17 @@ check((await panel2.getByRole("button", { name: /^Use Link/ }).count()) === 0 &&
 check((await panel2.getByRole("link", { name: /127\.0\.0\.1/ }).count()) >= 1, "the page read is listed");
 await page.screenshot({ path: `${shots}/ai-4-linked.png`, fullPage: true });
 
+// A link pasted into the form and not saved yet is the one that's read (no save needed first).
+const before2 = searches;
+const typed = await api("POST", "/items", { name: "Buck converter 3", locationId: tote.id, qty: 1, categoryId: modules.id });
+await page.goto(`${base}/items/${typed.id}/edit`);
+await page.getByPlaceholder("https://").fill("http://127.0.0.1:3012/page/lm2596");
+await page.getByRole("button", { name: "Suggest details with AI" }).click();
+await page.getByText("It looks like:").waitFor({ timeout: 20000 });
+const panel3 = page.getByRole("region", { name: "AI suggestions" });
+check(searches === before2 && (await panel3.getByRole("button", { name: "Use Price: 2.49" }).count()) === 1, "a link typed into the form, not saved, is read without a search");
+check((await api("GET", `/items/${typed.id}`)).url === null, "and nothing was saved by looking");
+
 await browser.close();
 server.kill();
 fake.close();

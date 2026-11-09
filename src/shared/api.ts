@@ -285,6 +285,18 @@ export type Suggestion = {
   confidence: "high" | "medium" | "low";
 };
 
+/**
+ * What the form holds right now, sent with the look-up so a link just pasted in is read without
+ * saving first (DEC-049). A field left out means "as saved"; an empty one means "none".
+ */
+export const researchSchema = z.object({
+  name: z.string().trim().max(200).optional(),
+  url: z.string().trim().max(2000).nullable().optional(),
+  supplier: z.string().trim().max(200).nullable().optional(),
+  supplierPn: z.string().trim().max(200).nullable().optional(),
+});
+export type ResearchRequest = z.infer<typeof researchSchema>;
+
 export type ResearchResult = {
   /** What the model thinks the part is, in a sentence. */
   identified: string;

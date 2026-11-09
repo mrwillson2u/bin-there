@@ -691,5 +691,12 @@ describe("AI data fill (DEC-048)", () => {
     expect(r.suggestions).toEqual([{ field: "supplier", label: "Supplier", value: "Example Supplier", source: "https://www.example-supplier.com/ties", confidence: "high" }]);
     expect(r.sources.map((s) => s.url)).toEqual(["https://www.example-supplier.com/ties"]);
     expect(calls.some((c) => c.includes("q=Zip+ties"))).toBe(true); // no photo, so no look step: the name is searched
+    // A link sent with the request (typed into the form, not saved yet) is read, and nothing is searched.
+    calls.length = 0;
+    const typed = await aiApi.request(`/items/${item.id}/research`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: "https://www.example-supplier.com/typed" }) });
+    expect(((await typed.json()) as { sources: { url: string }[] }).sources.map((s) => s.url)).toEqual(["https://www.example-supplier.com/typed"]);
+    expect(calls).toContain("https://www.example-supplier.com/typed");
+    expect(calls.some((c) => c.includes("/search?"))).toBe(false);
+    expect(((await (await aiApi.request(`/items/${item.id}`)).json()) as { url: string | null }).url).toBeNull(); // still nothing saved
   });
 });

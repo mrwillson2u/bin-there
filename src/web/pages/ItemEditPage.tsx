@@ -230,7 +230,7 @@ export function ItemForm({
       )}
 
       {ai?.enabled && (
-        <AiSuggestions item={item} used={aiFields} onUse={useSuggestion} />
+        <AiSuggestions item={item} form={{ name, url, supplier, supplierPn }} used={aiFields} onUse={useSuggestion} />
       )}
 
       <Field label="Name">

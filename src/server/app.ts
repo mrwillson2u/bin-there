@@ -79,6 +79,7 @@ import {
   rackLabelsSchema,
   rackSizeSchema,
   rackSlotSchema,
+  researchSchema,
   takeOutSchema,
   updateItemSchema,
   updateLocationSchema,
@@ -217,16 +218,19 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const ai = opts.ai;
     if (!ai) throw new ApiError(400, "VALIDATION", "AI isn't set up on this server (AI_URL)");
     const item = getItem(db, intParam(c.req.param("id")));
+    // The form's unsaved name, link, supplier and part number win over the saved ones: a link just
+    // pasted in is read without saving first. No body at all means "as saved".
+    const now = parseBody(researchSchema, await c.req.json().catch(() => ({})));
     const f = ai.fetch ?? fetch;
     const result = await researchItem(
       {
-        name: item.name,
-        url: item.url,
+        name: now.name || item.name,
+        url: now.url !== undefined ? now.url || null : item.url,
         categoryName: item.categoryName,
         fields: item.fieldDefs.map((d) => ({ key: d.key, label: d.label })),
         attributes: item.attributes,
-        supplier: item.supplier,
-        supplierPn: item.supplierPn,
+        supplier: now.supplier !== undefined ? now.supplier || null : item.supplier,
+        supplierPn: now.supplierPn !== undefined ? now.supplierPn || null : item.supplierPn,
         notes: item.notes,
         // Photo URLs are /api/photos/<file>; the file sits in the photo folder.
         photos: item.photos.map((p) => p.url.slice(p.url.lastIndexOf("/") + 1)),
