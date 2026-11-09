@@ -40,6 +40,15 @@ services:
       - "127.0.0.1:11435:11434"
     volumes:
       - ollama-models:/root/.ollama
+    # The card's device files, named as well as reserved below. Without them the container loses
+    # the card whenever systemd reloads (package updates do it) and Ollama quietly drops to the
+    # CPU, ten times slower: "Failed to initialize NVML" from nvidia-smi inside it (DEC-049).
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
     deploy:
       resources:
         reservations:
