@@ -71,7 +71,7 @@ describe("mouserReader", () => {
     expect(page!.title).toBe("Mouser: Diffused 5mm NeoPixel LED, 5 pack");
     expect(page!.url).toBe("https://www.mouser.com/ProductDetail/Adafruit/1938?qs=xyz");
     expect(page!.text).toContain("Mouser part number: 485-1938");
-    expect(page!.text).toContain("Price (USD): $4.95 each at 1+, $4.46 each at 10+");
+    expect(page!.text).toContain("Price (USD): $4.95 each\n");
     expect(page!.text).toContain("Illumination Color: RGB");
     await read({ shop: "Mouser", productNumber: null, makerPn: "1938", url: "https://www.mouser.com/ProductDetail/Adafruit/1938" });
     expect(asked[1]!.url).toBe("https://api.mouser.com/api/v1/search/keyword?apiKey=KEY");
@@ -119,7 +119,7 @@ describe("digikeyReader", () => {
     expect(page!.title).toBe("Digi-Key: LED RGB DIFFUSED 5MM T-1 3/4 5PK");
     expect(page!.url).toBe("https://www.digikey.com/en/products/detail/adafruit-industries-llc/1938/5154662");
     expect(page!.text).toContain("Digi-Key part number: 1528-1938-ND");
-    expect(page!.text).toContain("Price (USD): $4.95 each at 1+, $4.46 each at 10+");
+    expect(page!.text).toContain("Price (USD): $4.95 each\n");
     expect(page!.text).toContain("Color: RGB");
     // A detail link carries the maker's number: a keyword search, the exact match wins, the token is reused.
     const byMaker = await read({ shop: "Digi-Key", productNumber: null, makerPn: "1938", url: "https://www.digikey.com/en/products/detail/adafruit-industries-llc/1938/5154662" });

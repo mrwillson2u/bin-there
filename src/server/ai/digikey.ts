@@ -91,11 +91,9 @@ function slug(name: string): string {
 export function digikeyPage(p: DkProduct, fallbackUrl: string): ShopPage {
   // The cut-tape or single-unit variation is the one a garage buys; the first listed is usually it.
   const v = p.ProductVariations?.[0];
-  const prices = (v?.StandardPricing ?? [])
-    .slice(0, 4)
-    .filter((b) => typeof b.UnitPrice === "number")
-    .map((b) => `$${b.UnitPrice!.toFixed(2)} each at ${b.BreakQuantity ?? 1}+`)
-    .join(", ");
+  // Only the price for the smallest quantity (see mouser.ts).
+  const first = (v?.StandardPricing ?? []).filter((b) => typeof b.UnitPrice === "number").sort((a, b) => (a.BreakQuantity ?? 1) - (b.BreakQuantity ?? 1))[0];
+  const prices = first ? `$${first.UnitPrice!.toFixed(2)} each${(first.BreakQuantity ?? 1) > 1 ? ` (sold ${first.BreakQuantity} at a time)` : ""}` : null;
   const params = (p.Parameters ?? []).filter((x) => x.ParameterText && x.ValueText).map((x) => `${x.ParameterText}: ${x.ValueText}`);
   const url = p.ProductUrl || fallbackUrl;
   const text = pageText([
@@ -113,5 +111,5 @@ export function digikeyPage(p: DkProduct, fallbackUrl: string): ShopPage {
     ["Product page", url],
     ["Specifications", params.length ? "\n" + params.join("\n") : null],
   ]);
-  return { title: `Digi-Key: ${p.Description?.ProductDescription ?? p.ManufacturerProductNumber ?? "part"}`, url, text };
+  return { title: `Digi-Key: ${p.Description?.ProductDescription ?? p.ManufacturerProductNumber ?? "part"}`, url, text, productNumber: v?.DigiKeyProductNumber || null };
 }

@@ -49,11 +49,10 @@ export function mouserReader(apiKey: string, fetchImpl: typeof fetch = fetch): S
 }
 
 export function mouserPage(part: MouserPart, fallbackUrl: string): ShopPage {
-  const prices = (part.PriceBreaks ?? [])
-    .filter((b) => b.Price)
-    .slice(0, 4)
-    .map((b) => `${b.Price} each at ${b.Quantity ?? 1}+`)
-    .join(", ");
+  // Only the price for the smallest quantity: given the whole ladder, the model sometimes took the
+  // 50-off price for the part's price.
+  const first = (part.PriceBreaks ?? []).filter((b) => b.Price).sort((a, b) => (a.Quantity ?? 1) - (b.Quantity ?? 1))[0];
+  const prices = first ? `${first.Price} each${(first.Quantity ?? 1) > 1 ? ` (sold ${first.Quantity} at a time)` : ""}` : null;
   const attrs = (part.ProductAttributes ?? []).filter((a) => a.AttributeName && a.AttributeValue).map((a) => `${a.AttributeName}: ${a.AttributeValue}`);
   const url = part.ProductDetailUrl || fallbackUrl;
   const text = pageText([
@@ -69,5 +68,5 @@ export function mouserPage(part: MouserPart, fallbackUrl: string): ShopPage {
     ["Product page", url],
     ["Specifications", attrs.length ? "\n" + attrs.join("\n") : null],
   ]);
-  return { title: `Mouser: ${part.Description ?? part.MouserPartNumber ?? "part"}`, url, text };
+  return { title: `Mouser: ${part.Description ?? part.MouserPartNumber ?? "part"}`, url, text, productNumber: part.MouserPartNumber || null };
 }

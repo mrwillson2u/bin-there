@@ -105,7 +105,8 @@ export function shopPage(supplier: string | null | undefined, pn: string | null 
 }
 
 /** A shop's answer about one product, as text the model reads like a page. */
-export type ShopPage = { title: string; url: string; text: string };
+/** `productNumber` is the shop's own number for the part when the reader knows it (the API says so outright). */
+export type ShopPage = { title: string; url: string; text: string; productNumber?: string | null };
 export type ShopReader = (link: ShopLink) => Promise<ShopPage | null>;
 
 /** Lines of "Label: value" into page-like text, skipping empties. */

@@ -282,6 +282,32 @@ describe("researchItem", () => {
     expect((await researchItem({ ...input, photos: ["a.jpg"] }, f.deps)).suggestions).toEqual([]);
   });
 
+  it("keeps the finished suggestions of an answer that was cut off, and says so", async () => {
+    // What really happened with a Mouser link: the answer hit the length cap mid-suggestion, the
+    // JSON didn't parse, and the screen said "nothing to suggest" with the photo's guess as the part.
+    const cut =
+      '{ "identified": "Kycon DC power plug", "suggestions": [ { "field": "name", "value": "Kycon KPPX-4P DC power plug", "source": "page 1", "confidence": "high" }, ' +
+      '{ "field": "price", "value": "3.66", "source": "page 1", "confidence": "high" }, { "field": "attributes.Voltage", "value": "12 V and then it just keeps go';
+    const f = fakes({ look: { markings: ["303"], description: "a silver thing", likelyPart: "Relay", queries: [] }, extract: {} });
+    const chat = f.deps.chat;
+    let n = 0;
+    f.deps.chat = async (req) => (++n === 2 ? (await chat(req), cut) : chat(req));
+    f.deps.shops = { Mouser: async () => ({ title: "Mouser: DC Power Connectors", url: "https://www.mouser.com/ProductDetail/Kycon/KPPX-4P?qs=x", text: "Mouser part number: 806-KPPX-4P\nPrice (USD): $3.66 each\n" + "x".repeat(100), productNumber: "806-KPPX-4P" }) };
+    const link = "https://www.mouser.com/en/ProductDetail/Kycon/KPPX-4P?qs=abc&countrycode=US";
+    const r = await researchItem({ ...input, name: "Relay?", url: link }, f.deps);
+    expect(r.identified).toBe("Kycon DC power plug");
+    // The link carries the maker's number, so the shop's short name and the number its API gave are settled.
+    expect(r.suggestions.map((s) => [s.field, s.value, s.source])).toEqual([
+      ["supplier", "Mouser", link],
+      ["supplierPn", "806-KPPX-4P", link],
+      ["name", "Kycon KPPX-4P DC power plug", link],
+      ["price", "3.66", link],
+    ]);
+    expect(r.notes).toEqual(["The model's answer was cut short; these are the suggestions it finished. Look again for the rest."]);
+    // The model is asked to name its sources by page number, and can't write anything longer.
+    expect(f.prompts[1]!.content).toContain("--- Page 1: Mouser: DC Power Connectors (the owner's page for this exact part)");
+  });
+
   it("reads product links off labels", () => {
     expect(labelLinks(["RasPi stacking headers", "http://adafru.it/1112", "adafru.it/1112"])).toEqual([{ supplier: "Adafruit", productNumber: "1112", url: "https://www.adafruit.com/product/1112" }]);
     expect(labelLinks(["https://www.sparkfun.com/products/13678"])).toEqual([{ supplier: "SparkFun", productNumber: "13678", url: "https://www.sparkfun.com/products/13678" }]);

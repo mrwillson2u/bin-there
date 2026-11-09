@@ -110,7 +110,7 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   addDirect(onRecord?.url ?? null, "the shop page for the part number on record", onRecord);
   for (const l of labelled) addDirect(l.url, "printed on the part");
 
-  const pages: { title: string; url: string; text: string; own: boolean }[] = [];
+  const pages: { title: string; url: string; text: string; own: boolean; productNumber?: string | null; productUrl?: string | null }[] = [];
   const problems: string[] = [];
   const notes: string[] = [];
   for (const d of direct) {
@@ -169,7 +169,9 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
           properties: {
             field: { type: "string", enum: fieldList.map((f) => f.key) },
             value: { type: "string" },
-            source: { type: "string" },
+            // Short names, not addresses: a long shop address written out for every suggestion was
+            // most of the answer, and one answer hit the length cap that way and was lost.
+            source: { type: "string", enum: ["photo", ...pages.map((_, i) => `page ${i + 1}`)] },
             confidence: { type: "string", enum: ["high", "medium", "low"] },
           },
           required: ["field", "value", "source", "confidence"],
@@ -182,10 +184,10 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   const extractPrompt = [
     "You fill in the details of one part in a garage inventory, from pages found on the web and from text read off the part itself.",
     "Suggest a value only for a field you can actually support with the pages or the markings; leave a field out rather than guess. Never invent part numbers, prices or links.",
-    "For each suggestion, `source` is the URL of the page it came from, or the word photo if it was read off the part. `confidence` is high when a page states it outright for this exact part, medium when it is likely but the match isn't certain, low when it is inferred.",
+    "For each suggestion, `source` is the page it came from, written as its number below (page 1, page 2), or the word photo if it was read off the part. `confidence` is high when a page states it outright for this exact part, medium when it is likely but the match isn't certain, low when it is inferred.",
     "A page marked 'the owner's page for this exact part' is the shop page the owner saved or ordered from: what it says about the part is certain (high), and its price and specifications are this part's.",
     "An Amazon page lists other products first (sponsored, 'consider these alternative items', 'customers also bought'); this part's own price is the one by its own title, and if that isn't shown, suggest no price.",
-    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong.",
+    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the address (the URL line) of the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong.",
     "`supplierPn` is the number to order it by: for Adafruit or SparkFun that is the product number in the adafru.it or sparkfun.com link, not a lot or date code.",
     ...(input.categoryName ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
     "Put anything the owner should know in `notes` (an unreadable value, two likely matches, a field that needs a meter reading), in plain words, one short sentence each, no greeting and no name.",
@@ -203,7 +205,11 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   ].join("\n");
   const extractRaw = await deps.chat({ messages: [{ role: "user", content: extractPrompt }], schema: extractSchema });
   log(`extract answer: ${extractRaw.replace(/\s+/g, " ").slice(0, 600)}`);
-  const extracted = parseJson<{ identified: string; suggestions: Suggestion[]; notes: string[] }>(extractRaw, { identified: look.likelyPart, suggestions: [], notes: [] });
+  const extracted = parseExtract(extractRaw, look.likelyPart);
+  if (extracted.cutOff) {
+    log(`extract answer was cut off: kept ${extracted.suggestions.length} finished suggestions`);
+    notes.push("The model's answer was cut short; these are the suggestions it finished. Look again for the rest.");
+  }
 
   const labels = new Map(fieldList.map((f) => [f.key, f.label.replace(/ \(.*\)$/, "")]));
   const seen = new Set<string>();
@@ -220,12 +226,17 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   const sameAsNow = (field: string, value: string) => (current[field] ?? "").trim().toLowerCase() === value.trim().toLowerCase();
   // A known shop's page that was read decides supplier, product number and link; the model
   // doesn't get a say. A printed address counts as read off the photo.
-  const settled = direct.find((d) => d.link?.productNumber && pages.some((p) => p.url === d.url));
+  // The supplier is the shop's short name ("Mouser", not the page's "Mouser Electronics"); the
+  // number is the one in the link, else the one the shop's API gave; the link is the one followed,
+  // or the shop's own address for the part when the page was found from a part number.
+  const settled = direct.find((d) => d.link && pages.some((p) => p.url === d.url));
   if (settled?.link) {
+    const page = pages.find((p) => p.url === settled.url)!;
+    const number = settled.link.productNumber ?? page.productNumber ?? null;
     for (const s of [
       { field: "supplier", value: settled.link.shop },
-      { field: "supplierPn", value: settled.link.productNumber! },
-      { field: "url", value: settled.url },
+      ...(number ? [{ field: "supplierPn", value: number }] : []),
+      { field: "url", value: settled.why === "the shop page for the part number on record" && page.productUrl ? page.productUrl : settled.url },
     ]) {
       if (!labels.has(s.field)) continue;
       seen.add(s.field);
@@ -274,12 +285,12 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
  * (and throws a plain-words reason when there's no key), anything else is fetched. The page
  * keeps the address it was asked by, so the record's link stays the link.
  */
-async function readDirect(url: string, link: ShopLink | null, deps: Deps): Promise<{ title: string; url: string; text: string } | null> {
+async function readDirect(url: string, link: ShopLink | null, deps: Deps): Promise<{ title: string; url: string; text: string; productNumber?: string | null; productUrl?: string | null } | null> {
   if (link && !PLAIN_SHOPS.has(link.shop)) {
     const reader = deps.shops?.[link.shop];
     if (!reader) throw new Error(`${link.shop} pages can only be read through its API, and no ${link.shop} key is set on this server.`);
     const page = await reader(link);
-    return page && page.text.length > 40 ? { title: page.title, url, text: page.text } : null;
+    return page && page.text.length > 40 ? { title: page.title, url, text: page.text, productNumber: page.productNumber ?? null, productUrl: page.url } : null;
   }
   const text = await deps.fetchPage(url);
   if (!text || text.length <= 200) return null;
@@ -361,6 +372,37 @@ function clean(field: string, value: string): string {
   if (field === "url") return /^https?:\/\/\S+$/.test(v) ? v : "";
   if (v.length > 200) v = v.slice(0, 200);
   return v;
+}
+
+/**
+ * The extract answer. Normally whole JSON; when the model runs into the length cap the JSON stops
+ * mid-way, and throwing it all away showed "nothing to suggest" for a page that had been read
+ * perfectly well. So a cut-off answer keeps every suggestion that was written out whole.
+ */
+function parseExtract(raw: string, likelyPart: string): { identified: string; suggestions: Suggestion[]; notes: string[]; cutOff: boolean } {
+  try {
+    const whole = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)) as { identified?: string; suggestions?: Suggestion[]; notes?: string[] };
+    if (Array.isArray(whole.suggestions)) return { identified: whole.identified || likelyPart, suggestions: whole.suggestions, notes: whole.notes ?? [], cutOff: false };
+  } catch {
+    // fall through: not whole
+  }
+  const suggestions: Suggestion[] = [];
+  for (const m of raw.matchAll(/\{[^{}]*\}/g)) {
+    try {
+      const s = JSON.parse(m[0]) as Suggestion;
+      if (typeof s.field === "string" && typeof s.value === "string") suggestions.push(s);
+    } catch {
+      // not a finished suggestion
+    }
+  }
+  let identified = likelyPart;
+  const id = raw.match(/"identified"\s*:\s*("(?:[^"\\]|\\.)*")/);
+  try {
+    if (id) identified = (JSON.parse(id[1]!) as string) || likelyPart;
+  } catch {
+    // keep the photo's guess
+  }
+  return { identified, suggestions, notes: [], cutOff: true };
 }
 
 function parseJson<T>(raw: string, fallback: T): T {
