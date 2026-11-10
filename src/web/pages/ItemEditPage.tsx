@@ -208,7 +208,9 @@ export function ItemForm({
 
   return (
     <form
-      className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-2xl"
+      // On a phone one column with Save at the bottom; with room (the desktop page, the wide popup)
+      // two columns, what it is on the left and its details on the right, Save beside the title.
+      className="@container flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-5xl"
       onSubmit={(e) => {
         e.preventDefault();
         if (canSave) save.mutate();
@@ -216,23 +218,34 @@ export function ItemForm({
     >
       <div className="flex items-center gap-3">
         <Thumb url={item.thumbUrl} size={64} />
-        <h1 className="min-w-0 flex-1 text-xl font-semibold">{item.needsDetails ? "Fill in details" : "Edit item"}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold">{item.needsDetails ? "Fill in details" : "Edit item"}</h1>
+          {onClose && (
+            <Link to={`/items/${item.id}`} className="text-sm text-accent">
+              Open the part's page (photos, places, history)
+            </Link>
+          )}
+        </div>
+        <div className="hidden items-center gap-2 @3xl:flex">
+          <Button type="button" onClick={cancel}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={!canSave || save.isPending} className="min-w-28">
+            {save.isPending ? "Saving…" : "Save"}
+          </Button>
+        </div>
         {onClose && (
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center text-muted" aria-label="Close">
             <X size={22} />
           </button>
         )}
       </div>
-      {onClose && (
-        <Link to={`/items/${item.id}`} className="-mt-2 self-start text-sm text-accent">
-          Open the part's page (photos, places, history)
-        </Link>
-      )}
+      {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
       {ai?.enabled && (
         <AiSuggestions item={item} form={{ name, url, supplier, supplierPn }} used={aiFields} onUse={useSuggestion} />
       )}
 
+      <div className="flex flex-col gap-4 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-x-10">
+      <div className="flex flex-col gap-4">
       <Field label="Name">
         <input value={name} onChange={(e) => { setName(e.target.value); byHand("name"); }} className={inputClass} placeholder="e.g. M3 × 10 socket cap screw" autoFocus={!item.name} />
       </Field>
@@ -288,7 +301,9 @@ export function ItemForm({
       ) : (
         <p className="text-[13px] text-muted">No warning number needed: marking it Low or Out puts it on the shopping list.</p>
       )}
+      </div>
 
+      <div className="flex flex-col gap-4">
       {category && category.fieldDefs.length > 0 && (
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">{category.name} fields</legend>
@@ -347,9 +362,10 @@ export function ItemForm({
       <Field label="Notes">
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={`${inputClass} py-2`} />
       </Field>
+      </div>
+      </div>
 
-      {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-      <div className="flex gap-2">
+      <div className="flex gap-2 @3xl:hidden">
         <Button type="submit" variant="primary" disabled={!canSave || save.isPending} className="flex-1">
           {save.isPending ? "Saving…" : "Save"}
         </Button>

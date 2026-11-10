@@ -1415,6 +1415,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** One rule to remember: edit in `~/bin-there`, deploy from `~/bin-there-prod`. The compose project for production is now named after its folder (`bin-there-prod`), which changes nothing for the container or its name. The dev data refresh script's guard now checks for the `~/bin-there` folder. Anyone opening `~/bin-there` in an editor is in the development folder, which is what they want. The old port 8445 Tailscale mapping (the ai instance) is dead and can be turned off; 8444 still reaches the dev instance.
 
+### DEC-051: The details form in two columns when it has the room; the desktop audit
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-10 |
+| **Status** | Accepted (Colin) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Colin, using the app on a computer, said the edit item page looked formatted for a phone, and asked for an audit of every other screen for the same. Screenshots of all nineteen screens at 1440 px wide (from a copy of the dev data) showed sixteen already laid out for the width: Inventory as a table, the part's page with Where and History beside the photo, the rack and box pages with the contents beside the grid, Fill in details as columns, Put-back in two columns, the lists and Settings centred. Three were a phone column on a wide screen: the **details form** (`/items/:id/edit`, a 672 px column 1,374 px tall, scrolling to reach Save), **Quick capture** (a 500 px photo square and the fields under it in one column) and a **bin's page** (route and items stacked on the left, the right half empty).
+
+**Decision:** The details form lays itself out by its own width, not the window's (a CSS container query), so the same rule serves the page and the Fill in details popup: with 48 rem or more, two columns, what the part is on the left (name, category, type, how it's counted, how much there is, the warning number) and its details on the right (the category's fields, other fields, price and supplier, part number, link, notes), with Save and Cancel beside the title; narrower, the one column with Save at the bottom as before. The popup on a desktop widens from 42 to 60 rem so it gets the two columns too. The AI block stays full width above both columns, since its suggestions land in either. Quick capture and the bin's page are noted, not yet changed.
+
+**Consequences:** The whole form fits one desktop screen with nothing to scroll; the phone layout is unchanged (the browser checks for Fill in details and the AI block pass as before, with the popup's new width). Next, if Colin wants them: Quick capture with the photo square beside the fields, and the bin's page with its route on the left and its items on the right, like the part's page.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1469,6 +1484,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-048 | AI data fill as an experiment on the `ai` branch: a local model reads the photos, looks the part up, suggests details | Product / Architecture | Experiment (not on main) | 2026-11-06 |
 | DEC-049 | The AI reads the shop's own page first (the link, or supplier + part number); Mouser and Digi-Key through their APIs | Product / Architecture | Accepted (on `dev`) | 2026-11-06 |
 | DEC-050 | Two folders on the server, production and development; no folder per branch | Process | Accepted | 2026-11-07 |
+| DEC-051 | The details form in two columns when it has the room; the desktop audit (Quick capture and the bin's page still to do) | UX | Accepted | 2026-11-10 |
 
 ---
 

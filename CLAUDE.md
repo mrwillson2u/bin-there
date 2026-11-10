@@ -136,7 +136,7 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
   part needing details as rows that save as you go; each row reads `["item", id]`, seeded from
   `GET /api/items/needs-details`, so stock toasts and Undo update it. It opens `ItemForm` (exported
-  from `ItemEditPage.tsx`) in a popup. `CategoryPicker.tsx` is the type-to-find category box used there
+  from `ItemEditPage.tsx`) in a popup; the form lays itself out by its own width (`@container`: two columns from 48 rem, DEC-051). `CategoryPicker.tsx` is the type-to-find category box used there
   and in the form. A part leaves Needs details only with a name and a category (`updateItem`).
 - **Scanning** (`scan/`): `ScanProvider` installs one capture-phase `keydown` listener for the
   whole app. `detector.ts` (pure, unit-tested) tells scanner input from typing: a `Ctrl+B` prefix

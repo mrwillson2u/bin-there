@@ -315,7 +315,7 @@ function Popup({ label, onClose, children }: { label: string; onClose: () => voi
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className="relative h-full w-full overflow-y-auto bg-bg p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] lg:h-auto lg:max-h-full lg:w-[42rem] lg:rounded-2xl lg:border lg:border-border lg:p-6"
+        className="relative h-full w-full overflow-y-auto bg-bg p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] lg:h-auto lg:max-h-full lg:w-[60rem] lg:max-w-full lg:rounded-2xl lg:border lg:border-border lg:p-6"
       >
         {children}
       </div>

@@ -232,7 +232,7 @@ await r1.getByRole("combobox").click();
 await desk.screenshot({ path: `${shots}/n7-desktop.png` });
 await desk.getByRole("listitem", { name: "Zip ties" }).getByRole("button", { name: /^More details/ }).click();
 const dd = await desk.getByRole("dialog", { name: "Details for Zip ties" }).boundingBox();
-check(dd.width < 800 && dd.x > 200, `desktop: the popup is a centred panel (${Math.round(dd.width)} px wide)`);
+check(dd.width >= 900 && dd.width <= 1000 && dd.x > 100, `desktop: the popup is a centred panel (${Math.round(dd.width)} px wide)`);
 await desk.screenshot({ path: `${shots}/n8-desktop-popup.png` });
 
 check(errors.length === 0, `no page errors${errors.length ? ": " + errors.join(" | ") : ""}`);
