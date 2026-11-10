@@ -113,7 +113,10 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   const pages: { title: string; url: string; text: string; own: boolean; productNumber?: string | null; productUrl?: string | null }[] = [];
   const problems: string[] = [];
   const notes: string[] = [];
+  // Only the first page that can be read: the link on record outranks the number on record, which
+  // outranks a printed label, and two pages for one part were once two different products.
   for (const d of direct) {
+    if (pages.length > 0) break;
     try {
       const page = await readDirect(d.url, d.link, deps);
       if (page) pages.push({ ...page, own: true });

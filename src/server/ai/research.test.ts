@@ -282,6 +282,20 @@ describe("researchItem", () => {
     expect((await researchItem({ ...input, photos: ["a.jpg"] }, f.deps)).suggestions).toEqual([]);
   });
 
+  it("reads only the first direct page it can: the link on record, and not also the page for the number on record", async () => {
+    const f = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: [] },
+      extract: { identified: "x", suggestions: [{ field: "price", value: "4.95", source: "page 1", confidence: "high" }], notes: [] },
+    });
+    const asked: string[] = [];
+    f.deps.shops = { "Digi-Key": async (link) => { asked.push(link.productNumber ?? ""); return { title: "Digi-Key: other", url: "x", text: "Price (USD): $99.95 each\n" + "x".repeat(100) }; } };
+    f.deps.fetchPage = async (url) => { f.fetched.push(url); return "NeoPixel Diffused 5mm LED. Price $4.95. " + "x".repeat(300); };
+    const r = await researchItem({ ...input, url: "https://www.adafruit.com/product/1938", supplier: "Digi-Key", supplierPn: "1528-1938-ND" }, f.deps);
+    expect(f.fetched).toEqual(["https://www.adafruit.com/product/1938"]);
+    expect(asked).toEqual([]);
+    expect(r.sources.map((s) => s.url)).toEqual(["https://www.adafruit.com/product/1938"]);
+  });
+
   it("keeps the finished suggestions of an answer that was cut off, and says so", async () => {
     // What really happened with a Mouser link: the answer hit the length cap mid-suggestion, the
     // JSON didn't parse, and the screen said "nothing to suggest" with the photo's guess as the part.
