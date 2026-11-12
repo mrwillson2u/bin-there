@@ -78,6 +78,7 @@ import {
   setHomesSchema,
   rackLabelsSchema,
   rackSizeSchema,
+  checkCodesSchema,
   rackSlotSchema,
   researchSchema,
   takeOutSchema,
@@ -85,6 +86,7 @@ import {
   updateLocationSchema,
   type AiStatus,
   type BackupInfo,
+  type CodesCheck,
   type ResearchResult,
   type ScanResult,
   type StockResult,
@@ -153,6 +155,17 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const unit = db.select({ id: units.id, itemId: units.itemId }).from(units).where(eq(units.code, code)).get();
     if (unit) return c.json<ScanResult>({ kind: "unit", unitId: unit.id, itemId: unit.itemId });
     return c.json<ScanResult>({ kind: "unassigned", code });
+  });
+
+  // Print stickers (DEC-052): the codes are drawn on the device; this only says which are taken.
+  api.post("/stickers/check", async (c) => {
+    const { codes } = parseBody(checkCodesSchema, await c.req.json());
+    const used = new Set<string>();
+    for (const code of codes) {
+      if (db.select({ id: locations.id }).from(locations).where(eq(locations.code, code)).get()) used.add(code);
+      else if (db.select({ id: units.id }).from(units).where(eq(units.code, code)).get()) used.add(code);
+    }
+    return c.json<CodesCheck>({ used: [...used] });
   });
 
   // ── Locations ──

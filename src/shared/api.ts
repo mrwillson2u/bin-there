@@ -66,6 +66,10 @@ export function normalizeCode(raw: string): string {
 
 export const codeSchema = z.string().transform(normalizeCode).pipe(z.string().min(1).max(64));
 
+/** Before printing stickers (DEC-052): which of these fresh codes are already on something. */
+export const checkCodesSchema = z.object({ codes: z.array(codeSchema).max(5000) });
+export type CodesCheck = { used: string[] };
+
 /** Where a bin sits in its gridded box (x, y = top-left cell; y = rows means the front strip). Null takes it off the grid. */
 export const placeBinSchema = z
   .object({ x: z.number().int().min(0).max(99), y: z.number().int().min(0).max(99), rotated: z.boolean().optional() })

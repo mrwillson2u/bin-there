@@ -637,6 +637,16 @@ describe("grid size (DEC-047)", () => {
 });
 
 describe("AI data fill (DEC-048)", () => {
+  it("says which fresh sticker codes are already on something (DEC-052)", async () => {
+    const tote = await create({ name: "Tote", type: "tote", code: "EddY9xhVRwAg" });
+    const item = (await call<{ id: number }>("POST", "/items", { name: "Meter", kind: "returnable", locationId: tote.id })).json;
+    await call("POST", "/units", { itemId: item.id, code: "8WjAoohGcsr2", locationId: tote.id });
+    const r = await call<{ used: string[] }>("POST", "/stickers/check", { codes: ["EddY9xhVRwAg", "8WjAoohGcsr2", "FreshFreshAb", "EddY9xhVRwAg&END!"] });
+    expect(r.status).toBe(200);
+    expect(r.json.used.sort()).toEqual(["8WjAoohGcsr2", "EddY9xhVRwAg"]);
+    expect((await call("POST", "/stickers/check", { codes: "x" })).status).toBe(400);
+  });
+
   it("is off without AI_URL: status says so and research is refused", async () => {
     const status = await call<{ enabled: boolean; modelReady: boolean; search: boolean }>("GET", "/ai/status");
     expect(status.json).toEqual({ enabled: false, model: null, modelReady: false, search: false, shops: { mouser: false, digikey: false } });

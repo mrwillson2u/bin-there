@@ -1430,6 +1430,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** The whole form fits one desktop screen with nothing to scroll; the phone layout is unchanged (the browser checks for Fill in details and the AI block pass as before, with the popup's new width). Next, if Colin wants them: Quick capture with the photo square beside the fields, and the bin's page with its route on the left and its items on the right, like the part's page.
 
+### DEC-052: Print stickers from the app: die-cut sheets as PDF, Cricut Print Then Cut as PNG
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-11 |
+| **Status** | Accepted (Colin, Q74) |
+| **Deciders** | Colin |
+| **Category** | Product / UX |
+
+**Context:** Colin prints his QR stickers with a script of his own (`qr-label-creator` on GitHub: SVG for die-cut label sheets, a transparent PNG for Cricut Print Then Cut) and wanted that inside the app. He asked whether the Cricut's Design Space software could be avoided: it can't for full sticker vinyl, since Design Space is the only software that drives a Maker 3 and it prints the registration marks the cutter reads. Pre-cut waterproof sheets would avoid the Cricut altogether, but he prefers his vinyl, so both ways are wanted (Q74).
+
+**Decision:** A **Print stickers** screen (`/stickers/print`, reached from the bottom of Locations). Print on: *Sticker vinyl, Cricut* (the default) or *Die-cut sheet*; the label size from one of the script's four templates (SL588, SL855, Avery 6570, MR183, the measurements carried over to the point because they were tuned on real prints); title and subtitle (remembered on the device); sheets; on a die-cut sheet, how many used labels to skip and an outlines-only test print. A live preview with sample codes. *Make* draws fresh random codes (12 characters from the lookalike-free alphabet every sticker so far has used), asks the server which are already on something (`POST /api/stickers/check`, swapping any that are), and downloads a PDF (one page per sheet, pdf-lib's built-in Helvetica, printed at 100%) or a PNG per sheet (300 dpi, transparent, white label shapes, drawn on a canvas in the browser) with the exact size to type into Design Space and the three steps there. The codes are **not recorded**: a sticker becomes something the first time it's scanned onto a bin or a part, the rule the whole app runs on. All of it runs in the browser, so the server image gains no image library; the server's only part is the check.
+
+**Consequences:** `src/shared/labels.ts` is the port: templates, the Cricut re-grid, codes, and one layout that turns a page into plain rectangles and text in page coordinates, which the SVG (preview, PNG) and the PDF both draw without any transforms of their own; its tests pin the template numbers and that every label's drawing stays inside its label, turned or not. Two new dependencies, `qrcode` and `pdf-lib`. The browser check makes both files and scans the PNG's codes back with the app's own decoder. Not yet: reprinting a particular sticker (the script's `--ids-file`), and the Cricut path is still unproven on the Maker 3 itself (the script's note says the same); Colin's first real cut will tell.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1485,6 +1500,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-049 | The AI reads the shop's own page first (the link, or supplier + part number); Mouser and Digi-Key through their APIs | Product / Architecture | Accepted (on `dev`) | 2026-11-06 |
 | DEC-050 | Two folders on the server, production and development; no folder per branch | Process | Accepted | 2026-11-07 |
 | DEC-051 | The details form in two columns when it has the room; the desktop audit (Quick capture and the bin's page still to do) | UX | Accepted | 2026-11-10 |
+| DEC-052 | Print stickers from the app: die-cut sheets as PDF, Cricut Print Then Cut as PNG; codes still not recorded until scanned | Product / UX | Accepted | 2026-11-11 |
 
 ---
 
