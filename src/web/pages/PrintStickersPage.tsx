@@ -8,6 +8,7 @@ import {
   TEMPLATES,
   capacity,
   getTemplate,
+  isSideways,
   layoutPages,
   layoutSheet,
   pageSvg,
@@ -65,14 +66,11 @@ export function PrintStickersPage() {
   const [subtitle, setSubtitle] = useStored<string>("stickers.subtitle", DEFAULT_STYLE.subtitle);
   const [titleColor, setTitleColor] = useStored<string>("stickers.titleColor", DEFAULT_STYLE.titleColor);
   const [subtitleColor, setSubtitleColor] = useStored<string>("stickers.subtitleColor", DEFAULT_STYLE.subtitleColor);
-  // The Print Then Cut area for the machine and paper, from Cricut's help page "How large can I
-  // Print Then Cut" (Maker on Letter: 7.44 in across, 9.94 in tall), and the corner each sensor
-  // mark takes out of it (not stated; Colin measured the rectangle inside the marks at 6.77 × 9.27 in,
-  // which leaves 0.335 in at each side).
-  const [cutW, setCutW] = useStored<string>("stickers.cutWidth", "7.44");
-  const [cutH, setCutH] = useStored<string>("stickers.cutHeight", "9.94");
-  const [notchW, setNotchW] = useStored<string>("stickers.notchWidth", "0.335");
-  const [notchH, setNotchH] = useStored<string>("stickers.notchHeight", "0.335");
+  // The rectangle Design Space lets one Print Then Cut image fill: it measures the bitmap's whole
+  // rectangle, clear corners and all, so Cricut's bigger notched outline is out of reach. Colin
+  // measured 6.77 × 9.27 in inside the marks on a Maker with Letter paper.
+  const [cutW, setCutW] = useStored<string>("stickers.cutWidth", "6.77");
+  const [cutH, setCutH] = useStored<string>("stickers.cutHeight", "9.27");
   const [sheets, setSheets] = useState("1");
   const [skip, setSkip] = useState("0");
   const [outlines, setOutlines] = useState(false);
@@ -81,10 +79,9 @@ export function PrintStickersPage() {
   const [error, setError] = useState<string | null>(null);
 
   const base = getTemplate(templateName);
-  const cutArea: [number, number] = [Math.max(2, Number(cutW) || 7.44) * PT_PER_INCH, Math.max(2, Number(cutH) || 9.94) * PT_PER_INCH];
-  const notch: [number, number] = [Math.max(0, Number(notchW) || 0) * PT_PER_INCH, Math.max(0, Number(notchH) || 0) * PT_PER_INCH];
-  const template = output === "cricut" ? printThenCut(base, { area: cutArea, notch }) : base;
-  const leftOut = output === "cricut" ? template.columns * template.rows - slotsOf(template).length : 0;
+  const cutArea: [number, number] = [Math.max(2, Number(cutW) || 6.77) * PT_PER_INCH, Math.max(2, Number(cutH) || 9.27) * PT_PER_INCH];
+  const template = output === "cricut" ? printThenCut(base, { area: cutArea }) : base;
+  const sideways = output === "cricut" && isSideways(template, base);
   const perSheet = slotsOf(template).length;
   const sheetCount = Math.min(20, Math.max(1, Number(sheets) || 1));
   const skipCount = output === "sheet" ? Math.min(perSheet - 1, Math.max(0, Number(skip) || 0)) : 0;
@@ -96,13 +93,13 @@ export function PrintStickersPage() {
   const preview = useMemo(
     () => pageSvg(layoutSheet(template, sample.slice(0, perSheet - skipCount), style, { skip: skipCount, background: output === "cricut", outlines: output === "sheet" && outlines })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, sample, skipCount, title, subtitle, titleColor, subtitleColor, output, outlines, cutW, cutH, notchW, notchH],
+    [template, sample, skipCount, title, subtitle, titleColor, subtitleColor, output, outlines, cutW, cutH],
   );
   const previewUrl = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(preview)}`, [preview]);
 
   useEffect(() => {
     setDone(null);
-  }, [templateName, output, sheets, skip, title, subtitle, titleColor, subtitleColor, outlines, cutW, cutH, notchW, notchH]);
+  }, [templateName, output, sheets, skip, title, subtitle, titleColor, subtitleColor, outlines, cutW, cutH]);
 
   const make = async () => {
     setBusy(true);
@@ -124,7 +121,8 @@ export function PrintStickersPage() {
         const { pageToPng } = await import("../labels/png");
         for (let i = 0; i < pages.length; i++) {
           const suffix = pages.length > 1 ? `-p${i + 1}` : "";
-          download(`stickers-${base.name}-cricut-${stamp()}${suffix}.png`, await pageToPng(pages[i]!), "image/png");
+          // 600 dpi: at 300 Design Space warned of low resolution.
+          download(`stickers-${base.name}-cricut-${stamp()}${suffix}.png`, await pageToPng(pages[i]!, 600), "image/png");
         }
       }
       setDone({ count: codes.length, sheets: pages.length, template, output });
@@ -179,22 +177,13 @@ export function PrintStickersPage() {
                     <input inputMode="decimal" value={cutH} onChange={(e) => setCutH(e.target.value.replace(/[^\d.]/g, ""))} className={inputClass} aria-label="Cut area height (in)" />
                   </Field>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Corner notch width (in)">
-                    <input inputMode="decimal" value={notchW} onChange={(e) => setNotchW(e.target.value.replace(/[^\d.]/g, ""))} className={inputClass} aria-label="Corner notch width (in)" />
-                  </Field>
-                  <Field label="Corner notch height (in)">
-                    <input inputMode="decimal" value={notchH} onChange={(e) => setNotchH(e.target.value.replace(/[^\d.]/g, ""))} className={inputClass} aria-label="Corner notch height (in)" />
-                  </Field>
-                </div>
                 <p className="-mt-1 text-[13px] text-muted">
-                  The cut area is the most Design Space lets your machine Print Then Cut on your paper, from Cricut's page{" "}
+                  The rectangle Design Space lets one image fill inside the sensor marks: 6.77 × 9.27 in on a Maker with Letter paper. (Cricut's page{" "}
                   <a href="https://help.cricut.com/hc/en-us/articles/360009429814-How-large-can-I-Print-Then-Cut" target="_blank" rel="noreferrer" className="text-accent">
                     How large can I Print Then Cut
                   </a>{" "}
-                  (a Maker on Letter: 7.44 × 9.94 in). Its corners are reserved for the sensor marks, so any sticker that would touch a corner notch is left
-                  out. Cricut doesn't say how big the notches are; 0.335 in is what's left around the 6.77 × 9.27 in rectangle measured inside the marks. If
-                  Design Space says the image is too big, make the notches bigger.
+                  gives 7.44 × 9.94 in, but that's the notched outline, and Design Space measures an uploaded image's whole rectangle.) The stickers are turned
+                  sideways when that fits more of them; peeled off, it makes no difference.
                 </p>
               </>
             )}
@@ -228,7 +217,7 @@ export function PrintStickersPage() {
               )}
             </div>
             <p className="text-[13px] text-muted">
-              {perSheet} per sheet{leftOut ? ` (${template.columns} across by ${template.rows} down, less the ${leftOut} at the corners)` : ""}
+              {perSheet} per sheet{output === "cricut" ? ` (${template.columns} across by ${template.rows} down${sideways ? ", turned sideways" : ""})` : ""}
               {skipCount ? `, ${skipCount} left blank on the first` : ""}: <strong className="text-text">{total} stickers</strong>.
             </p>
             {output === "sheet" && (
@@ -282,7 +271,7 @@ export function PrintStickersPage() {
           </div>
           <p className="text-[13px] text-muted">
             {output === "cricut"
-              ? `${inches(template.pageSize[0])} × ${inches(template.pageSize[1])} in, the whole cut area, white labels on a transparent background${leftOut ? ", the corners left clear for the sensor marks" : ""}.`
+              ? `${inches(template.pageSize[0])} × ${inches(template.pageSize[1])} in, the whole cut rectangle, white labels on a transparent background${sideways ? ", turned sideways to fit more" : ""}.`
               : `${inches(template.pageSize[0])} × ${inches(template.pageSize[1])} in paper.`}{" "}
             Scanning a printed sticker opens the <Link to="/scan/x" className="text-accent" onClick={(e) => e.preventDefault()}>new sticker</Link> choice: a part or a bin.
           </p>

@@ -14,21 +14,23 @@ export const LETTER: [number, number] = [612, 792];
 export const LETTER_LANDSCAPE: [number, number] = [792, 612];
 
 /**
- * Cricut's Print Then Cut area for a Maker on Letter paper (help.cricut.com, "How large can I
- * Print Then Cut", 2026): 7.44 in across, 9.94 in tall, with the corners reserved for the sensor
- * marks. The notch isn't given, but Colin measured the plain rectangle inside the marks at
- * 6.77 × 9.27 in, which leaves 0.335 in at each side, top and bottom. Both are settings on the screen.
+ * The rectangle Cricut Design Space lets one Print Then Cut image fill on a Maker with Letter
+ * paper: Colin measured 6.77 × 9.27 in inside the sensor marks, and Design Space's own "max size
+ * for this shape" agrees. (Cricut's page gives 7.44 across and 9.94 tall, but those are for the
+ * notched outline; Design Space measures an uploaded bitmap's whole rectangle, clear corners and
+ * all, so a sheet can't use them.) A setting on the screen.
  */
-export const PRINT_THEN_CUT_AREA: [number, number] = [7.44 * PT_PER_INCH, 9.94 * PT_PER_INCH];
-export const PRINT_THEN_CUT_NOTCH: [number, number] = [0.335 * PT_PER_INCH, 0.335 * PT_PER_INCH];
+export const PRINT_THEN_CUT_AREA: [number, number] = [6.77 * PT_PER_INCH, 9.27 * PT_PER_INCH];
 
 export type CutOptions = {
-  /** The whole Print Then Cut area; the image is this size, so it sits exactly over it. */
+  /** The whole Print Then Cut rectangle; the image is this size, so it sits exactly over it. */
   area?: [number, number];
-  /** The corner each sensor mark takes; a label touching one is left out. */
+  /** A corner to keep clear at each corner of the area (none by default: Design Space can't use it). */
   notch?: [number, number];
   /** The most space between labels; the least is half this, so one more column or row can fit. */
   gap?: number;
+  /** Turn the labels sideways when that fits more on the sheet (on by default). */
+  sideways?: boolean | "auto";
 };
 
 /** The top-left corner of one label on the page; rotation 180 turns the whole label. */
@@ -150,23 +152,33 @@ export function slotsOf(t: LabelTemplate): Slot[] {
  * in the cut area with a gap between them (Design Space sees touching labels as one shape). The
  * page shrinks to just the labels, so the exported image is the whole cut area.
  */
-export function printThenCut(t: LabelTemplate, opts: CutOptions = {}): LabelTemplate {
+export function printThenCut(base: LabelTemplate, opts: CutOptions = {}): LabelTemplate {
   const area = opts.area ?? PRINT_THEN_CUT_AREA;
-  const notch = opts.notch ?? PRINT_THEN_CUT_NOTCH;
+  const notch = opts.notch ?? [0, 0];
   const most = opts.gap ?? 9;
   const least = most / 2;
-  const [w, h] = t.labelSize;
   // As many as fit with at least the smallest gap (and that much at the edges), then the gap
   // spread evenly up to the largest, and the grid centred in the area.
   const fit = (across: number, size: number) => {
-    const n = Math.floor((across - least) / (size + least));
+    const n = Math.max(0, Math.floor((across - least) / (size + least)));
     const gap = Math.min(most, (across - n * size) / (n + 1));
     const start = (across - n * size - (n - 1) * gap) / 2;
     return { n, gap, start };
   };
-  const x = fit(area[0], w);
-  const y = fit(area[1], h);
-  if (x.n < 1 || y.n < 1) throw new Error(`a ${w} × ${h} pt label doesn't fit the Print Then Cut area`);
+  // Upright, or turned sideways (the label's width and height swapped, its content turned a
+  // quarter turn to match): whichever fits more, unless told. A label printed twice down its
+  // length (the cable flag) stays upright, since its copies stack along the original height.
+  const upright = { t: base, x: fit(area[0], base.labelSize[0]), y: fit(area[1], base.labelSize[1]) };
+  const turned = {
+    t: { ...base, labelSize: [base.labelSize[1], base.labelSize[0]] as [number, number], rotation: ((base.rotation + 90) % 360) as LabelTemplate["rotation"] },
+    x: fit(area[0], base.labelSize[1]),
+    y: fit(area[1], base.labelSize[0]),
+  };
+  const want = opts.sideways ?? "auto";
+  const pick = base.copies > 1 || want === false ? upright : want === true ? turned : turned.x.n * turned.y.n > upright.x.n * upright.y.n ? turned : upright;
+  const { t, x, y } = pick;
+  const [w, h] = t.labelSize;
+  if (x.n < 1 || y.n < 1) throw new Error(`a ${base.labelSize[0]} × ${base.labelSize[1]} pt label doesn't fit the Print Then Cut area`);
   const touchesNotch = (sx: number, sy: number) => {
     const left = sx < notch[0];
     const right = sx + w > area[0] - notch[0];
@@ -184,8 +196,8 @@ export function printThenCut(t: LabelTemplate, opts: CutOptions = {}): LabelTemp
   }
   return {
     ...t,
-    name: `${t.name}-cricut`,
-    description: `${t.description}, Cricut Print Then Cut`,
+    name: `${base.name}-cricut`,
+    description: `${base.description}, Cricut Print Then Cut${pick === turned ? ", turned sideways" : ""}`,
     columns: x.n,
     rows: y.n,
     origin: [x.start, y.start],
@@ -194,6 +206,9 @@ export function printThenCut(t: LabelTemplate, opts: CutOptions = {}): LabelTemp
     fixedSlots: slots,
   };
 }
+
+/** Whether a Cricut layout from printThenCut turned its labels sideways. */
+export const isSideways = (cricut: LabelTemplate, base: LabelTemplate) => cricut.labelSize[0] !== base.labelSize[0];
 
 // ── Codes ──
 

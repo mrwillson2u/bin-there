@@ -9,6 +9,7 @@ import {
   layoutPages,
   layoutSheet,
   pageSvg,
+  isSideways,
   printThenCut,
   randomCodes,
   slotsOf,
@@ -40,38 +41,46 @@ describe("templates", () => {
     expect(() => getTemplate("nope")).toThrow("unknown template");
   });
 
-  it("lays a label out for Cricut Print Then Cut: the whole cut area, as many as fit, the grid centred, corner labels under the sensor marks left out", () => {
-    const c = printThenCut(getTemplate("SL588"));
-    // 7.44 × 9.94 in: five columns of 1.375" fit with 0.094" between (less than the 0.125" wanted, more than the 0.0625" needed), fifteen rows.
-    expect([c.columns, c.rows]).toEqual([5, 15]);
-    expect(c.pageSize).toEqual([7.44 * 72, 9.94 * 72]);
-    expect(c.gap[0]).toBeCloseTo((7.44 * 72 - 5 * 99) / 6);
-    expect(c.gap[1]).toBeCloseTo((9.94 * 72 - 15 * 40.5) / 16);
-    // Centred: the same room on each side.
-    expect(c.origin[0]).toBeCloseTo(c.gap[0]);
-    expect(c.origin[1]).toBeCloseTo(c.gap[1]);
-    // 75 places, the four corners under the sensor notches left out (0.335 in: the 6.77 × 9.27 in rectangle Colin measured inside the marks).
-    expect(slotsOf(c)).toHaveLength(71);
+  it("lays a label out for Cricut Print Then Cut: the 6.77 × 9.27 in rectangle, as many as fit, the grid centred, sideways when that's more", () => {
+    const base = getTemplate("SL588");
+    const c = printThenCut(base);
+    // Upright, four columns of fourteen fit (56); sideways, ten of six (60), so sideways it is.
+    expect(isSideways(c, base)).toBe(true);
+    expect(c.labelSize).toEqual([40.5, 99]);
+    expect(c.rotation).toBe(90);
+    expect([c.columns, c.rows]).toEqual([10, 6]);
+    expect(slotsOf(c)).toHaveLength(60);
+    expect(c.pageSize).toEqual([6.77 * 72, 9.27 * 72]);
+    expect(c.description).toContain("turned sideways");
+    // The gap is spread evenly up to 0.125 in, and the grid is centred.
+    expect(c.gap[0]).toBeCloseTo(Math.min(9, (6.77 * 72 - 10 * 40.5) / 11));
+    expect(c.gap[1]).toBeCloseTo(9);
+    expect(c.origin[0]).toBeCloseTo((6.77 * 72 - 10 * 40.5 - 9 * c.gap[0]) / 2);
     const [w, h] = c.labelSize;
-    const [nw, nh] = [0.335 * 72, 0.335 * 72];
-    expect((7.44 * 72 - 2 * nw) / 72).toBeCloseTo(6.77);
-    expect((9.94 * 72 - 2 * nh) / 72).toBeCloseTo(9.27);
     for (const s of slotsOf(c)) {
-      const inCorner = (s.x < nw || s.x + w > 7.44 * 72 - nw) && (s.y < nh || s.y + h > 9.94 * 72 - nh);
-      expect(inCorner).toBe(false);
       expect(s.x).toBeGreaterThanOrEqual(0);
-      expect(s.x + w).toBeLessThanOrEqual(7.44 * 72 + 0.01);
+      expect(s.y).toBeGreaterThanOrEqual(0);
+      expect(s.x + w).toBeLessThanOrEqual(6.77 * 72 + 0.01);
+      expect(s.y + h).toBeLessThanOrEqual(9.27 * 72 + 0.01);
     }
     expect(c.name).toBe("SL588-cricut");
-    // No notch: all 75. The old safe area with no notch: four columns of fourteen, a full 0.125 in apart.
-    expect(slotsOf(printThenCut(getTemplate("SL588"), { notch: [0, 0] }))).toHaveLength(75);
-    const old = printThenCut(getTemplate("SL588"), { area: [6.75 * 72, 9.25 * 72], notch: [0, 0] });
-    expect([old.columns, old.rows, old.gap[0]]).toEqual([4, 14, 9]);
-    expect(slotsOf(old)).toHaveLength(56);
+    // Told to stay upright: four columns of fourteen, a full 0.125 in apart.
+    const up = printThenCut(base, { sideways: false });
+    expect(isSideways(up, base)).toBe(false);
+    expect([up.columns, up.rows, up.gap[0]]).toEqual([4, 14, 9]);
+    expect(slotsOf(up)).toHaveLength(56);
+    // In Cricut's full 7.44 × 9.94 in outline, upright wins (five of fifteen, 75, against eleven of six sideways).
+    const full = printThenCut(base, { area: [7.44 * 72, 9.94 * 72] });
+    expect(isSideways(full, base)).toBe(false);
+    expect(slotsOf(full)).toHaveLength(75);
+    // A notch, if ever wanted, leaves the corner labels out.
+    expect(slotsOf(printThenCut(base, { area: [7.44 * 72, 9.94 * 72], notch: [0.335 * 72, 0.335 * 72] }))).toHaveLength(71);
     // Too small an area: refused.
-    expect(() => printThenCut(getTemplate("SL588"), { area: [50, 50] })).toThrow("doesn't fit");
-    // The cable label is on landscape paper with fixed slots; laid out for the Cricut it's upright.
-    expect(slotsOf(printThenCut(getTemplate("MR183"))).every((s) => s.rotation === 0)).toBe(true);
+    expect(() => printThenCut(base, { area: [50, 50] })).toThrow("doesn't fit");
+    // The cable label (printed twice down its length) stays upright, and loses its fixed landscape slots.
+    const mr = printThenCut(getTemplate("MR183"));
+    expect(isSideways(mr, getTemplate("MR183"))).toBe(false);
+    expect(slotsOf(mr).every((s) => s.rotation === 0)).toBe(true);
   });
 });
 
@@ -106,6 +115,8 @@ describe("layout", () => {
   it("keeps every label's drawing inside its label on every template, turned or not", () => {
     for (const t of TEMPLATES) inside(t);
     inside(printThenCut(getTemplate("SL588")));
+    inside(printThenCut(getTemplate("SL588"), { sideways: false }));
+    inside(printThenCut(getTemplate("Avery6570")));
   });
 
   it("draws the code as module runs and the words as three lines that fit the label", () => {
@@ -150,7 +161,7 @@ describe("layout", () => {
   });
 
   it("writes the page as SVG sized in inches, with white label backgrounds for the Cricut", () => {
-    const c = printThenCut(getTemplate("SL588"), { area: [6.75 * 72, 9.25 * 72], notch: [0, 0] });
+    const c = printThenCut(getTemplate("SL588"), { area: [6.75 * 72, 9.25 * 72], sideways: false });
     const svg = pageSvg(layoutSheet(c, ["EddY9xhVRwAg"], DEFAULT_STYLE, { background: true }));
     expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" version="1.1" width="6.75in" height="9.25in" viewBox="0 0 486 666">/);
     // Four columns a full 0.125 in apart, centred: (486 − 4·99 − 3·9) / 2 = 31.5 from the left; fourteen rows: (666 − 14·40.5) / 15 = 6.6 from the top.
