@@ -79,7 +79,7 @@ await page.getByRole("textbox", { name: "Name", exact: true }).fill("Parts case"
 await page.getByRole("checkbox", { name: /Number goes up/ }).uncheck();
 await page.getByRole("button", { name: "Save without a sticker" }).click();
 await page.getByText("Added (4)").waitFor();
-check((await page.getByRole("textbox", { name: "Name", exact: true }).inputValue()) === "", "with the number switch off the name comes back empty");
+check((await page.getByRole("textbox", { name: "Name", exact: true }).inputValue()) === "Parts case", "with the number switch off the same name is ready again");
 const kids = await api("GET", `/locations/${site.id}`);
 check(kids.children.find((c) => c.name === "Parts case")?.type === "gridded_box", "the type changed mid-run was used");
 

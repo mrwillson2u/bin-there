@@ -125,7 +125,8 @@ export function LocationFormPage() {
       if (!many) return navigate(`/locations/${loc.id}`, { replace: true });
       scanOk();
       setAdded((a) => [{ id: loc.id, name: loc.name, code: loc.code, position: loc.position }, ...a]);
-      setName(numbering && type !== "bin" ? nextName(name.trim()) : "");
+      // The next name: counted up, or the same again (a run of "Empty mini tote"s, say).
+      if (numbering && type !== "bin") setName(nextName(name.trim()));
     },
     onError: () => {
       if (many) scanBad();
@@ -251,7 +252,9 @@ export function LocationFormPage() {
         <label className="-mt-2 flex min-h-9 items-center gap-2 text-sm">
           <input type="checkbox" checked={numbering} onChange={(e) => setNumbering(e.target.checked)} className="h-5 w-5 accent-accent" />
           <span>
-            Number goes up: the next one is {name.trim() ? <span className="font-semibold">{nextName(name.trim())}</span> : "named from this one"}
+            Number goes up: the next one is{" "}
+            {name.trim() ? <span className="font-semibold">{numbering ? nextName(name.trim()) : name.trim()}</span> : "named from this one"}
+            {name.trim() && !numbering ? " again" : ""}
           </span>
         </label>
       )}
