@@ -103,6 +103,44 @@ describe("quick capture", () => {
   });
 });
 
+describe("categories (DEC-056)", () => {
+  it("renames a field keeping its key and the parts' values, adds and removes fields, and counts usage", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const wire = cats.find((c) => c.name === "Wire & connectors")!;
+    const gauge = wire.fieldDefs.find((f) => f.label === "Gauge")!;
+    const plug = await item({ name: "DC plug", categoryId: wire.id });
+    await ok("PATCH", `/items/${plug.id}`, { attributes: { [gauge.key]: "20 AWG" } });
+    // Rename Gauge to Wire gauge, drop Type, add Pins: the key behind Gauge stays, so the value stays.
+    const updated = await ok<Category>("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge.key, label: "Wire gauge" }, { label: "Pins" }] });
+    expect(updated.fieldDefs.map((f) => [f.key, f.label])).toEqual([[gauge.key, "Wire gauge"], ["pins", "Pins"]]);
+    const after = await ok<ItemDetail>("GET", `/items/${plug.id}`);
+    expect(after.fieldDefs.map((f) => f.label)).toEqual(["Wire gauge", "Pins"]);
+    expect(after.attributes[gauge.key]).toBe("20 AWG");
+    // Usage: one part in it, one holding a value in the renamed field, none in the new one.
+    const usage = await ok<Record<number, { items: number; fields: Record<string, number> }>>("GET", "/categories/usage");
+    expect(usage[wire.id]).toEqual({ items: 1, fields: { [gauge.key]: 1, pins: 0 } });
+    // A new field with a label that collides on key gets a numbered key; a name clash is refused.
+    const more = await ok<Category>("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge.key, label: "Wire gauge" }, { key: "pins", label: "Pins" }, { label: "Pins" }] });
+    expect(more.fieldDefs.map((f) => f.key)).toEqual([gauge.key, "pins", "pins_2"]);
+    expect((await call("PATCH", `/categories/${wire.id}`, { name: "fasteners" })).status).toBe(409);
+    // The renamed field's label is searchable.
+    expect((await ok<{ id: number }[]>("GET", "/items?q=wire+gauge")).map((i) => i.id)).toContain(plug.id);
+  });
+
+  it("deletes an unused category, and refuses while parts use one", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const fasteners = cats.find((c) => c.name === "Fasteners")!;
+    const screw = await item({ name: "Screw", categoryId: fasteners.id });
+    const refused = await call<{ error: { message: string } }>("DELETE", `/categories/${fasteners.id}`);
+    expect(refused.status).toBe(409);
+    expect(refused.json.error.message).toBe("1 part uses this category; move them first");
+    await ok("PATCH", `/items/${screw.id}`, { categoryId: null });
+    expect((await call("DELETE", `/categories/${fasteners.id}`)).status).toBe(200);
+    expect((await ok<Category[]>("GET", "/categories")).some((c) => c.id === fasteners.id)).toBe(false);
+    expect((await call("DELETE", `/categories/${fasteners.id}`)).status).toBe(404);
+  });
+});
+
 describe("search", () => {
   it("matches word prefixes in any order across name, category and fields", async () => {
     const cats = await ok<Category[]>("GET", "/categories");

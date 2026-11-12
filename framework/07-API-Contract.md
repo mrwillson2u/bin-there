@@ -113,6 +113,9 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | PATCH | `/api/locations/:id` with `grid: { cols, rows }` | A gridded box's grid size (1–12 × 1–8); `409 CONFLICT` naming any placed bin that wouldn't fit; the front strip follows the new front row (DEC-047). `grid` is also taken on create |
 | GET | `/api/ai/status` | `{ enabled, model, modelReady, search, shops: { mouser, digikey } }`: AI data fill is on when `AI_URL` is set; the shop flags say whether a Mouser / Digi-Key API key is set (DEC-048, DEC-049; `ai` branch) |
 | POST | `/api/stickers/check` | Print stickers (DEC-052): `{ codes: string[] }` (up to 5000) → `{ used: string[] }`, the ones already on a location or a unit. The codes themselves are drawn on the device and never recorded. |
+| GET | `/api/categories/usage` | Per category id (DEC-056): `{ items, fields: { [key]: parts holding a value } }`. |
+| PATCH | `/api/categories/:id` | Edit a category (DEC-056): `name?`, `defaultKind?`, `defaultTracking?`, `fieldDefs?: [{ key?, label }]` (a field with its key is renamed/moved, one without is new, fields left out are removed). `409` on a name clash. `Category` back. |
+| DELETE | `/api/categories/:id` | Delete a category no part uses; `409` with the count while parts use it. |
 | POST | `/api/items/:id/research/queue` | Queue the part for the AI look-up (DEC-055): worked one at a time in the background; `ItemDetail` back, with `aiJob` (`queued` / `running` / `failed`, `at`, `error`). `400` when AI isn't set up. |
 | DELETE | `/api/items/:id/research/queue` | Cancel the part's queued or running look-up (a running one finishes and its answer is thrown away). `ItemDetail` back. |
 | DELETE | `/api/items/:id/research` | Dismiss the stored answer (`aiResult`) and any job. `ItemDetail` back. |

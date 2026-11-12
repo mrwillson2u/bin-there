@@ -26,23 +26,26 @@ import {
 import {
   addPhoto,
   archiveItem,
+  categoryUsage,
   countNeedsDetails,
+  createCategory,
+  createItem,
+  deleteCategory,
+  deletePhoto,
+  getItem,
+  listCategories,
   listCheckedOut,
   listInventory,
   listLow,
   listNeedsDetails,
   listStale,
   recentlyUsed,
-  createCategory,
-  createItem,
-  getItem,
-  listCategories,
+  requireItemPhoto,
   searchItems,
   setHomes,
-  setPhotoCrop,
-  requireItemPhoto,
   setMainPhoto,
-  deletePhoto,
+  setPhotoCrop,
+  updateCategory,
   updateItem,
 } from "./items";
 import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock } from "./stock";
@@ -82,6 +85,7 @@ import {
   checkCodesSchema,
   rackSlotSchema,
   researchSchema,
+  updateCategorySchema,
   takeOutSchema,
   updateItemSchema,
   updateLocationSchema,
@@ -422,6 +426,12 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
 
   // ── Categories ──
   api.get("/categories", (c) => c.json(listCategories(db)));
+  api.get("/categories/usage", (c) => c.json(categoryUsage(db)));
+  api.patch("/categories/:id", async (c) => c.json(updateCategory(db, intParam(c.req.param("id")), parseBody(updateCategorySchema, await c.req.json()))));
+  api.delete("/categories/:id", (c) => {
+    deleteCategory(db, intParam(c.req.param("id")));
+    return c.json({ ok: true });
+  });
   api.post("/categories", async (c) => {
     const input = parseBody(createCategorySchema, await c.req.json());
     return c.json(createCategory(db, input), 201);

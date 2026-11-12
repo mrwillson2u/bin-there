@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { categories, events, itemHomes, items, locations, photos, pins, stock, units, type StockRow } from "./db/schema";
+import { categories, events, itemHomes, items, locations, photos, pins, stock, units, type FieldDef, type StockRow } from "./db/schema";
 import { ApiError } from "./errors";
 import { listEvents } from "./events";
 import { locationPath, outOf } from "./locations";
@@ -8,6 +8,7 @@ import { isPinned } from "./pins";
 import { crumbLabel } from "../shared/api";
 import type {
   Category,
+  CategoryUsage,
   CheckedOutUnit,
   CreateItem,
   Crumb,
@@ -19,6 +20,7 @@ import type {
   PhotoCrop,
   Place,
   ReviewEntry,
+  UpdateCategory,
   UpdateItem,
 } from "../shared/api";
 
@@ -653,6 +655,65 @@ export function createCategory(
     .returning()
     .get();
   return toCategory(row);
+}
+
+/**
+ * Edit a category (DEC-056). A field keeps its key when renamed or moved, so the parts' values
+ * stay attached; a new field gets a key from its label (made unique); fields left out are
+ * removed, their values staying on the parts unseen. The category's parts are re-indexed for
+ * search, since field labels are part of what's searched.
+ */
+export function updateCategory(db: Db, id: number, input: UpdateCategory): Category {
+  const current = db.select().from(categories).where(eq(categories.id, id)).get();
+  if (!current) throw new ApiError(404, "NOT_FOUND", "Category not found");
+  const changes: Partial<typeof categories.$inferInsert> = {};
+  if (input.name !== undefined && input.name !== current.name) {
+    const clash = db.select({ id: categories.id }).from(categories).where(and(sql`lower(${categories.name}) = lower(${input.name})`, ne(categories.id, id))).get();
+    if (clash) throw new ApiError(409, "CONFLICT", `Category ${input.name} already exists`);
+    changes.name = input.name;
+  }
+  if (input.defaultKind !== undefined) changes.defaultKind = input.defaultKind;
+  if (input.defaultTracking !== undefined) changes.defaultTracking = input.defaultTracking;
+  if (input.fieldDefs !== undefined) {
+    const taken = new Set<string>();
+    const next: FieldDef[] = [];
+    for (const f of input.fieldDefs) {
+      const existing = f.key ? current.fieldDefs.find((d) => d.key === f.key) : undefined;
+      let key = existing?.key ?? fieldKey(f.label);
+      if (!key) key = "field";
+      let candidate = key;
+      for (let n = 2; taken.has(candidate); n++) candidate = `${key}_${n}`;
+      taken.add(candidate);
+      next.push({ key: candidate, label: f.label, type: existing?.type ?? "text" });
+    }
+    changes.fieldDefs = next;
+  }
+  if (Object.keys(changes).length > 0) db.update(categories).set(changes).where(eq(categories.id, id)).run();
+  if (changes.fieldDefs || changes.name) {
+    for (const row of db.select({ id: items.id }).from(items).where(eq(items.categoryId, id)).all()) indexItem(db, row.id);
+  }
+  return toCategory(db.select().from(categories).where(eq(categories.id, id)).get()!);
+}
+
+/** Delete a category no part uses (DEC-056); refused, with the count, while parts still use it. */
+export function deleteCategory(db: Db, id: number): void {
+  if (!db.select({ id: categories.id }).from(categories).where(eq(categories.id, id)).get()) throw new ApiError(404, "NOT_FOUND", "Category not found");
+  const used = db.select({ n: sql<number>`count(*)` }).from(items).where(and(eq(items.categoryId, id), eq(items.archived, false))).get()!.n;
+  if (used > 0) throw new ApiError(409, "CONFLICT", `${used} ${used === 1 ? "part uses" : "parts use"} this category; move them first`);
+  db.delete(categories).where(eq(categories.id, id)).run();
+}
+
+/** How much each category is used (DEC-056): parts in it, and per field, parts holding a value. */
+export function categoryUsage(db: Db): Record<number, CategoryUsage> {
+  const out: Record<number, CategoryUsage> = {};
+  for (const c of db.select().from(categories).all()) out[c.id] = { items: 0, fields: Object.fromEntries(c.fieldDefs.map((f) => [f.key, 0])) };
+  for (const row of db.select({ categoryId: items.categoryId, attributes: items.attributes }).from(items).where(eq(items.archived, false)).all()) {
+    if (!row.categoryId || !out[row.categoryId]) continue;
+    const u = out[row.categoryId]!;
+    u.items++;
+    for (const [k, v] of Object.entries(row.attributes ?? {})) if (String(v ?? "").trim() && k in u.fields) u.fields[k] = (u.fields[k] ?? 0) + 1;
+  }
+  return out;
 }
 
 /** Starter categories so the first catalog session isn't spent on setup. Editable later. */

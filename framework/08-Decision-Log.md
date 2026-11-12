@@ -1492,6 +1492,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** Capture twenty parts and walk away; the answers are there when Fill in details is opened, and nothing waits on the model. Four columns on `items` (migration 0019). `POST /items/:id/research/queue`, `DELETE …/queue` (cancel), `DELETE /items/:id/research` (dismiss). The queue is in-process: one worker, one part at a time, so the card is never asked for two models at once. Found on the way and fixed: the compact scan box on a phone squeezed its words to one a line (the trigger note and the Camera button now wrap under them), and a temperature or a percentage read off a part ("105°C", "5%") was being tried at the shops as a part number. Proven on the dev instance: two parts queued at once, the first looked up while the second waited, both answers stored (23 and 32 s). Not done: bulk editing of checked parts from Inventory and Search, which Colin raised at the same time and is next.
 
+### DEC-056: Categories and their fields are editable on a Categories screen
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q100) |
+| **Deciders** | Colin |
+| **Category** | UX / Data |
+
+**Context:** Colin wanted to add categories and change their fields (Gauge and Type on connectors, say) and have that stick. Categories were already rows in the database with their field list attached, and the starter set is only written into an empty database, so the persistence was there; what was missing was a screen, and rules for what happens to parts' values when fields change.
+
+**Decision:** A **Categories** screen (`/categories`, from the bottom of Locations and from "Manage categories and their fields" under the category picker on a part's form): the list, and for each one its name, its usual kind and way of counting, and its fields to add, rename, reorder and remove; a new category at the top. Changes save as they're made. The rules: **a field keeps its hidden key when renamed or moved**, so every part's value stays attached (`PATCH /categories/:id` takes the fields with their keys; one without a key is new and gets a key from its label, made unique); **removing a field with values** warns how many parts hold one and asks again, and the values stay stored on the parts unseen, coming back if a field with the same name is added; **deleting a category parts still use is refused** with the count, until they're moved (bulk editing, next). The category's parts are re-indexed for search when fields or the name change. `GET /categories/usage` gives the counts the screen shows.
+
+**Consequences:** The AI prompts and the forms read field labels from the category, so they follow the changes with no work. Not done: a field's type (every field is text, as before) and sub-categories (the table has a parent column from the start, unused).
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1551,6 +1566,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-053 | AI data fill, round two: part numbers read off the part go to the shops, quick naming for plain things, the datasheet read | Product / Architecture | Accepted | 2026-11-11 |
 | DEC-054 | The AI data fill runs beside the live app, on one model container shared with the dev instance | Architecture / Process | Accepted | 2026-11-12 |
 | DEC-055 | Counting chosen at capture (an exact count of 1 unless changed); parts queued for the AI at capture, the answer kept for review | UX / Architecture | Accepted | 2026-11-12 |
+| DEC-056 | Categories and their fields are editable on a Categories screen | UX / Data | Accepted | 2026-11-12 |
 
 ---
 

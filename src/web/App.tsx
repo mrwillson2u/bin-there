@@ -9,6 +9,7 @@ import { cameraAllowed, scannerExpected, useScanMethod } from "./settings";
 import { InventoryPage } from "./pages/InventoryPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PrintStickersPage } from "./pages/PrintStickersPage";
+import { CategoriesPage } from "./pages/CategoriesPage";
 import { LocationsPage } from "./pages/LocationsPage";
 import { LocationPage } from "./pages/LocationPage";
 import { LocationFormPage } from "./pages/LocationFormPage";
@@ -66,6 +67,7 @@ export function App() {
             <Route path="/needs-details" element={<NeedsDetailsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/stickers/print" element={<PrintStickersPage />} />
+            <Route path="/categories" element={<CategoriesPage />} />
             {/* The running-low list is a filter on Inventory now (DEC-026). */}
             <Route path="/low" element={<Navigate to="/?low=1" replace />} />
           </Routes>

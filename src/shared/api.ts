@@ -357,6 +357,17 @@ export const createCategorySchema = z.object({
   fields: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
 });
 
+/** Editing a category (DEC-056): a field with a key is renamed or moved, one without is new; fields left out are removed. */
+export const updateCategorySchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  defaultKind: z.enum(itemKinds).optional(),
+  defaultTracking: z.enum(trackingModes).optional(),
+  fieldDefs: z.array(z.object({ key: z.string().min(1).max(60).optional(), label: z.string().trim().min(1).max(50) })).max(20).optional(),
+});
+export type UpdateCategory = z.infer<typeof updateCategorySchema>;
+/** How much a category is used: parts in it, and per field key, parts holding a value (DEC-056). */
+export type CategoryUsage = { items: number; fields: Record<string, number> };
+
 export type FieldDef = { key: string; label: string; type: "text" | "number" };
 
 export type Category = {

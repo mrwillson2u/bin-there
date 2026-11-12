@@ -260,6 +260,7 @@ export function ItemForm({
           allowNone
         />
         {!categoryId && <span className="text-[13px] text-warn">Without a category it stays on the Needs details list.</span>}
+        <Link to="/categories" className="self-start text-[13px] text-accent">Manage categories and their fields</Link>
       </div>
 
       <Segmented
