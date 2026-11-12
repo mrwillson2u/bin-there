@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Check, Loader2, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { trackingLabels, trackingModes, type Category, type ItemDetail, type Place, type ResearchResult, type StockResult, type TrackingMode, type UpdateItem } from "../../shared/api";
 import { api } from "../api";
 import { useAiStatus } from "../components/AiSuggestions";
@@ -15,9 +15,8 @@ import { ItemForm } from "./ItemEditPage";
 // can fill in where it is: name, category (type to find it), how it's counted, and how many.
 // Each change saves as you go. A part that's done stays on screen with a tick until you leave.
 // "Suggest names with AI" (DEC-053) runs the quick look, photo only, over every part still
-// needing details, one at a time, and puts a likely name and category under each row to Use.
-
-type AiGuess = { name?: string; category?: string } | null;
+// needing details, one at a time; the answer is kept on the part (DEC-055) and shown under the
+// row to Use. A part queued for the AI at capture shows its place in the queue and a Cancel.
 
 const fetchItem = (id: number) => api<ItemDetail>(`/items/${id}`);
 
@@ -55,19 +54,17 @@ export function NeedsDetailsPage() {
 
   const ai = useAiStatus();
   const toast = useToast();
-  const [guesses, setGuesses] = useState<Record<number, AiGuess>>({});
   const [running, setRunning] = useState<{ at: number; of: number } | null>(null);
   const suggestAll = async () => {
-    const todo = items.filter((i) => i.needsDetails && i.photos.length > 0);
-    if (todo.length === 0) return toast.show({ message: "Nothing with a photo needs details.", tone: "error" });
+    // Parts with a photo, still needing details, not already answered or waiting in the queue.
+    const todo = items.filter((i) => i.needsDetails && i.photos.length > 0 && !i.aiResult && !i.aiJob);
+    if (todo.length === 0) return toast.show({ message: "Nothing with a photo is waiting for a guess.", tone: "error" });
     setRunning({ at: 1, of: todo.length });
     for (const [n, it] of todo.entries()) {
       setRunning({ at: n + 1, of: todo.length });
       try {
-        const r = await api<ResearchResult>(`/items/${it.id}/research`, { method: "POST", body: { mode: "quick" } });
-        const name = r.suggestions.find((s) => s.field === "name")?.value;
-        const category = r.suggestions.find((s) => s.field === "category")?.value;
-        setGuesses((g) => ({ ...g, [it.id]: name || category ? { name, category } : null }));
+        await api<ResearchResult>(`/items/${it.id}/research`, { method: "POST", body: { mode: "quick" } });
+        qc.invalidateQueries({ queryKey: ["item", it.id] });
       } catch (e) {
         toast.show({ message: (e as Error).message, tone: "error" });
         break;
@@ -115,15 +112,7 @@ export function NeedsDetailsPage() {
           </div>
           <ul className="flex flex-col gap-3 lg:gap-0 lg:divide-y lg:divide-border lg:overflow-visible lg:rounded-2xl lg:border lg:border-border lg:bg-surface">
             {items.map((item) => (
-              <FillRow
-                key={item.id}
-                item={item}
-                categories={categories}
-                onMore={() => setEditing(item.id)}
-                onPhoto={() => setViewing(item)}
-                guess={guesses[item.id]}
-                onGuessDone={() => setGuesses((g) => { const { [item.id]: _, ...rest } = g; return rest; })}
-              />
+              <FillRow key={item.id} item={item} categories={categories} onMore={() => setEditing(item.id)} onPhoto={() => setViewing(item)} />
             ))}
           </ul>
         </>
@@ -147,22 +136,7 @@ export function NeedsDetailsPage() {
   );
 }
 
-function FillRow({
-  item,
-  categories,
-  onMore,
-  onPhoto,
-  guess,
-  onGuessDone,
-}: {
-  item: ItemDetail;
-  categories: Category[];
-  onMore: () => void;
-  onPhoto: () => void;
-  /** The AI's quick guess for this row: a name and/or category, null for "couldn't tell", undefined for none yet. */
-  guess?: AiGuess;
-  onGuessDone?: () => void;
-}) {
+function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; categories: Category[]; onMore: () => void; onPhoto: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
   const createCategory = useCreateCategory();
@@ -193,9 +167,10 @@ function FillRow({
 
   const categoryBody = (c: Category): UpdateItem => {
     const body: UpdateItem = { categoryId: c.id };
-    // The category's usual way of counting, unless that would throw away a count typed here.
-    const counted = item.tracking === "exact" && item.places.some((p) => p.qty !== null);
-    if (!trackingSet.current && c.defaultTracking !== item.tracking && !counted) body.tracking = c.defaultTracking;
+    // The category's usual way of counting only for a part that was never counted: a count or a
+    // level already set (at capture, DEC-055, or here) is the owner's choice and stays.
+    const chosen = item.tracking === "level" || item.places.some((p) => p.qty !== null);
+    if (!trackingSet.current && c.defaultTracking !== item.tracking && !chosen) body.tracking = c.defaultTracking;
     // A part with its own sticker stays returnable.
     if (c.defaultKind !== item.kind && item.unitList.length === 0) body.kind = c.defaultKind;
     return body;
@@ -204,7 +179,9 @@ function FillRow({
     if (c) patch.mutate(categoryBody(c));
   };
 
-  // The AI's quick guess, used: the name and the category (with its usual way of counting) in one save.
+  // The AI's stored guess (DEC-055): its name and category, used in one save; the rest of the
+  // answer stays on the part for the More details popup.
+  const guess = item.aiResult && item.needsDetails ? { name: item.aiResult.suggestions.find((s) => s.field === "name")?.value, category: item.aiResult.suggestions.find((s) => s.field === "category")?.value } : null;
   const useGuess = () => {
     if (!guess) return;
     const c = guess.category ? categories.find((x) => x.name === guess.category) : undefined;
@@ -214,8 +191,17 @@ function FillRow({
       setName(guess.name);
     }
     if (Object.keys(body).length > 0) patch.mutate(body);
-    onGuessDone?.();
   };
+  const dismiss = useMutation({
+    mutationFn: () => api<ItemDetail>(`/items/${item.id}/research`, { method: "DELETE" }),
+    onSuccess: (d) => qc.setQueryData(["item", d.id], d),
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
+  });
+  const cancel = useMutation({
+    mutationFn: () => api<ItemDetail>(`/items/${item.id}/research/queue`, { method: "DELETE" }),
+    onSuccess: (d) => qc.setQueryData(["item", d.id], d),
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
+  });
 
   const done = !item.needsDetails;
   return (
@@ -272,10 +258,30 @@ function FillRow({
         label={`Category for ${itemName(item.name)}`}
       />
 
-      {guess !== undefined && (
+      {item.aiJob ? (
+        <div data-ai-job={item.aiJob.state} className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:col-span-5" aria-live="polite">
+          {item.aiJob.state === "failed" ? (
+            <>
+              <Sparkles size={16} className="shrink-0 text-danger" />
+              <span className="text-danger">The AI couldn't look it up{item.aiJob.error ? `: ${item.aiJob.error}` : ""}.</span>
+              <button type="button" onClick={() => dismiss.mutate()} aria-label={`Dismiss the AI's failure for ${itemName(item.name)}`} className="ml-auto flex h-9 w-9 items-center justify-center text-muted">
+                <X size={16} />
+              </button>
+            </>
+          ) : (
+            <>
+              <Loader2 size={16} className="shrink-0 animate-spin text-accent" aria-hidden />
+              <span className="text-muted">{item.aiJob.state === "running" ? "The AI is looking it up…" : "Queued for the AI."}</span>
+              <Button type="button" variant="ghost" onClick={() => cancel.mutate()} disabled={cancel.isPending} aria-label={`Cancel the AI look-up for ${itemName(item.name)}`}>
+                Cancel
+              </Button>
+            </>
+          )}
+        </div>
+      ) : guess ? (
         <div data-ai-guess className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:col-span-5">
           <Sparkles size={16} className="shrink-0 text-accent" />
-          {guess ? (
+          {guess.name || guess.category ? (
             <>
               <span className="text-muted">AI thinks:</span>
               {guess.name && <strong>{guess.name}</strong>}
@@ -285,13 +291,13 @@ function FillRow({
               </Button>
             </>
           ) : (
-            <span className="text-muted">The AI couldn't tell from the photo.</span>
+            <span className="text-muted">The AI couldn't tell what it is{item.aiResult!.suggestions.length > 0 ? ", but has other details in More details" : ""}.</span>
           )}
-          <button type="button" onClick={onGuessDone} aria-label={`Dismiss the AI's guess for ${itemName(item.name)}`} className="ml-auto flex h-9 w-9 items-center justify-center text-muted">
+          <button type="button" onClick={() => dismiss.mutate()} aria-label={`Dismiss the AI's guess for ${itemName(item.name)}`} className="ml-auto flex h-9 w-9 items-center justify-center text-muted">
             <X size={16} />
           </button>
         </div>
-      )}
+      ) : null}
 
       <div className="flex flex-col gap-2.5">
         <TrackingToggle

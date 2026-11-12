@@ -305,6 +305,11 @@ export const researchSchema = z.object({
 });
 export type ResearchRequest = z.infer<typeof researchSchema>;
 
+/** A part's place in the AI look-up queue (DEC-055). */
+export type AiJob = { state: "queued" | "running" | "failed"; at: string | null; error: string | null };
+/** The last look-up's answer, kept on the part until used, dismissed or run again (DEC-055). */
+export type StoredResearch = ResearchResult & { at: string; mode: "full" | "quick" };
+
 export type ResearchResult = {
   /** What the model thinks the part is, in a sentence. */
   identified: string;
@@ -518,6 +523,10 @@ export type ItemDetail = ItemSummary & {
   fieldDefs: FieldDef[];
   /** Which details were filled in by AI and where from (DEC-048). */
   aiFields: Record<string, AiFill>;
+  /** Queued, running or failed look-up (DEC-055); null when none. */
+  aiJob: AiJob | null;
+  /** The stored look-up, for review (DEC-055). */
+  aiResult: StoredResearch | null;
   attributes: Record<string, string>;
   price: number | null;
   supplier: string | null;

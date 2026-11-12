@@ -176,6 +176,8 @@ export function getItem(db: Db, id: number): ItemDetail {
     url: item.url,
     notes: item.notes,
     aiFields: item.aiFields ?? {},
+    aiJob: item.aiJob ? { state: item.aiJob, at: item.aiJobAt ?? null, error: item.aiJobError ?? null } : null,
+    aiResult: item.aiResult ?? null,
     photos: photoRows.map((p, i) => ({
       id: p.id,
       main: i === 0,

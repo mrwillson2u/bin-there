@@ -91,7 +91,9 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
     read off the part is tried at both before any web search, `mode: "quick"` is the photo alone for a likely name and category
     (the Needs details list runs it row by row), and a datasheet a shop page names is read with pdf.js (`pdfReader` in `search.ts`). On only when
     `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`, the shop keys). The AI never writes: `POST /items/:id/research`
-    returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time).
+    returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time). `queue.ts` (DEC-055) is the in-process queue: parts queued at capture are
+    looked up one at a time in the background, the answer stored on the item (`ai_result`), the job state on it too (`ai_job`),
+    the change version bumped so screens refresh; `POST/DELETE /items/:id/research/queue`, `DELETE /items/:id/research`.
   - `changes.ts`: live updates (DEC-046). A middleware in `app.ts` bumps `Changes` after every
     successful non-GET request (backups excepted) with the writer's `X-Client` header;
     `GET /api/changes` streams them as server-sent events. Any new write route gets this for free.
@@ -136,7 +138,8 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   pin button on every row and tile (DEC-032).
   `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits, and an
   All places list (`GET /api/locations?all=1`) with type chips (DEC-027).
-  `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
+  `CapturePage.tsx` (`/capture`) is Quick capture: how it's counted is chosen there (an exact count of 1 unless
+  changed, DEC-055) and "Look it up with AI after saving" queues the part. `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
   part needing details as rows that save as you go; each row reads `["item", id]`, seeded from
   `GET /api/items/needs-details`, so stock toasts and Undo update it. It opens `ItemForm` (exported
   from `ItemEditPage.tsx`) in a popup; the form lays itself out by its own width (`@container`: two columns from 48 rem, DEC-051). `CategoryPicker.tsx` is the type-to-find category box used there

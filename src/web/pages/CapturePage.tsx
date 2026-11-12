@@ -1,19 +1,24 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, MapPin, QrCode, X } from "lucide-react";
-import type { CreateItem, ItemDetail, LocationDetail, ScanResult } from "../../shared/api";
+import { Camera, MapPin, QrCode, Sparkles, X } from "lucide-react";
+import { trackingLabels, trackingModes, type CreateItem, type ItemDetail, type LocationDetail, type ScanResult, type StockLevel, type TrackingMode } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
 import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
+import { useAiStatus } from "../components/AiSuggestions";
 import { PickLocation } from "../components/PickLocation";
+import { LevelButtons } from "../components/StockControl";
 import { Button, Card, Field, inputClass, pathText } from "../components/ui";
 
 /**
  * Quick capture (F5): sticker → photo → save, details later.
  * While open, scans fill the form: a location sticker sets where it goes,
  * a fresh sticker becomes the item's own sticker.
+ * How it's counted is chosen here (DEC-055): an exact count of 1 unless changed, or
+ * Plenty / low / out; a choice made here is kept when a category is picked later.
+ * "Look it up with AI after saving" queues each saved part for the AI (DEC-055).
  */
 export function CapturePage() {
   const [params] = useSearchParams();
@@ -25,7 +30,15 @@ export function CapturePage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
+  const [tracking, setTracking] = useState<TrackingMode>("exact");
+  const [qty, setQty] = useState("1");
+  const [level, setLevel] = useState<StockLevel>("plenty");
+  const ai = useAiStatus();
+  const [aiAfter, setAiAfterState] = useState(() => localStorage.getItem("capture.ai") !== "off");
+  const setAiAfter = (on: boolean) => {
+    localStorage.setItem("capture.ai", on ? "on" : "off");
+    setAiAfterState(on);
+  };
   const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,16 +74,23 @@ export function CapturePage() {
     setSaving(true);
     setError(null);
     try {
+      // A part with its own sticker is a returnable unit; it isn't counted here.
       const body: CreateItem = {
         name: name.trim() || undefined,
         code: code ?? undefined,
         locationId: locationId ?? undefined,
-        qty: qty ? Number(qty) : undefined,
+        tracking: code ? undefined : tracking,
+        qty: !code && tracking === "exact" && qty ? Number(qty) : undefined,
+        level: !code && tracking === "level" ? level : undefined,
       };
       let item = await api<ItemDetail>("/items", { method: "POST", body });
       if (photo) {
         const { photo: p, thumb } = await preparePhoto(photo);
         item = await uploadPhoto<ItemDetail>(item.id, p, thumb);
+      }
+      // Queued for the AI (DEC-055): looked up in the background, the answer kept for review.
+      if (aiAfter && ai?.enabled && (photo || name.trim())) {
+        api(`/items/${item.id}/research/queue`, { method: "POST" }).catch((e: Error) => setError(`Saved, but couldn't queue it for the AI: ${e.message}`));
       }
       qc.invalidateQueries({ queryKey: ["items"] });
       qc.invalidateQueries({ queryKey: ["location"] });
@@ -80,7 +100,8 @@ export function CapturePage() {
       setCode(null);
       setPhoto(null);
       setName("");
-      setQty("");
+      setQty("1");
+      setLevel("plenty");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -149,16 +170,52 @@ export function CapturePage() {
         />
       )}
 
-      <div className={code ? "flex flex-col" : "grid grid-cols-[1fr_7rem] gap-3"}>
-        <Field label="Name (optional)">
-          <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Later is fine" />
-        </Field>
-        {!code && (
-          <Field label="How many?">
-            <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} className={`${inputClass} text-center font-mono`} placeholder="—" />
-          </Field>
-        )}
-      </div>
+      <Field label="Name (optional)">
+        <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Later is fine" />
+      </Field>
+      {!code && (
+        <div className="grid grid-cols-[1fr_7rem] items-end gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[13px] text-muted">Keep track by</span>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Keep track by">
+              {trackingModes.map((t) => (
+                <button
+                  type="button"
+                  key={t}
+                  role="radio"
+                  aria-checked={tracking === t}
+                  onClick={() => setTracking(t)}
+                  className={`min-h-11 rounded-xl border px-2 text-sm leading-tight ${tracking === t ? "border-accent bg-accent/15 text-accent" : "border-border bg-surface-2"}`}
+                >
+                  {trackingLabels[t]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {tracking === "exact" ? (
+            <Field label="How many?">
+              <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} className={`${inputClass} text-center font-mono`} placeholder="—" aria-label="How many?" />
+            </Field>
+          ) : (
+            <span />
+          )}
+          {tracking === "level" && (
+            <div className="col-span-2">
+              <LevelButtons value={level} onPick={setLevel} compact label="How much is there" />
+            </div>
+          )}
+        </div>
+      )}
+      {ai?.enabled && (
+        <label className="flex min-h-11 items-center gap-3 text-sm">
+          <input type="checkbox" checked={aiAfter} onChange={(e) => setAiAfter(e.target.checked)} className="h-5 w-5" />
+          <Sparkles size={16} className="shrink-0 text-accent" />
+          <span>
+            Look it up with AI after saving
+            <span className="block text-[12px] text-muted">In the background, one part at a time; the suggestions wait on the part for you to review.</span>
+          </span>
+        </label>
+      )}
 
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 

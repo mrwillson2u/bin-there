@@ -1,3 +1,4 @@
+import type { StoredResearch } from "../../shared/api";
 import { sql } from "drizzle-orm";
 import {
   sqliteTable,
@@ -92,6 +93,11 @@ export const items = sqliteTable("items", {
   // Which details were filled in by AI and where from (DEC-048): keys like "price",
   // "supplier", "attributes.Value"; each with the page (or "photo") and when.
   aiFields: text("ai_fields", { mode: "json" }).$type<Record<string, { source: string; at: string }>>().notNull().default({}),
+  // The AI look-up queue (DEC-055): the part's place in it, and the last look-up's answer kept for review.
+  aiJob: text("ai_job").$type<"queued" | "running" | "failed">(),
+  aiJobAt: text("ai_job_at"),
+  aiJobError: text("ai_job_error"),
+  aiResult: text("ai_result", { mode: "json" }).$type<StoredResearch>(),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   ...timestamps,
 });

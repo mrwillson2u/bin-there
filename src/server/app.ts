@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { eq } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { locations, units } from "./db/schema";
+import { items, locations, units } from "./db/schema";
 import { ApiError, errorResponse, parseBody } from "./errors";
 import {
   archiveLocation,
@@ -55,6 +55,7 @@ import { Changes } from "./changes";
 import { ollamaChat, ollamaHasModel } from "./ai/ollama";
 import { pageFetcher, pdfReader, searxng } from "./ai/search";
 import { researchItem } from "./ai/research";
+import { AiQueue } from "./ai/queue";
 import { mouserReader } from "./ai/mouser";
 import { digikeyReader } from "./ai/digikey";
 import {
@@ -87,7 +88,9 @@ import {
   type AiStatus,
   type BackupInfo,
   type CodesCheck,
+  type ResearchRequest,
   type ResearchResult,
+  type StoredResearch,
   type ScanResult,
   type StockResult,
   type Stats,
@@ -108,6 +111,11 @@ export type AiConfig = {
   digikey?: { clientId: string; clientSecret: string } | null;
   fetch?: typeof fetch;
 };
+
+/** 404 for a part that isn't there, without building its whole detail. */
+function requireItemExists(db: Db, id: number) {
+  if (!db.select({ id: items.id }).from(items).where(eq(items.id, id)).get()) throw new ApiError(404, "NOT_FOUND", "Item not found");
+}
 
 export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfig; ai?: AiConfig }) {
   mkdirSync(opts.photoDir, { recursive: true });
@@ -227,15 +235,13 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const modelReady = ai ? await ollamaHasModel(ai.url, ai.model, ai.fetch) : false;
     return c.json<AiStatus>({ enabled: !!ai, model: ai?.model ?? null, modelReady, search: !!ai?.searchUrl, shops: { mouser: !!ai?.mouserKey, digikey: !!ai?.digikey } });
   });
-  api.post("/items/:id/research", async (c) => {
+  // One look-up, as the route and the queue both run it (DEC-055). `now` is what the form holds.
+  const lookUp = async (itemId: number, now: ResearchRequest): Promise<ResearchResult> => {
     const ai = opts.ai;
     if (!ai) throw new ApiError(400, "VALIDATION", "AI isn't set up on this server (AI_URL)");
-    const item = getItem(db, intParam(c.req.param("id")));
-    // The form's unsaved name, link, supplier and part number win over the saved ones: a link just
-    // pasted in is read without saving first. No body at all means "as saved".
-    const now = parseBody(researchSchema, await c.req.json().catch(() => ({})));
+    const item = getItem(db, itemId);
     const f = ai.fetch ?? fetch;
-    const result = await researchItem(
+    return researchItem(
       {
         name: now.name || item.name,
         url: now.url !== undefined ? now.url || null : item.url,
@@ -263,7 +269,44 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
       },
       { quick: now.mode === "quick" },
     );
+  };
+  // The queue (DEC-055): parts captured with "look it up with AI" are looked up one at a time in
+  // the background; its own writes bump the change version so open screens refresh.
+  const queue = opts.ai ? new AiQueue(db, (id) => lookUp(id, {}), () => changes.bump(null), (line) => console.log(`[ai] queue: ${line}`)) : null;
+  queue?.resume();
+  const needQueue = () => {
+    if (!queue) throw new ApiError(400, "VALIDATION", "AI isn't set up on this server (AI_URL)");
+    return queue;
+  };
+
+  api.post("/items/:id/research", async (c) => {
+    const id = intParam(c.req.param("id"));
+    // The form's unsaved name, link, supplier and part number win over the saved ones: a link just
+    // pasted in is read without saving first. No body at all means "as saved".
+    const now = parseBody(researchSchema, await c.req.json().catch(() => ({})));
+    const result = await lookUp(id, now);
+    // Kept on the part for review (DEC-055); a cancel or dismiss clears it.
+    const stored: StoredResearch = { ...result, at: new Date().toISOString(), mode: now.mode === "quick" ? "quick" : "full" };
+    db.update(items).set({ aiResult: stored }).where(eq(items.id, id)).run();
     return c.json<ResearchResult>(result);
+  });
+  api.delete("/items/:id/research", (c) => {
+    const id = intParam(c.req.param("id"));
+    requireItemExists(db, id);
+    db.update(items).set({ aiResult: null, aiJob: null, aiJobAt: null, aiJobError: null }).where(eq(items.id, id)).run();
+    return c.json(getItem(db, id));
+  });
+  api.post("/items/:id/research/queue", (c) => {
+    const id = intParam(c.req.param("id"));
+    requireItemExists(db, id);
+    needQueue().enqueue(id);
+    return c.json(getItem(db, id));
+  });
+  api.delete("/items/:id/research/queue", (c) => {
+    const id = intParam(c.req.param("id"));
+    requireItemExists(db, id);
+    needQueue().cancel(id);
+    return c.json(getItem(db, id));
   });
   api.post("/items", async (c) => {
     const input = parseBody(createItemSchema, await c.req.json());

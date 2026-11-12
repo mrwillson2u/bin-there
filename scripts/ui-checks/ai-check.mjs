@@ -175,8 +175,52 @@ const quickSaved = await api("GET", `/items/${quick1.id}`);
 check(quickSaved.name === "LM2596 buck module" && quickSaved.categoryId === modules.id && !quickSaved.needsDetails, "Use saved the name and category and the part is done");
 check((await page.locator("[data-ai-guess]").count()) === 1, "the used guess is gone, the other stays");
 await page.locator("[data-ai-guess]").first().getByRole("button", { name: /^Dismiss/ }).click();
+await page.locator("[data-ai-guess]").first().waitFor({ state: "detached", timeout: 10000 });
 check((await page.locator("[data-ai-guess]").count()) === 0, "a dismissed guess goes too");
+check((await api("GET", `/items/${quick2.id}`)).aiResult === null, "and the stored answer is cleared on the part");
 await page.screenshot({ path: `${shots}/ai-5-quick-names.png`, fullPage: true });
+
+// Queued at capture (DEC-055): counting chosen on the form (an exact count of 1 unless changed), the
+// AI toggle, the part's place in the queue under its row, then the stored answer; the form shows it too.
+await page.goto(`${base}/capture?location=${tote.id}`);
+check((await page.getByRole("radio", { name: "Exact count" }).getAttribute("aria-checked")) === "true" && (await page.getByLabel("How many?").inputValue()) === "1", "capture starts as an exact count of 1");
+check((await page.getByRole("checkbox", { name: /Look it up with AI after saving/ }).isChecked()) === true, "the AI toggle starts on");
+await page.getByRole("radio", { name: "Plenty / low / out" }).click();
+check((await page.getByRole("radio", { name: "Plenty", exact: true }).count()) === 1 && (await page.getByLabel("How many?").count()) === 0, "Plenty / low / out swaps the count for the three levels");
+await page.getByRole("radio", { name: "Exact count" }).click();
+await page.getByLabel("How many?").fill("3");
+await page.setInputFiles("input[type=file]", `${shots}/part.jpg`);
+await page.getByPlaceholder("Later is fine").fill("Queued part");
+await page.getByRole("button", { name: "Save", exact: true }).click();
+await page.getByText(/^Saved/).waitFor({ timeout: 20000 });
+await page.waitForTimeout(500);
+const queuedItem = (await api("GET", "/items/needs-details")).find((i) => i.name === "Queued part") ?? (await api("GET", "/inventory?limit=100")).items.find((i) => i.name === "Queued part");
+check(!!queuedItem && queuedItem.tracking === "exact", "saved as an exact count");
+const queuedDetail = await api("GET", `/items/${queuedItem.id}`);
+check(queuedDetail.places[0]?.qty === 3, "with the count typed: " + queuedDetail.places[0]?.qty);
+// The fake model answers at once, so the queue has finished by now: the answer is on the part.
+let stored = queuedDetail;
+for (let i = 0; i < 50 && (stored.aiJob || !stored.aiResult); i++) { await page.waitForTimeout(100); stored = await api("GET", `/items/${queuedItem.id}`); }
+check(stored.aiJob === null && stored.aiResult?.mode === "full" && stored.aiResult.suggestions.some((s) => s.field === "name"), "queued at capture: looked up in the background, the answer kept on the part");
+await page.goto(`${base}/needs-details`);
+await page.locator("[data-ai-guess]").first().waitFor({ timeout: 10000 });
+const queuedRow = page.getByRole("listitem", { name: "Queued part" });
+check((await queuedRow.locator("[data-ai-guess]").textContent()).includes("AI thinks:"), "Fill in details shows the stored guess under the row with no model call");
+// A category picked now keeps the count chosen at capture (DEC-055).
+await queuedRow.getByRole("combobox", { name: /Category for Queued part/ }).fill("Modules");
+await page.keyboard.press("Enter");
+await page.waitForTimeout(500);
+const afterCat = await api("GET", `/items/${queuedItem.id}`);
+check(afterCat.categoryId === modules.id && afterCat.tracking === "exact" && afterCat.places[0]?.qty === 3, "a category picked later keeps the count chosen at capture");
+// The form shows the stored answer straight away.
+await page.goto(`${base}/items/${queuedItem.id}/edit`);
+await page.locator("[data-ai-result]").waitFor({ timeout: 10000 });
+check((await page.getByText(/^Looked up /).count()) === 1 && (await page.getByRole("button", { name: "Look again" }).count()) === 1, "the form shows the stored answer with when it was looked up, and offers Look again");
+// Queue status and Cancel: with the fake model instant, queue it again and cancel from the form.
+await api("POST", `/items/${queuedItem.id}/research/queue`);
+const cancelled = await api("DELETE", `/items/${queuedItem.id}/research/queue`);
+check(cancelled.aiJob === null, "a queued look-up can be cancelled");
+await page.screenshot({ path: `${shots}/ai-6-stored.png`, fullPage: true });
 
 await browser.close();
 server.kill();

@@ -1477,6 +1477,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** The dev instance's AI depends on the live stack being up, which it always is; rebuilding the live app restarts its container but not Ollama (only a compose change to the `ollama` service does that). `neutts` stays stopped (Colin's choice, DEC-053): Gemma 4 e4b takes about 5.5 GB of the card while loaded and is dropped five minutes after use. One `docker compose up -d --build` in `~/bin-there-prod` brings both containers up; `DEPLOY.md` says so.
 
+### DEC-055: Counting chosen at capture (an exact count of 1 unless changed); parts queued for the AI at capture, the answer kept for review
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q98) |
+| **Deciders** | Colin |
+| **Category** | UX / Architecture |
+
+**Context:** Colin found himself going back into every captured part to change how it's counted and set a count of 1, because Quick capture left the count blank and the category picked later set the way of counting. And with the AI now on the live app, he wanted new parts looked up by themselves, in a queue, with the suggestions waiting for him; and, when a part is queued or being looked up, to see that on the edit page and on Fill in details, with a Cancel.
+
+**Decision:** **Counting at capture:** Quick capture has a Keep track by switch (Exact count, the default, with a count of 1 filled in; or Plenty / low / out, Plenty by default). A part with its own sticker is a returnable unit and isn't counted, as before. A count or a level set at capture is the owner's choice: picking a category later never changes the way of counting for a part that has a count or a level (before, the category's default won unless a number had been typed). **The AI queue:** a toggle on Quick capture, "Look it up with AI after saving" (remembered on the device, on to start), queues each saved part that has a photo or a name. The server works the queue one part at a time in the background with the full look-up (photo, shop page or printed number at the shops, datasheet), stores the answer on the part (`ai_result`, with when and which mode) and bumps the live-update version so open screens refresh. The part's place in the queue is on the part too (`ai_job`: queued, running, failed, with the error), so the queue survives a restart; whatever a crash left running is queued again on start. Every manual look-up (the form's button, Fill in details' Suggest names) stores its answer the same way. On Fill in details a queued or running part shows a spinner, its state and Cancel under the row; a failed one the error and a dismiss; an answered one "AI thinks: name · category" with Use and a dismiss (the name and category are used in one save; the rest of the answer stays for More details). The part's form shows a stored answer straight away with when it was looked up, Look again, and the same queue status and Cancel. Cancel clears the part's job at once; a look-up already under way runs to its end and its answer is thrown away, since a model call can't be interrupted. Dismiss clears the stored answer.
+
+**Consequences:** Capture twenty parts and walk away; the answers are there when Fill in details is opened, and nothing waits on the model. Four columns on `items` (migration 0019). `POST /items/:id/research/queue`, `DELETE …/queue` (cancel), `DELETE /items/:id/research` (dismiss). The queue is in-process: one worker, one part at a time, so the card is never asked for two models at once. Not done: bulk editing of checked parts from Inventory and Search, which Colin raised at the same time and is next.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1535,6 +1550,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-052 | Print stickers from the app: die-cut sheets as PDF, Cricut Print Then Cut as PNG; codes still not recorded until scanned | Product / UX | Accepted | 2026-11-11 |
 | DEC-053 | AI data fill, round two: part numbers read off the part go to the shops, quick naming for plain things, the datasheet read | Product / Architecture | Accepted | 2026-11-11 |
 | DEC-054 | The AI data fill runs beside the live app, on one model container shared with the dev instance | Architecture / Process | Accepted | 2026-11-12 |
+| DEC-055 | Counting chosen at capture (an exact count of 1 unless changed); parts queued for the AI at capture, the answer kept for review | UX / Architecture | Accepted | 2026-11-12 |
 
 ---
 

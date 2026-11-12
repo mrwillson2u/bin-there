@@ -654,6 +654,7 @@ describe("AI data fill (DEC-048)", () => {
     const item = (await call<{ id: number }>("POST", "/items", { name: "Zip ties", locationId: tote.id })).json;
     const r = await call<{ error: { message: string } }>("POST", `/items/${item.id}/research`);
     expect(r.status).toBe(400);
+    expect((await call("POST", `/items/${item.id}/research/queue`)).status).toBe(400);
     expect(r.json.error.message).toContain("AI isn't set up");
   });
 
@@ -708,6 +709,27 @@ describe("AI data fill (DEC-048)", () => {
     expect(calls).toContain("https://www.example-supplier.com/typed");
     expect(calls.some((c) => c.includes("/search?"))).toBe(false);
     expect(((await (await aiApi.request(`/items/${item.id}`)).json()) as { url: string | null }).url).toBeNull(); // still nothing saved
+    // The answer is kept on the part for review (DEC-055), and a dismiss clears it.
+    const kept = (await (await aiApi.request(`/items/${item.id}`)).json()) as { aiResult: { identified: string; mode: string } | null; aiJob: unknown };
+    expect(kept.aiResult?.identified).toBe("Nylon cable ties, 100 mm");
+    expect(kept.aiResult?.mode).toBe("full");
+    expect(kept.aiJob).toBeNull();
+    const cleared = (await (await aiApi.request(`/items/${item.id}/research`, { method: "DELETE" })).json()) as { aiResult: unknown };
+    expect(cleared.aiResult).toBeNull();
+    // Queued (DEC-055): the part shows as queued or running, then the stored answer appears; a cancel clears it.
+    const queued = (await (await aiApi.request(`/items/${item.id}/research/queue`, { method: "POST" })).json()) as { aiJob: { state: string } | null };
+    expect(["queued", "running"]).toContain(queued.aiJob?.state);
+    let after: { aiJob: unknown; aiResult: { identified: string } | null } = { aiJob: null, aiResult: null };
+    for (let i = 0; i < 100; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      after = (await (await aiApi.request(`/items/${item.id}`)).json()) as typeof after;
+      if (after.aiJob === null) break;
+    }
+    expect(after.aiJob).toBeNull();
+    expect(after.aiResult?.identified).toBe("Nylon cable ties, 100 mm");
+    const cancelled = (await (await aiApi.request(`/items/${item.id}/research/queue`, { method: "DELETE" })).json()) as { aiJob: unknown };
+    expect(cancelled.aiJob).toBeNull();
+    expect((await aiApi.request(`/items/999/research/queue`, { method: "POST" })).status).toBe(404);
     // Quick mode (DEC-053): the photo alone, so with no photo there's one note and nothing asked of the web.
     calls.length = 0;
     const quick = (await (await aiApi.request(`/items/${item.id}/research`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "quick" }) })).json()) as { suggestions: unknown[]; notes: string[] };
