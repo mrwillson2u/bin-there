@@ -2,8 +2,9 @@
 # whatever branch is being worked on (usually `dev`), on port 3001, against a throwaway copy
 # of the live data (scripts/dev-data-refresh.sh). No backups: nothing here is worth keeping.
 # The AI data fill (DEC-048, DEC-049, DEC-053) runs here too, against the one Ollama container
-# the live app runs (compose.yaml, DEC-054), reached through its host port, so the card holds one
-# copy of the model. The shop API keys come from a `.env` beside this file (compose reads it):
+# the live app runs (compose.yaml, DEC-054), joined over the live stack's compose network (a port
+# bound to 127.0.0.1 on the host isn't reachable from a container), so the card holds one copy
+# of the model. The shop API keys come from a `.env` beside this file (compose reads it):
 #   MOUSER_API_KEY=…            from mouser.com/api-hub (Search API)
 #   DIGIKEY_CLIENT_ID=…         from developer.digikey.com (a production app with Product Information V4)
 #   DIGIKEY_CLIENT_SECRET=…
@@ -20,7 +21,7 @@ services:
       - "127.0.0.1:3001:3000"
     environment:
       TZ: ${TZ:-UTC}
-      AI_URL: ${AI_URL:-http://host.docker.internal:11435}
+      AI_URL: ${AI_URL:-http://ollama:11434}
       # gemma4:e4b: the best reader of printed numbers and the least inventive of five tried (DEC-053).
       AI_MODEL: ${AI_MODEL:-gemma4:e4b}
       SEARCH_URL: ${SEARCH_URL:-http://host.docker.internal:8989}
@@ -31,3 +32,8 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/data
+networks:
+  default:
+    # The live stack's network (project bin-there-prod), where `ollama` lives.
+    name: bin-there-prod_default
+    external: true
