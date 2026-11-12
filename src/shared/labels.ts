@@ -101,18 +101,6 @@ export const TEMPLATES: LabelTemplate[] = [
     cornerRadius: 4.5,
     url: "https://www.sheetlabels.com/labels/SL588",
   },
-  // The script called this one "SL588" (its Paperless-ngx labels); it isn't SheetLabels' SL588, and
-  // which sheet it is isn't recorded (SL105 is the same label size but 80 up with other margins).
-  {
-    ...base,
-    name: "1.75x0.5",
-    description: '1.75" × 0.5" labels, 76 per sheet (4 columns of 19)',
-    labelSize: [126, 36],
-    columns: 4,
-    rows: 19,
-    origin: [21.6002, 31],
-    gap: [24, 0.375],
-  },
   {
     ...base,
     name: "Avery6570",

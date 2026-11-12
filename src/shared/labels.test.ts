@@ -31,7 +31,6 @@ describe("templates", () => {
     // Fills down the first column, then the next: the 17th label is the top of column 2.
     expect(sl588[16]).toEqual({ x: 22.9968 + 99 + 18, y: 72.438, rotation: 0 });
     expect(sl588[1]!.y).toBeCloseTo(72.438 + 40.5);
-    expect(slotsOf(getTemplate("1.75x0.5"))).toHaveLength(76);
     expect(slotsOf(getTemplate("Avery6570"))).toHaveLength(32);
     const mr = slotsOf(getTemplate("MR183"));
     expect(mr).toHaveLength(30);
