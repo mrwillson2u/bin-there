@@ -270,8 +270,8 @@ export function PrintStickersPage() {
                   </li>
                   <li>
                     Make It, print at 100% with no scaling, load the sheet on the mat top-left, and cut with the material set to{" "}
-                    <strong className="text-text">Printable Vinyl (Grey liner printing)</strong>, the one that kiss-cuts the 0.08 mm vinyl and leaves the
-                    liner whole.
+                    <strong className="text-text">Printable Vinyl (Grey liner printing)</strong> and the pressure set to{" "}
+                    <strong className="text-text">Less</strong>: the default pressure cut through the liner in places on the 0.08 mm vinyl.
                   </li>
                 </ol>
               )}
