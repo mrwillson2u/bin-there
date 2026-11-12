@@ -36,7 +36,8 @@ export function ScanTarget({ what, camera, actions, compact, big, children, clas
   if (compact) {
     return (
       <div className={`flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-scan/60 px-3 py-1.5 ${className}`} data-scan-target>
-        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-scan">
+        {/* The words keep a sensible width on a phone, so the trigger note and the button wrap under them instead of squeezing them to a word a line. */}
+        <span className="flex min-w-[12rem] flex-1 items-center gap-2 text-sm font-semibold text-scan">
           <ScanLine size={18} className="shrink-0" /> {what}
         </span>
         {trigger && <span className="text-[13px] text-muted">{trigger}</span>}
