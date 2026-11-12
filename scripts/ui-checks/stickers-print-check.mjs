@@ -42,19 +42,24 @@ await page.goto(`${base}/locations`);
 await page.getByRole("link", { name: "Print stickers" }).click();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByRole("button", { name: /Sticker vinyl, Cricut/ }).getAttribute("aria-pressed")) === "true", "the Cricut vinyl is the first choice");
-check((await page.getByText("60 per sheet (4 across by 15 down)").count()) === 1, "SL588 upright down the 6.77 × 9.94 in column: 60 per sheet");
-// A shorter column (9.27 in): fourteen rows upright, or turned a quarter turn for more. A choice, remembered.
-await page.getByLabel("Cut area height (in)").fill("9.27");
-check((await page.getByText("56 per sheet (4 across by 14 down)").count()) === 1, "9.27 in tall: 56 upright");
+check((await page.getByText("56 per sheet (4 across by 14 down)").count()) === 1, "SL588 upright in Design Space's 6.76 × 9.26 in box: 56 per sheet");
+// Turned a quarter turn for more: ten across by six down. A choice, remembered.
 await page.getByRole("button", { name: /Turn them if more fit/ }).click();
 check((await page.getByText("60 per sheet (10 across by 6 down, turned sideways)").count()) === 1, "turned: 60 per sheet");
 check((await page.getByText("4 more a sheet").count()) === 1, "the choice says how many more");
 await page.reload();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
-check((await page.getByText("60 per sheet (10 across by 6 down, turned sideways)").count()) === 1, "the cut area and the choice are remembered");
+check((await page.getByText("60 per sheet (10 across by 6 down, turned sideways)").count()) === 1, "the choice is remembered");
+// A taller box: fifteen rows upright, no gain from turning, and the choice says so; the box is remembered.
 await page.getByLabel("Cut area height (in)").fill("9.94");
-check((await page.getByText("60 per sheet (4 across by 15 down)").count()) === 1, "back to the full column: 60 upright, since turning fits no more there");
-check((await page.getByText("No more would fit turned").count()) === 1, "and the choice says so");
+check((await page.getByText("60 per sheet (4 across by 15 down)").count()) === 1, "a 9.94 in box: 60 upright");
+check((await page.getByText("No more would fit turned").count()) === 1, "and turning would fit no more");
+await page.reload();
+await page.getByRole("heading", { name: "Print stickers" }).waitFor();
+check((await page.getByText("60 per sheet (4 across by 15 down)").count()) === 1, "the box is remembered");
+await page.getByLabel("Cut area height (in)").fill("9.26");
+await page.getByRole("button", { name: "Upright" }).click();
+check((await page.getByText("56 per sheet (4 across by 14 down)").count()) === 1, "back to 56 upright");
 const preview = page.locator("img[data-preview]");
 check((await preview.getAttribute("src")).startsWith("data:image/svg+xml"), "a preview of the sheet is drawn");
 await page.screenshot({ path: `${shots}/st1-cricut.png`, fullPage: true });
@@ -68,10 +73,10 @@ const pngPath = `${shots}/${png.suggestedFilename()}`;
 await png.saveAs(pngPath);
 const pngBytes = readFileSync(pngPath);
 const dims = { w: pngBytes.readUInt32BE(16), h: pngBytes.readUInt32BE(20), colour: pngBytes[25] };
-check(dims.w === 3525 && dims.h === 5851 && dims.colour === 6, `the PNG is 3525 × 5851 px (the stickers' own 5.875 × 9.752 in at 600 dpi, no clear edge) with an alpha channel: ${JSON.stringify(dims)}`);
+check(dims.w === 3525 && dims.h === 5445 && dims.colour === 6, `the PNG is 3525 × 5445 px (the stickers' own 5.875 × 9.075 in at 600 dpi, no clear edge) with an alpha channel: ${JSON.stringify(dims)}`);
 const found = await readBarcodes(new Blob([pngBytes]), { formats: ["QRCode"], maxNumberOfSymbols: 255 });
 const codes = found.map((r) => r.text);
-check(codes.length === 60 && codes.every((c) => CODE.test(c)) && new Set(codes).size === codes.length, `the PNG's codes scan: ${codes.length} found, all 12-character codes, all different`);
+check(codes.length === 56 && codes.every((c) => CODE.test(c)) && new Set(codes).size === codes.length, `the PNG's codes scan: ${codes.length} found, all 12-character codes, all different`);
 // The gaps are clear: the PNG's edge pixels are transparent (a sticker there would be white).
 const { PNG } = await import("pngjs").catch(() => ({ PNG: null }));
 if (PNG) {
@@ -85,7 +90,7 @@ if (PNG) {
 const scan = await api("GET", `/scan/${codes[0]}`);
 check(scan.kind === "unassigned", "a printed code isn't on anything yet: " + scan.kind);
 await page.locator("[data-done]").waitFor();
-check((await page.getByText("W 5.875 in").count()) === 1 && (await page.getByText("H 9.752 in").count()) === 1, "the size to type into Design Space is the stickers' own, to the thousandth");
+check((await page.getByText("W 5.875 in").count()) === 1 && (await page.getByText("H 9.075 in").count()) === 1, "the size to type into Design Space is the stickers' own, to the thousandth");
 await page.screenshot({ path: `${shots}/st2-cricut-done.png`, fullPage: true });
 
 // The die-cut sheet PDF: two sheets, ten skipped, Letter pages.

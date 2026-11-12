@@ -14,14 +14,14 @@ export const LETTER: [number, number] = [612, 792];
 export const LETTER_LANDSCAPE: [number, number] = [792, 612];
 
 /**
- * The rectangle one Print Then Cut image fills on a Maker with Letter paper. Cricut's outline is
- * 7.44 in across at its widest and 9.94 in tall at its tallest, but Design Space measures an
- * uploaded bitmap's whole rectangle and, for any image near full height, caps the width at 6.76 in
- * (it said so for a 7.44 × 9.94 image and again for a 7.25 × 9.09 one: "max size for this shape
- * 6.76 × …"). So a sheet is the narrow full-height column, 6.77 × 9.94. A setting on the screen,
- * because Design Space may cap the height too; its warning gives the number to type.
+ * The box one Print Then Cut image may fill on a Maker with Letter paper: 6.76 × 9.26 in, as
+ * Design Space's "max size for this shape" warnings showed over three uploads (a 7.44 × 9.94
+ * image: 6.76 wide; a 7.25 × 9.09 one: 6.76 wide; a 5.875 × 9.752 one: 9.26 tall). Cricut's
+ * page gives 7.44 across and 9.94 tall, but those are the widest and tallest points of a notched
+ * outline, reachable only by short or narrow shapes; a sheet is measured as its whole rectangle.
+ * A setting on the screen, for another machine or paper.
  */
-export const PRINT_THEN_CUT_AREA: [number, number] = [6.77 * PT_PER_INCH, 9.94 * PT_PER_INCH];
+export const PRINT_THEN_CUT_AREA: [number, number] = [6.76 * PT_PER_INCH, 9.26 * PT_PER_INCH];
 
 export type CutOptions = {
   /** The whole Print Then Cut rectangle; the image is this size, so it sits exactly over it. */
