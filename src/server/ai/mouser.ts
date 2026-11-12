@@ -72,5 +72,5 @@ export function mouserPage(part: MouserPart, fallbackUrl: string): ShopPage {
     ["Product page", url],
     ["Specifications", attrs.length ? "\n" + attrs.join("\n") : null],
   ]);
-  return { title: `Mouser: ${part.Description ?? part.MouserPartNumber ?? "part"}`, url, text, productNumber: part.MouserPartNumber || null };
+  return { title: `Mouser: ${part.Description ?? part.MouserPartNumber ?? "part"}`, url, text, productNumber: part.MouserPartNumber || null, datasheetUrl: part.DataSheetUrl || null };
 }

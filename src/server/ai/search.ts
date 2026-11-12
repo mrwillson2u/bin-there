@@ -5,6 +5,8 @@
 export type Hit = { title: string; url: string; snippet: string };
 export type Search = (query: string) => Promise<Hit[]>;
 export type FetchPage = (url: string) => Promise<string | null>;
+/** The text of a PDF's first pages (a datasheet), or null when it can't be fetched or isn't a PDF. */
+export type ReadPdf = (url: string) => Promise<string | null>;
 
 export function searxng(url: string, fetchImpl: typeof fetch = fetch): Search {
   return async (query) => {
@@ -74,4 +76,45 @@ export function htmlToText(html: string): string {
     .replace(/[ \t\r\f\v]+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
     .trim();
+}
+
+export const MAX_PDF_CHARS = 5000;
+const MAX_PDF_BYTES = 15 * 1024 * 1024;
+const PDF_PAGES = 3;
+
+/**
+ * A datasheet's first pages as text (DEC-053): fetched with a browser-like agent, refused past
+ * 15 MB or when it isn't a PDF, read with pdf.js, the first three pages'
+ * words joined and capped. The front of a datasheet is the title, the features and the key
+ * ratings, which is what the category's fields want.
+ */
+export function pdfReader(fetchImpl: typeof fetch = fetch): ReadPdf {
+  return async (url) => {
+    let res: Response;
+    try {
+      res = await fetchImpl(url, { headers: { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) BinThere/1.0", Accept: "application/pdf,*/*" }, signal: AbortSignal.timeout(20_000) });
+    } catch {
+      return null;
+    }
+    if (!res.ok) return null;
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.includes("pdf") && !/\.pdf(\?|$)/i.test(url)) return null;
+    const length = Number(res.headers.get("content-length") ?? 0);
+    if (length > MAX_PDF_BYTES) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.length > MAX_PDF_BYTES || bytes.length < 5 || String.fromCharCode(...bytes.slice(0, 5)) !== "%PDF-") return null;
+    try {
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const pdf = await pdfjs.getDocument({ data: bytes, verbosity: 0 }).promise;
+      const parts: string[] = [];
+      for (let i = 1; i <= Math.min(pdf.numPages, PDF_PAGES); i++) {
+        const content = await (await pdf.getPage(i)).getTextContent();
+        parts.push(content.items.map((it) => ("str" in it ? it.str : "")).join(" "));
+      }
+      const text = parts.join("\n").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+      return text.length > 40 ? text.slice(0, MAX_PDF_CHARS) : null;
+    } catch {
+      return null;
+    }
+  };
 }

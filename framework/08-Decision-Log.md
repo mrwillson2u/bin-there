@@ -1450,7 +1450,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-11 |
-| **Status** | Accepted (Colin, Q91); in progress |
+| **Status** | Accepted (Colin, Q91); the three steps built |
 | **Deciders** | Colin |
 | **Category** | Product / Architecture |
 
@@ -1458,7 +1458,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Decision:** Three steps, in order. **(1) A number read off the part is looked up at the shops.** After the photo step, and only when no page was read from a link or the record, anything on the part that looks like a part number (letters and digits together, or a dashed all-digit number; not a date or a web address; longest first, at most four) is tried at Mouser's and then Digi-Key's own search through their APIs. Only an exact match on the maker's number or the shop's own counts (Mouser's reader no longer settles for its first result either), the first find is the page, and it settles supplier, number and link as "likely" rather than "sure", with a note saying which number it was found by. Only if that finds nothing does the web search run. **(2) Quick naming for plain things**: a photo-only pass, no reading and no search, offering a name and category as "likely" for the things with nothing to look up (a hammer, zip ties), run over the whole Needs details list with a suggestion per row to accept with a tap. **(3) The datasheet**: when a shop page names one, its first pages are read too, for the category's fields (voltage, package) the shop page often lacks. Then, as experiments: the 12B model for the photo step (the 4B one called a power plug a relay), and later reading the label at capture time.
 
-**Consequences:** The two shop APIs become the search engine for most of what Colin owns, and the flaky web search is the fallback only. Step 1 is tested with fakes (which numbers are tried, in what order, that nothing is searched when one is found, that a near miss is no page).
+**Consequences:** The two shop APIs become the search engine for most of what Colin owns, and the flaky web search is the fallback only. All three steps built on 2026-11-11, each tested with fakes: (1) which numbers are tried, in what order, that nothing is searched when one is found, that a near miss is no page, and on the dev data a seven-segment display's printed "MAN3620A" was found at Mouser in four seconds; (2) quick naming is one model call, three to six seconds a part on the card, and over eight unnamed dev parts gave names like "JST PH 3-pin cable", "8-pin header strip" and "RadioShack 276-0145 Phototransistor" with the right categories; the Needs details list has a "Suggest names with AI" button that runs it row by row, with Use and Dismiss under each; (3) the datasheet is fetched only when a shop page names one and the category has fields, read with pdf.js (first three pages, 15 MB cap, 5,000 characters kept), labelled "the part's datasheet" for the model, and a price claimed from it is dropped as from any page that doesn't show one. New dependency `pdfjs-dist`. Found on the way: at boot Docker starts the Ollama container before the card's driver is up and it runs on the CPU all day, so `compose.dev.yaml` now has it wait for the card. Still to do: try the 12B model for the photo step, then reading the label at capture time.
 
 ## Decision Index
 
@@ -1516,7 +1516,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-050 | Two folders on the server, production and development; no folder per branch | Process | Accepted | 2026-11-07 |
 | DEC-051 | The details form in two columns when it has the room; the desktop audit (Quick capture and the bin's page still to do) | UX | Accepted | 2026-11-10 |
 | DEC-052 | Print stickers from the app: die-cut sheets as PDF, Cricut Print Then Cut as PNG; codes still not recorded until scanned | Product / UX | Accepted | 2026-11-11 |
-| DEC-053 | AI data fill, round two: part numbers read off the part go to the shops, quick naming for plain things, the datasheet read | Product / Architecture | In progress | 2026-11-11 |
+| DEC-053 | AI data fill, round two: part numbers read off the part go to the shops, quick naming for plain things, the datasheet read | Product / Architecture | Accepted | 2026-11-11 |
 
 ---
 

@@ -14,7 +14,7 @@
 
 import type { ResearchResult, Suggestion } from "../../shared/api";
 import type { Chat, ChatMessage } from "./ollama";
-import type { FetchPage, Hit, Search } from "./search";
+import type { FetchPage, Hit, ReadPdf, Search } from "./search";
 import { PLAIN_SHOPS, shopFromUrl, shopPage, type Shop, type ShopLink, type ShopReader } from "./shops";
 
 export type Deps = {
@@ -25,6 +25,8 @@ export type Deps = {
   shops?: Partial<Record<Shop, ShopReader>>;
   /** The photo as base64 JPEG, or null if it can't be read. */
   readPhoto: (file: string) => Promise<string | null>;
+  /** A datasheet's first pages as text (DEC-053); absent means datasheets aren't read. */
+  readPdf?: ReadPdf;
   log?: (line: string) => void;
 };
 
@@ -133,7 +135,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   addDirect(onRecord?.url ?? null, "the shop page for the part number on record", onRecord);
   for (const l of labelled) addDirect(l.url, "printed on the part");
 
-  const pages: { title: string; url: string; text: string; own: boolean; productNumber?: string | null; productUrl?: string | null }[] = [];
+  const pages: { title: string; url: string; text: string; own: boolean; productNumber?: string | null; productUrl?: string | null; datasheetUrl?: string | null; datasheet?: boolean }[] = [];
   const problems: string[] = [];
   const notes: string[] = [];
   // Only the first page that can be read: the link on record outranks the number on record, which
@@ -167,7 +169,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
           if (page && page.text.length > 40) {
             const url = page.url;
             direct.push({ title: page.title, url, link: { shop, productNumber: page.productNumber ?? null, makerPn: number, url }, why: "the number read off the part", sure: false });
-            pages.push({ title: page.title, url, text: page.text, own: false, productNumber: page.productNumber ?? null, productUrl: url });
+            pages.push({ title: page.title, url, text: page.text, own: false, productNumber: page.productNumber ?? null, productUrl: url, datasheetUrl: page.datasheetUrl ?? null });
             notes.push(`Found at ${shop} by the number read off the part, ${number}. Check it's the right one.`);
             log(`shops (${elapsed()}): ${number} found at ${shop} after ${tried} lookups`);
             break outer;
@@ -178,6 +180,17 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
       }
     }
     if (pages.length === 0 && numbers.length > 0) log(`shops (${elapsed()}): nothing for ${numbers.join(", ")} after ${tried} lookups`);
+  }
+
+  // DATASHEET (DEC-053): a shop page names one, and the category has fields to fill (voltage,
+  // package…) that the shop page often lacks. Its first pages are read as one more page.
+  const sheet = pages.find((p) => p.datasheetUrl);
+  if (sheet?.datasheetUrl && input.fields.length > 0 && deps.readPdf) {
+    const text = await deps.readPdf(sheet.datasheetUrl).catch(() => null);
+    if (text) {
+      pages.push({ title: "Datasheet (first pages)", url: sheet.datasheetUrl, text, own: false, datasheet: true });
+      log(`datasheet (${elapsed()}): read ${text.length} chars from ${hostOf(sheet.datasheetUrl)}`);
+    } else log(`datasheet (${elapsed()}): couldn't read ${sheet.datasheetUrl}`);
   }
 
   // SEARCH, only when nothing direct could be read: a few queries (stopping once there's enough
@@ -241,6 +254,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     "Suggest a value only for a field you can actually support with the pages or the markings; leave a field out rather than guess. Never invent part numbers, prices or links.",
     "For each suggestion, `source` is the page it came from, written as its number below (page 1, page 2), or the word photo if it was read off the part. `confidence` is high when a page states it outright for this exact part, medium when it is likely but the match isn't certain, low when it is inferred.",
     "A page marked 'the owner's page for this exact part' is the shop page the owner saved or ordered from: what it says about the part is certain (high), and its price and specifications are this part's.",
+    "A page marked 'the part's datasheet' is the maker's own document for it: its ratings and specifications fill the fields (high); it has no price.",
     "An Amazon page lists other products first (sponsored, 'consider these alternative items', 'customers also bought'); this part's own price is the one by its own title, and if that isn't shown, suggest no price.",
     "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the address (the URL line) of the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong.",
     "`supplierPn` is the number to order it by: for Adafruit or SparkFun that is the product number in the adafru.it or sparkfun.com link, not a lot or date code.",
@@ -255,7 +269,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
       ? `What the photos showed: ${look.description}. Likely part from the photos alone: ${look.likelyPart}. Text read off the part: ${look.markings.join(" | ") || "none printed"}.`
       : "There is no photo.",
     "",
-    ...pages.flatMap((p, i) => [`--- Page ${i + 1}: ${p.title}${p.own ? " (the owner's page for this exact part)" : ""}`, `URL: ${p.url}`, p.text, ""]),
+    ...pages.flatMap((p, i) => [`--- Page ${i + 1}: ${p.title}${p.own ? " (the owner's page for this exact part)" : p.datasheet ? " (the part's datasheet)" : ""}`, `URL: ${p.url}`, p.text, ""]),
     pages.length === 0 ? "No pages could be read. Suggest only what the markings and what's known support, and say so in notes." : "",
   ].join("\n");
   const extractRaw = await deps.chat({ messages: [{ role: "user", content: extractPrompt }], schema: extractSchema });
@@ -340,12 +354,12 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
  * (and throws a plain-words reason when there's no key), anything else is fetched. The page
  * keeps the address it was asked by, so the record's link stays the link.
  */
-async function readDirect(url: string, link: ShopLink | null, deps: Deps): Promise<{ title: string; url: string; text: string; productNumber?: string | null; productUrl?: string | null } | null> {
+async function readDirect(url: string, link: ShopLink | null, deps: Deps): Promise<{ title: string; url: string; text: string; productNumber?: string | null; productUrl?: string | null; datasheetUrl?: string | null } | null> {
   if (link && !PLAIN_SHOPS.has(link.shop)) {
     const reader = deps.shops?.[link.shop];
     if (!reader) throw new Error(`${link.shop} pages can only be read through its API, and no ${link.shop} key is set on this server.`);
     const page = await reader(link);
-    return page && page.text.length > 40 ? { title: page.title, url, text: page.text, productNumber: page.productNumber ?? null, productUrl: page.url } : null;
+    return page && page.text.length > 40 ? { title: page.title, url, text: page.text, productNumber: page.productNumber ?? null, productUrl: page.url, datasheetUrl: page.datasheetUrl ?? null } : null;
   }
   const text = await deps.fetchPage(url);
   if (!text || text.length <= 200) return null;

@@ -86,7 +86,9 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
     own page → search only if that fails → extract), taking `chat`, `search`, `fetchPage`, `shops` and
     `readPhoto` as arguments so tests use fakes; `ollama.ts` and `search.ts` are the real ones (Ollama chat
     with a JSON schema, SearXNG + page text). `shops.ts` knows the six shops' links and page addresses
-    (DEC-049); `mouser.ts` and `digikey.ts` read those two through their APIs when a key is set. On only when
+    (DEC-049); `mouser.ts` and `digikey.ts` read those two through their APIs when a key is set, and (DEC-053) a part number
+    read off the part is tried at both before any web search, `mode: "quick"` is the photo alone for a likely name and category
+    (the Needs details list runs it row by row), and a datasheet a shop page names is read with pdf.js (`pdfReader` in `search.ts`). On only when
     `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`, the shop keys). The AI never writes: `POST /items/:id/research`
     returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time).
   - `changes.ts`: live updates (DEC-046). A middleware in `app.ts` bumps `Changes` after every

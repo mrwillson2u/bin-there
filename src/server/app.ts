@@ -53,7 +53,7 @@ import { listPins, setPinned } from "./pins";
 import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
 import { Changes } from "./changes";
 import { ollamaChat, ollamaHasModel } from "./ai/ollama";
-import { pageFetcher, searxng } from "./ai/search";
+import { pageFetcher, pdfReader, searxng } from "./ai/search";
 import { researchItem } from "./ai/research";
 import { mouserReader } from "./ai/mouser";
 import { digikeyReader } from "./ai/digikey";
@@ -253,6 +253,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
         chat: ollamaChat(ai.url, ai.model, f),
         search: ai.searchUrl ? searxng(ai.searchUrl, f) : async () => [],
         fetchPage: pageFetcher(f),
+        readPdf: pdfReader(f),
         shops: {
           ...(ai.mouserKey ? { Mouser: mouserReader(ai.mouserKey, f) } : {}),
           ...(ai.digikey ? { "Digi-Key": digikeyReader(ai.digikey.clientId, ai.digikey.clientSecret, f) } : {}),

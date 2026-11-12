@@ -399,6 +399,31 @@ describe("researchItem", () => {
     expect(r3.notes).toEqual(["No photo to go by."]);
   });
 
+  it("reads the datasheet a shop page names, for the category's fields, as one more page (DEC-053)", async () => {
+    const f = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: ["q"] },
+      extract: { identified: "x", suggestions: [{ field: "attributes.Voltage", value: "4.5 V to 40 V in", source: "page 2", confidence: "high" }, { field: "price", value: "9.99", source: "page 2", confidence: "high" }], notes: [] },
+    });
+    const read: string[] = [];
+    f.deps.shops = { Mouser: async () => ({ title: "Mouser: LM2596", url: "https://www.mouser.com/ProductDetail/TI/LM2596?qs=x", text: "Mouser part number: 926-LM2596SADJ\nPrice (USD): $4.95 each\n" + "x".repeat(100), productNumber: "926-LM2596SADJ", datasheetUrl: "https://www.ti.com/lit/ds/lm2596.pdf" }) };
+    f.deps.readPdf = async (url) => { read.push(url); return "LM2596 SIMPLE SWITCHER 3A step-down regulator. Input voltage range 4.5 V to 40 V. Package TO-263. " + "y".repeat(100); };
+    const r = await researchItem({ ...input, url: "https://www.mouser.com/ProductDetail/926-LM2596SADJ" }, f.deps);
+    expect(read).toEqual(["https://www.ti.com/lit/ds/lm2596.pdf"]);
+    expect(r.sources.map((s) => s.title)).toEqual(["Mouser: LM2596", "Datasheet (first pages)"]);
+    expect(f.prompts[1]!.content).toContain("--- Page 2: Datasheet (first pages) (the part's datasheet)");
+    expect(f.prompts[1]!.content).toContain("its ratings and specifications fill the fields");
+    // A spec from the datasheet is kept; a price "from the datasheet" isn't on it, so it's dropped.
+    expect(r.suggestions.map((s) => [s.field, s.value, s.source])).toContainEqual(["attributes.Voltage", "4.5 V to 40 V in", "https://www.ti.com/lit/ds/lm2596.pdf"]);
+    expect(r.suggestions.find((s) => s.field === "price")).toBeUndefined();
+    // No fields to fill: the datasheet isn't fetched.
+    const g = fakes({ look: { markings: [], description: "", likelyPart: "x", queries: ["q"] }, extract: { identified: "x", suggestions: [], notes: [] } });
+    const read2: string[] = [];
+    g.deps.shops = f.deps.shops;
+    g.deps.readPdf = async (url) => { read2.push(url); return "z".repeat(100); };
+    await researchItem({ ...input, fields: [], url: "https://www.mouser.com/ProductDetail/926-LM2596SADJ" }, g.deps);
+    expect(read2).toEqual([]);
+  });
+
   it("reads product links off labels", () => {
     expect(labelLinks(["RasPi stacking headers", "http://adafru.it/1112", "adafru.it/1112"])).toEqual([{ supplier: "Adafruit", productNumber: "1112", url: "https://www.adafruit.com/product/1112" }]);
     expect(labelLinks(["https://www.sparkfun.com/products/13678"])).toEqual([{ supplier: "SparkFun", productNumber: "13678", url: "https://www.sparkfun.com/products/13678" }]);

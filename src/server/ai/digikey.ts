@@ -111,5 +111,7 @@ export function digikeyPage(p: DkProduct, fallbackUrl: string): ShopPage {
     ["Product page", url],
     ["Specifications", params.length ? "\n" + params.join("\n") : null],
   ]);
-  return { title: `Digi-Key: ${p.Description?.ProductDescription ?? p.ManufacturerProductNumber ?? "part"}`, url, text, productNumber: v?.DigiKeyProductNumber || null };
+  // Digi-Key writes its datasheet links without a scheme ("//mm.digikey.com/…").
+  const datasheetUrl = p.DatasheetUrl ? (p.DatasheetUrl.startsWith("//") ? `https:${p.DatasheetUrl}` : p.DatasheetUrl) : null;
+  return { title: `Digi-Key: ${p.Description?.ProductDescription ?? p.ManufacturerProductNumber ?? "part"}`, url, text, productNumber: v?.DigiKeyProductNumber || null, datasheetUrl };
 }
