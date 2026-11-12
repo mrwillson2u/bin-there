@@ -42,17 +42,21 @@ await page.goto(`${base}/locations`);
 await page.getByRole("link", { name: "Print stickers" }).click();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByRole("button", { name: /Sticker vinyl, Cricut/ }).getAttribute("aria-pressed")) === "true", "the Cricut vinyl is the first choice");
-check((await page.getByText("42 per sheet").count()) === 1, "SL588 re-gridded for the 6.75 × 9.25 in cut area: 42 per sheet");
-// A bigger cut area (a newer machine, from Cricut's page) fits more; it's remembered on the device.
-await page.getByLabel("Cut area width (in)").fill("7.44");
-await page.getByLabel("Cut area height (in)").fill("9.94");
-check((await page.getByText("45 per sheet").count()) === 1, "7.44 × 9.94 in fits 45");
-await page.reload();
-await page.getByRole("heading", { name: "Print stickers" }).waitFor();
-check((await page.getByText("45 per sheet").count()) === 1, "the cut area is remembered");
+check((await page.getByText("71 per sheet (5 across by 15 down, less the 4 at the corners)").count()) === 1, "SL588 in the Maker's 7.44 × 9.94 in cut area: 71 per sheet, the corners under the sensor marks left out");
+// The old safe area with no notches: four columns of fourteen; the settings are remembered on the device.
 await page.getByLabel("Cut area width (in)").fill("6.75");
 await page.getByLabel("Cut area height (in)").fill("9.25");
-check((await page.getByText("42 per sheet").count()) === 1, "back to 42");
+await page.getByLabel("Corner notch width (in)").fill("0");
+await page.getByLabel("Corner notch height (in)").fill("0");
+check((await page.getByText("56 per sheet").count()) === 1, "6.75 × 9.25 in with no notch fits 56");
+await page.reload();
+await page.getByRole("heading", { name: "Print stickers" }).waitFor();
+check((await page.getByText("56 per sheet").count()) === 1, "the cut area and notch are remembered");
+await page.getByLabel("Cut area width (in)").fill("7.44");
+await page.getByLabel("Cut area height (in)").fill("9.94");
+await page.getByLabel("Corner notch width (in)").fill("0.35");
+await page.getByLabel("Corner notch height (in)").fill("0.35");
+check((await page.getByText("71 per sheet").count()) === 1, "back to 71");
 const preview = page.locator("img[data-preview]");
 check((await preview.getAttribute("src")).startsWith("data:image/svg+xml"), "a preview of the sheet is drawn");
 await page.screenshot({ path: `${shots}/st1-cricut.png`, fullPage: true });
@@ -66,22 +70,30 @@ const pngPath = `${shots}/${png.suggestedFilename()}`;
 await png.saveAs(pngPath);
 const pngBytes = readFileSync(pngPath);
 const dims = { w: pngBytes.readUInt32BE(16), h: pngBytes.readUInt32BE(20), colour: pngBytes[25] };
-check(dims.w === 1688 && dims.h === 2625 && dims.colour === 6, `the PNG is 1688 × 2625 px (5.625 × 8.75 in at 300 dpi) with an alpha channel: ${JSON.stringify(dims)}`);
-const found = await readBarcodes(new Blob([pngBytes]), { formats: ["QRCode"], maxNumberOfSymbols: 60 });
+check(dims.w === 2232 && dims.h === 2982 && dims.colour === 6, `the PNG is 2232 × 2982 px (the 7.44 × 9.94 in cut area at 300 dpi) with an alpha channel: ${JSON.stringify(dims)}`);
+const found = await readBarcodes(new Blob([pngBytes]), { formats: ["QRCode"], maxNumberOfSymbols: 255 });
 const codes = found.map((r) => r.text);
-check(codes.length === 42 && codes.every((c) => CODE.test(c)) && new Set(codes).size === codes.length, `the PNG's codes scan: ${codes.length} found, all 12-character codes, all different`);
+check(codes.length === 71 && codes.every((c) => CODE.test(c)) && new Set(codes).size === codes.length, `the PNG's codes scan: ${codes.length} found, all 12-character codes, all different`);
+// The corners are clear: the PNG's corner pixels are transparent (a sticker there would be white).
+const { PNG } = await import("pngjs").catch(() => ({ PNG: null }));
+if (PNG) {
+  const img = PNG.sync.read(pngBytes);
+  const alpha = (x, y) => img.data[(y * img.width + x) * 4 + 3];
+  const corners = [[20, 20], [img.width - 21, 20], [20, img.height - 21], [img.width - 21, img.height - 21]];
+  check(corners.every(([x, y]) => alpha(x, y) === 0) && alpha(Math.round(img.width / 2), 20) === 0, "the corners and top edge are clear");
+}
 const scan = await api("GET", `/scan/${codes[0]}`);
 check(scan.kind === "unassigned", "a printed code isn't on anything yet: " + scan.kind);
 await page.locator("[data-done]").waitFor();
-check((await page.getByText("W 5.63 in × H 8.75 in").count()) === 1, "the size to type into Design Space is shown");
+check((await page.getByText("W 7.44 in × H 9.94 in").count()) === 1, "the size to type into Design Space is the cut area");
 await page.screenshot({ path: `${shots}/st2-cricut-done.png`, fullPage: true });
 
 // The die-cut sheet PDF: two sheets, ten skipped, Letter pages.
 await page.getByRole("button", { name: /Die-cut sheet/ }).click();
-check((await page.getByText("76 per sheet").count()) === 1, "SL588 as a sheet: 76 per sheet");
+check((await page.getByText("80 per sheet: 80 stickers").count()) === 1, "SL588 as a sheet: 80 per sheet");
 await page.getByLabel("Sheets").fill("2");
 await page.getByLabel("Skip used labels").fill("10");
-check((await page.getByText("142 stickers").count()) === 1, "two sheets less ten skipped is 142");
+check((await page.getByText("150 stickers").count()) === 1, "two sheets less ten skipped is 150");
 await page.getByLabel("Title", { exact: true }).fill("Workshop");
 dl = page.waitForEvent("download");
 await page.getByRole("button", { name: "Make the PDF" }).click();
@@ -92,7 +104,7 @@ await pdf.saveAs(pdfPath);
 const doc = await PDFDocument.load(readFileSync(pdfPath));
 const sizes = doc.getPages().map((p) => [Math.round(p.getWidth()), Math.round(p.getHeight())]);
 check(JSON.stringify(sizes) === "[[612,792],[612,792]]", "two Letter pages: " + JSON.stringify(sizes));
-check((await page.getByText("142 stickers on 2 sheets").count()) === 1, "142 stickers on 2 sheets, says the page");
+check((await page.getByText("150 stickers on 2 sheets").count()) === 1, "150 stickers on 2 sheets, says the page");
 await page.screenshot({ path: `${shots}/st3-sheet-done.png`, fullPage: true });
 
 // A used code is swapped for a fresh one: every check call that returns a used code gets a new batch.

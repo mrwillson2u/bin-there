@@ -13,8 +13,23 @@ export const PT_PER_INCH = 72;
 export const LETTER: [number, number] = [612, 792];
 export const LETTER_LANDSCAPE: [number, number] = [792, 612];
 
-/** The largest Print Then Cut image Cricut Design Space allows on Letter paper (a third-party figure). */
-export const PRINT_THEN_CUT_AREA: [number, number] = [6.75 * PT_PER_INCH, 9.25 * PT_PER_INCH];
+/**
+ * Cricut's Print Then Cut area for a Maker on Letter paper (help.cricut.com, "How large can I
+ * Print Then Cut", 2026): 7.44 in across, 9.94 in tall, with the corners reserved for the sensor
+ * marks. The notch isn't given; 0.35 in is what's left when the old safe 6.75 × 9.25 in rectangle
+ * is centred in it. Both are settings on the screen, so Colin can match what Design Space shows.
+ */
+export const PRINT_THEN_CUT_AREA: [number, number] = [7.44 * PT_PER_INCH, 9.94 * PT_PER_INCH];
+export const PRINT_THEN_CUT_NOTCH: [number, number] = [0.35 * PT_PER_INCH, 0.35 * PT_PER_INCH];
+
+export type CutOptions = {
+  /** The whole Print Then Cut area; the image is this size, so it sits exactly over it. */
+  area?: [number, number];
+  /** The corner each sensor mark takes; a label touching one is left out. */
+  notch?: [number, number];
+  /** The most space between labels; the least is half this, so one more column or row can fit. */
+  gap?: number;
+};
 
 /** The top-left corner of one label on the page; rotation 180 turns the whole label. */
 export type Slot = { x: number; y: number; rotation: 0 | 180 };
@@ -71,28 +86,32 @@ function mr183Slots(): Slot[] {
 }
 
 export const TEMPLATES: LabelTemplate[] = [
+  // The script called this sheet "SL855"; SheetLabels' SL588 page (1.375" × 0.5625", 80 up, rounded,
+  // 1" top and 0.3125" left margins, 0.25" between columns) is this one, and it's the size Colin
+  // cuts on his vinyl too. The tuned origin is kept (half a point off the maker's figure).
   {
     ...base,
     name: "SL588",
-    description: 'SheetLabels.com SL588, 1.75" × 0.5"',
-    labelSize: [126, 36],
-    columns: 4,
-    rows: 19,
-    origin: [21.6002, 31],
-    gap: [24, 0.375],
-    url: "https://www.sheetlabels.com/labels/SL588",
-  },
-  {
-    ...base,
-    name: "SL855",
-    description: 'SheetLabels.com SL855, 1.375" × 0.5625"',
+    description: 'SheetLabels.com SL588, 1.375" × 0.5625", 80 per sheet',
     labelSize: [99, 40.5],
     columns: 5,
     rows: 16,
     origin: [22.9968, 72.438],
     gap: [18, 0],
     cornerRadius: 4.5,
-    url: "https://www.sheetlabels.com/labels/SL855",
+    url: "https://www.sheetlabels.com/labels/SL588",
+  },
+  // The script called this one "SL588" (its Paperless-ngx labels); it isn't SheetLabels' SL588, and
+  // which sheet it is isn't recorded (SL105 is the same label size but 80 up with other margins).
+  {
+    ...base,
+    name: "1.75x0.5",
+    description: '1.75" × 0.5" labels, 76 per sheet (4 columns of 19)',
+    labelSize: [126, 36],
+    columns: 4,
+    rows: 19,
+    origin: [21.6002, 31],
+    gap: [24, 0.375],
   },
   {
     ...base,
@@ -143,21 +162,48 @@ export function slotsOf(t: LabelTemplate): Slot[] {
  * in the cut area with a gap between them (Design Space sees touching labels as one shape). The
  * page shrinks to just the labels, so the exported image is the whole cut area.
  */
-export function printThenCut(t: LabelTemplate, gap = 9, margin = 4.5, area = PRINT_THEN_CUT_AREA): LabelTemplate {
+export function printThenCut(t: LabelTemplate, opts: CutOptions = {}): LabelTemplate {
+  const area = opts.area ?? PRINT_THEN_CUT_AREA;
+  const notch = opts.notch ?? PRINT_THEN_CUT_NOTCH;
+  const most = opts.gap ?? 9;
+  const least = most / 2;
   const [w, h] = t.labelSize;
-  const columns = Math.floor((area[0] - 2 * margin + gap) / (w + gap));
-  const rows = Math.floor((area[1] - 2 * margin + gap) / (h + gap));
-  if (columns < 1 || rows < 1) throw new Error(`a ${w} × ${h} pt label doesn't fit the Print Then Cut area`);
+  // As many as fit with at least the smallest gap (and that much at the edges), then the gap
+  // spread evenly up to the largest, and the grid centred in the area.
+  const fit = (across: number, size: number) => {
+    const n = Math.floor((across - least) / (size + least));
+    const gap = Math.min(most, (across - n * size) / (n + 1));
+    const start = (across - n * size - (n - 1) * gap) / 2;
+    return { n, gap, start };
+  };
+  const x = fit(area[0], w);
+  const y = fit(area[1], h);
+  if (x.n < 1 || y.n < 1) throw new Error(`a ${w} × ${h} pt label doesn't fit the Print Then Cut area`);
+  const touchesNotch = (sx: number, sy: number) => {
+    const left = sx < notch[0];
+    const right = sx + w > area[0] - notch[0];
+    const top = sy < notch[1];
+    const bottom = sy + h > area[1] - notch[1];
+    return (left || right) && (top || bottom);
+  };
+  const slots: Slot[] = [];
+  for (let c = 0; c < x.n; c++) {
+    for (let r = 0; r < y.n; r++) {
+      const sx = x.start + c * (w + x.gap);
+      const sy = y.start + r * (h + y.gap);
+      if (!touchesNotch(sx, sy)) slots.push({ x: sx, y: sy, rotation: 0 });
+    }
+  }
   return {
     ...t,
     name: `${t.name}-cricut`,
     description: `${t.description}, Cricut Print Then Cut`,
-    columns,
-    rows,
-    origin: [margin, margin],
-    gap: [gap, gap],
-    pageSize: [2 * margin + columns * w + (columns - 1) * gap, 2 * margin + rows * h + (rows - 1) * gap],
-    fixedSlots: null,
+    columns: x.n,
+    rows: y.n,
+    origin: [x.start, y.start],
+    gap: [x.gap, y.gap],
+    pageSize: [area[0], area[1]],
+    fixedSlots: slots,
   };
 }
 

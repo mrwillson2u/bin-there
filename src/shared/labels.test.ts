@@ -22,13 +22,16 @@ import {
 
 describe("templates", () => {
   it("carry the tuned measurements over exactly", () => {
-    const sl855 = slotsOf(getTemplate("sl855"));
-    expect(sl855).toHaveLength(80);
-    expect(sl855[0]).toEqual({ x: 22.9968, y: 72.438, rotation: 0 });
+    // SL588 is the 1.375" × 0.5625" sheet (SheetLabels' own page: 80 up, 1" top and 0.3125" left margins, 0.25" between columns).
+    const sl588 = slotsOf(getTemplate("sl588"));
+    expect(sl588).toHaveLength(80);
+    expect(sl588[0]).toEqual({ x: 22.9968, y: 72.438, rotation: 0 });
+    expect(sl588[0]!.x).toBeCloseTo(0.3125 * 72, 0);
+    expect(sl588[0]!.y).toBeCloseTo(72, 0);
     // Fills down the first column, then the next: the 17th label is the top of column 2.
-    expect(sl855[16]).toEqual({ x: 22.9968 + 99 + 18, y: 72.438, rotation: 0 });
-    expect(sl855[1]!.y).toBeCloseTo(72.438 + 40.5);
-    expect(slotsOf(getTemplate("SL588"))).toHaveLength(76);
+    expect(sl588[16]).toEqual({ x: 22.9968 + 99 + 18, y: 72.438, rotation: 0 });
+    expect(sl588[1]!.y).toBeCloseTo(72.438 + 40.5);
+    expect(slotsOf(getTemplate("1.75x0.5"))).toHaveLength(76);
     expect(slotsOf(getTemplate("Avery6570"))).toHaveLength(32);
     const mr = slotsOf(getTemplate("MR183"));
     expect(mr).toHaveLength(30);
@@ -38,16 +41,34 @@ describe("templates", () => {
     expect(() => getTemplate("nope")).toThrow("unknown template");
   });
 
-  it("re-grids a label for Cricut Print Then Cut: as many as fit the 6.75 × 9.25 in area, the page just the labels", () => {
-    const c = printThenCut(getTemplate("SL855"));
-    expect([c.columns, c.rows]).toEqual([4, 13]);
-    expect(c.pageSize[0]).toBeCloseTo(9 + 4 * 99 + 3 * 9);
-    expect(c.pageSize[1]).toBeCloseTo(9 + 13 * 40.5 + 12 * 9);
-    expect(c.pageSize[0]).toBeLessThanOrEqual(6.75 * 72);
-    expect(c.pageSize[1]).toBeLessThanOrEqual(9.25 * 72);
-    expect(slotsOf(c)).toHaveLength(52);
-    expect(c.name).toBe("SL855-cricut");
-    // The cable label is on landscape paper with fixed slots; re-gridded it's a plain grid again.
+  it("lays a label out for Cricut Print Then Cut: the whole cut area, as many as fit, the grid centred, corner labels under the sensor marks left out", () => {
+    const c = printThenCut(getTemplate("SL588"));
+    // 7.44 × 9.94 in: five columns of 1.375" fit with 0.094" between (less than the 0.125" wanted, more than the 0.0625" needed), fifteen rows.
+    expect([c.columns, c.rows]).toEqual([5, 15]);
+    expect(c.pageSize).toEqual([7.44 * 72, 9.94 * 72]);
+    expect(c.gap[0]).toBeCloseTo((7.44 * 72 - 5 * 99) / 6);
+    expect(c.gap[1]).toBeCloseTo((9.94 * 72 - 15 * 40.5) / 16);
+    // Centred: the same room on each side.
+    expect(c.origin[0]).toBeCloseTo(c.gap[0]);
+    expect(c.origin[1]).toBeCloseTo(c.gap[1]);
+    // 75 places, the four corners under the 0.35 in sensor notches left out.
+    expect(slotsOf(c)).toHaveLength(71);
+    const [w, h] = c.labelSize;
+    for (const s of slotsOf(c)) {
+      const inCorner = (s.x < 0.35 * 72 || s.x + w > 7.44 * 72 - 0.35 * 72) && (s.y < 0.35 * 72 || s.y + h > 9.94 * 72 - 0.35 * 72);
+      expect(inCorner).toBe(false);
+      expect(s.x).toBeGreaterThanOrEqual(0);
+      expect(s.x + w).toBeLessThanOrEqual(7.44 * 72 + 0.01);
+    }
+    expect(c.name).toBe("SL588-cricut");
+    // No notch: all 75. The old safe area with no notch: four columns of fourteen, a full 0.125 in apart.
+    expect(slotsOf(printThenCut(getTemplate("SL588"), { notch: [0, 0] }))).toHaveLength(75);
+    const old = printThenCut(getTemplate("SL588"), { area: [6.75 * 72, 9.25 * 72], notch: [0, 0] });
+    expect([old.columns, old.rows, old.gap[0]]).toEqual([4, 14, 9]);
+    expect(slotsOf(old)).toHaveLength(56);
+    // Too small an area: refused.
+    expect(() => printThenCut(getTemplate("SL588"), { area: [50, 50] })).toThrow("doesn't fit");
+    // The cable label is on landscape paper with fixed slots; laid out for the Cricut it's upright.
     expect(slotsOf(printThenCut(getTemplate("MR183"))).every((s) => s.rotation === 0)).toBe(true);
   });
 });
@@ -82,11 +103,11 @@ describe("layout", () => {
 
   it("keeps every label's drawing inside its label on every template, turned or not", () => {
     for (const t of TEMPLATES) inside(t);
-    inside(printThenCut(getTemplate("SL855")));
+    inside(printThenCut(getTemplate("SL588")));
   });
 
   it("draws the code as module runs and the words as three lines that fit the label", () => {
-    const t = getTemplate("SL855");
+    const t = getTemplate("SL588");
     const page = layoutSheet(t, ["EddY9xhVRwAg"], { ...DEFAULT_STYLE, title: "Workshop", subtitle: "Inventory tag" });
     const rects = page.shapes.filter((s): s is RectShape => s.kind === "rect");
     const texts = page.shapes.filter((s): s is TextShape => s.kind === "text");
@@ -115,7 +136,7 @@ describe("layout", () => {
   });
 
   it("spreads codes over pages, skips used slots on the first only, and refuses what won't fit", () => {
-    const t = getTemplate("SL855");
+    const t = getTemplate("SL588");
     expect(capacity(t, 2, 10)).toBe(150);
     const pages = layoutPages(t, randomCodes(150), DEFAULT_STYLE, { skip: 10 });
     expect(pages).toHaveLength(2);
@@ -127,12 +148,15 @@ describe("layout", () => {
   });
 
   it("writes the page as SVG sized in inches, with white label backgrounds for the Cricut", () => {
-    const c = printThenCut(getTemplate("SL855"));
+    const c = printThenCut(getTemplate("SL588"), { area: [6.75 * 72, 9.25 * 72], notch: [0, 0] });
     const svg = pageSvg(layoutSheet(c, ["EddY9xhVRwAg"], DEFAULT_STYLE, { background: true }));
-    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" version="1.1" width="6in" height="8.938in" viewBox="0 0 432 643.5">/);
-    expect(svg).toContain('<rect x="4.5" y="4.5" width="99" height="40.5" rx="4.5" ry="4.5" fill="#ffffff"/>');
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" version="1.1" width="6.75in" height="9.25in" viewBox="0 0 486 666">/);
+    // Four columns a full 0.125 in apart, centred: (486 − 4·99 − 3·9) / 2 = 31.5 from the left; fourteen rows: (666 − 14·40.5) / 15 = 6.6 from the top.
+    expect(c.origin[0]).toBeCloseTo(31.5);
+    expect(c.origin[1]).toBeCloseTo(6.6);
+    expect(svg).toContain('<rect x="31.5" y="6.6" width="99" height="40.5" rx="4.5" ry="4.5" fill="#ffffff"/>');
     expect(svg).toContain('font-weight="bold"');
     expect(svg).toContain(">EddY9xhVRwAg</text>");
-    expect(pageSvg(layoutSheet(getTemplate("SL855"), ["a&b"], { ...DEFAULT_STYLE, title: "<Tools>" }))).toContain("&lt;Tools&gt;");
+    expect(pageSvg(layoutSheet(getTemplate("SL588"), ["a&b"], { ...DEFAULT_STYLE, title: "<Tools>" }))).toContain("&lt;Tools&gt;");
   });
 });
