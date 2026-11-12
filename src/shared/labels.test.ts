@@ -13,6 +13,7 @@ import {
   printThenCut,
   randomCodes,
   slotsOf,
+  textRuns,
   textWidth,
   type RectShape,
   type TextShape,
@@ -180,5 +181,9 @@ describe("layout", () => {
     expect(svg).toContain('font-weight="bold"');
     expect(svg).toContain(">EddY9xhVRwAg</text>");
     expect(pageSvg(layoutSheet(getTemplate("SL588"), ["a&b"], { ...DEFAULT_STYLE, title: "<Tools>" }))).toContain("&lt;Tools&gt;");
+    // The arrow in the title is its own smaller, lifted span.
+    const arrow = pageSvg(layoutSheet(getTemplate("SL588"), ["x"], { ...DEFAULT_STYLE, title: "Bin→There" }));
+    expect(arrow).toMatch(/Bin<tspan font-size="[\d.]+" dy="-[\d.]+">→<\/tspan><tspan dy="[\d.]+"><\/tspan>There/);
+    expect(textRuns("Bin→There")).toEqual([{ text: "Bin", scale: 1 }, { text: "→", scale: 0.72 }, { text: "There", scale: 1 }]);
   });
 });

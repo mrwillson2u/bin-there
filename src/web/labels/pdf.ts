@@ -1,18 +1,34 @@
 // A sticker sheet as a PDF (DEC-052): one page per sheet, drawn from the shared layout with
 // pdf-lib's built-in Helvetica, so the file prints at scale on any machine with nothing embedded.
+// Helvetica has no arrow, and the title is "Bin→There", so a character it lacks is drawn with the
+// built-in Symbol font when that has it (the arrow, Greek, maths) and left out otherwise.
 
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont } from "pdf-lib";
-import type { Page } from "../../shared/labels";
+import { ARROW_LIFT, textRuns, type Page } from "../../shared/labels";
 
 function colour(hex: string) {
   const n = parseInt(hex.replace("#", ""), 16);
   return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-/** Only the characters the standard font can draw; anything else (an arrow, an emoji) is left out. */
-function drawable(text: string, font: PDFFont): string {
-  const set = new Set(font.getCharacterSet());
-  return [...text].filter((c) => set.has(c.codePointAt(0)!)).join("");
+type Run = { text: string; font: PDFFont; scale: number };
+
+/**
+ * The text as runs, each in the first font that can draw it (a character no font has is left
+ * out), the arrow on its own at its smaller scale.
+ */
+function runs(text: string, fonts: PDFFont[], sets: Set<number>[]): Run[] {
+  const out: Run[] = [];
+  for (const part of textRuns(text)) {
+    for (const ch of part.text) {
+      const i = sets.findIndex((s) => s.has(ch.codePointAt(0)!));
+      if (i < 0) continue;
+      const last = out[out.length - 1];
+      if (last && last.font === fonts[i] && last.scale === part.scale) last.text += ch;
+      else out.push({ text: ch, font: fonts[i]!, scale: part.scale });
+    }
+  }
+  return out;
 }
 
 export async function pagesToPdf(pages: Page[]): Promise<Uint8Array> {
@@ -21,6 +37,10 @@ export async function pagesToPdf(pages: Page[]): Promise<Uint8Array> {
   doc.setProducer("Bin There");
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const symbol = await doc.embedFont(StandardFonts.Symbol);
+  const symbolSet = new Set(symbol.getCharacterSet());
+  const regularSet = new Set(regular.getCharacterSet());
+  const boldSet = new Set(bold.getCharacterSet());
   for (const page of pages) {
     const p = doc.addPage([page.width, page.height]);
     const H = page.height;
@@ -36,15 +56,23 @@ export async function pagesToPdf(pages: Page[]): Promise<Uint8Array> {
           ...(s.stroke ? { borderColor: colour(s.stroke), borderWidth: 0.25 } : {}),
         });
       } else {
-        const font = s.bold ? bold : regular;
-        const text = drawable(s.text, font);
-        if (!text) continue;
-        // The layout's anchor is in the text's own direction; a middle anchor backs up half the width along it.
+        const parts = s.bold ? runs(s.text, [bold, symbol], [boldSet, symbolSet]) : runs(s.text, [regular, symbol], [regularSet, symbolSet]);
+        if (parts.length === 0) continue;
+        const widths = parts.map((r) => r.font.widthOfTextAtSize(r.text, s.size * r.scale));
+        const total = widths.reduce((a, b) => a + b, 0);
+        // The layout's anchor is in the text's own direction; a middle anchor backs up half the
+        // width along it, each run starts where the one before ended, and a scaled run (the
+        // arrow) is lifted across the direction to stay centred.
         const rad = (s.rotation * Math.PI) / 180;
-        const back = s.anchor === "middle" ? font.widthOfTextAtSize(text, s.size) / 2 : 0;
-        const x = s.x - back * Math.cos(rad);
-        const y = s.y - back * Math.sin(rad);
-        p.drawText(text, { x, y: H - y, size: s.size, font, color: colour(s.color), rotate: degrees(-s.rotation) });
+        const [dx, dy] = [Math.cos(rad), Math.sin(rad)];
+        let along = s.anchor === "middle" ? -total / 2 : 0;
+        parts.forEach((r, i) => {
+          const lift = r.scale === 1 ? 0 : ARROW_LIFT * s.size;
+          const x = s.x + along * dx + lift * dy;
+          const y = s.y + along * dy - lift * dx;
+          p.drawText(r.text, { x, y: H - y, size: s.size * r.scale, font: r.font, color: colour(s.color), rotate: degrees(-s.rotation) });
+          along += widths[i]!;
+        });
       }
     }
   }

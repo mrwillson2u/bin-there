@@ -254,8 +254,8 @@ export type LabelStyle = {
 };
 
 export const DEFAULT_STYLE: LabelStyle = {
-  title: "Inventory",
-  subtitle: "Bin There",
+  title: "Bin→There",
+  subtitle: "Inventory tag",
   titleColor: "#336699",
   subtitleColor: "#000000",
   codeColor: "#000000",
@@ -463,6 +463,27 @@ export function capacity(t: LabelTemplate, pages: number, skip = 0): number {
 
 const num = (v: number) => (Math.round(v * 1000) / 1000).toString();
 
+/**
+ * The arrow in "Bin→There" is drawn smaller than the letters (a font's → is a full em wide, and
+ * Colin found it long) and lifted so it stays centred on the x-height: 72% of the size, raised
+ * by 0.33 em × 28% ≈ 0.092 em. The SVG and the PDF both follow this.
+ */
+export const ARROW = "→";
+export const ARROW_SCALE = 0.72;
+export const ARROW_LIFT = 0.33 * (1 - ARROW_SCALE);
+
+/** Text as runs: the arrow on its own, scaled; everything else as it is. */
+export function textRuns(text: string): { text: string; scale: number }[] {
+  const out: { text: string; scale: number }[] = [];
+  for (const ch of text) {
+    const scale = ch === ARROW ? ARROW_SCALE : 1;
+    const last = out[out.length - 1];
+    if (last && last.scale === scale) last.text += ch;
+    else out.push({ text: ch, scale });
+  }
+  return out;
+}
+
 /** The page as an SVG document, sized in inches so a browser prints it at scale. */
 export function pageSvg(page: Page, fontFamily = "Helvetica, Arial, sans-serif"): string {
   const parts: string[] = [];
@@ -478,7 +499,15 @@ export function pageSvg(page: Page, fontFamily = "Helvetica, Arial, sans-serif")
       if (s.bold) attrs.push(`font-weight="bold"`);
       if (s.anchor === "middle") attrs.push(`text-anchor="middle"`);
       if (s.rotation) attrs.push(`transform="rotate(${s.rotation} ${num(s.x)} ${num(s.y)})"`);
-      parts.push(`<text ${attrs.join(" ")}>${escapeXml(s.text)}</text>`);
+      // The arrow as its own smaller, lifted span; the browser lays the runs out end to end.
+      const spans = textRuns(s.text)
+        .map((r) =>
+          r.scale === 1
+            ? escapeXml(r.text)
+            : `<tspan font-size="${num(s.size * r.scale)}" dy="${num(-ARROW_LIFT * s.size)}">${escapeXml(r.text)}</tspan><tspan dy="${num(ARROW_LIFT * s.size)}"></tspan>`,
+        )
+        .join("");
+      parts.push(`<text ${attrs.join(" ")}>${spans}</text>`);
     }
   }
   return (
