@@ -268,7 +268,11 @@ export function PrintStickersPage() {
                     <strong className="font-mono text-text">H {inches3(done.template.pageSize[1])} in</strong>. That's the stickers' own size, with no
                     clear edge, because Design Space trims any clear edge before it measures an upload.
                   </li>
-                  <li>Make It, print at 100% with no scaling, load the sheet on the mat top-left, and cut.</li>
+                  <li>
+                    Make It, print at 100% with no scaling, load the sheet on the mat top-left, and cut with the material set to{" "}
+                    <strong className="text-text">Printable Vinyl (Grey liner printing)</strong>, the one that kiss-cuts the 0.08 mm vinyl and leaves the
+                    liner whole.
+                  </li>
                 </ol>
               )}
             </Card>
