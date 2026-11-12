@@ -46,7 +46,7 @@ PORT=3011 DATA_DIR=/tmp/bt-test npm start
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`
 (default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`, and on the
-`dev` branch (not yet on `main`) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG),
+for the AI data fill (set on the dev instance only; the live app runs without them, so the AI button doesn't show there) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG),
 `MOUSER_API_KEY`, `DIGIKEY_CLIENT_ID` + `DIGIKEY_CLIENT_SECRET` (shop APIs, DEC-049).
 
 After a schema change, run `npm run db:generate` and check the migration against an old-shaped
@@ -82,7 +82,7 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.
-  - `ai/` (DEC-048, on `dev`, not yet on `main`): `research.ts` is the data-fill pipeline (look at photos → read the part's
+  - `ai/` (DEC-048; shipped 2026-11-11, but switched on only where `AI_URL` is set, i.e. the dev instance): `research.ts` is the data-fill pipeline (look at photos → read the part's
     own page → search only if that fails → extract), taking `chat`, `search`, `fetchPage`, `shops` and
     `readPhoto` as arguments so tests use fakes; `ollama.ts` and `search.ts` are the real ones (Ollama chat
     with a JSON schema, SearXNG + page text). `shops.ts` knows the six shops' links and page addresses
