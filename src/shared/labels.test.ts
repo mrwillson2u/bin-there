@@ -41,23 +41,23 @@ describe("templates", () => {
     expect(() => getTemplate("nope")).toThrow("unknown template");
   });
 
-  it("lays a label out for Cricut Print Then Cut: the 7.44 × 9.27 in band, as many as fit, the grid centred, sideways only when that's more", () => {
+  it("lays a label out for Cricut Print Then Cut: the 6.77 × 9.94 in column, as many as fit, sideways only when that's more", () => {
     const base = getTemplate("SL588");
     const c = printThenCut(base);
-    // Five columns of fourteen upright (70) beats eleven of six turned (66), so upright it is.
+    // Four columns of fifteen upright (60) ties ten of six turned (60), and a tie stays upright.
     expect(isSideways(c, base)).toBe(false);
-    expect([c.columns, c.rows]).toEqual([5, 14]);
-    expect(slotsOf(c)).toHaveLength(70);
+    expect([c.columns, c.rows]).toEqual([4, 15]);
+    expect(slotsOf(c)).toHaveLength(60);
     expect(c.description).not.toContain("turned sideways");
-    // The gap is spread evenly up to 0.125 in (five columns only fit with 0.094 in between).
-    expect(c.gap[0]).toBeCloseTo((7.44 * 72 - 5 * 99) / 6);
-    expect(c.gap[1]).toBeCloseTo((9.27 * 72 - 14 * 40.5) / 15);
-    // The image is just the labels (Design Space trims a clear border before measuring): 7.252 × 9.084 in, inside the band.
+    // The gap is spread evenly up to 0.125 in (fifteen rows only fit with 0.094 in between).
+    expect(c.gap[0]).toBe(9);
+    expect(c.gap[1]).toBeCloseTo((9.94 * 72 - 15 * 40.5) / 16);
+    // The image is just the labels (Design Space trims a clear border before measuring): 5.875 × 9.752 in, inside the column.
     expect(c.origin).toEqual([0, 0]);
-    expect(c.pageSize[0] / 72).toBeCloseTo(7.252, 3);
-    expect(c.pageSize[1] / 72).toBeCloseTo(9.084, 3);
-    expect(c.pageSize[0]).toBeLessThan(7.44 * 72);
-    expect(c.pageSize[1]).toBeLessThan(9.27 * 72);
+    expect(c.pageSize[0] / 72).toBeCloseTo(5.875, 3);
+    expect(c.pageSize[1] / 72).toBeCloseTo(9.752, 3);
+    expect(c.pageSize[0]).toBeLessThan(6.77 * 72);
+    expect(c.pageSize[1]).toBeLessThan(9.94 * 72);
     const [w, h] = c.labelSize;
     for (const s of slotsOf(c)) {
       expect(s.x).toBeGreaterThanOrEqual(-0.01);
@@ -78,7 +78,7 @@ describe("templates", () => {
     expect(isSideways(up, base)).toBe(false);
     expect([up.columns, up.rows, up.gap[0]]).toEqual([4, 14, 9]);
     expect(slotsOf(up)).toHaveLength(56);
-    // Cricut's whole 7.44 × 9.94 in outline would hold five of fifteen; Design Space won't take an image that size.
+    // Cricut's whole 7.44 × 9.94 in outline would hold five of fifteen; Design Space won't take an image that wide.
     const full = printThenCut(base, { area: [7.44 * 72, 9.94 * 72] });
     expect(isSideways(full, base)).toBe(false);
     expect(slotsOf(full)).toHaveLength(75);

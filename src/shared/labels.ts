@@ -15,13 +15,13 @@ export const LETTER_LANDSCAPE: [number, number] = [792, 612];
 
 /**
  * The rectangle one Print Then Cut image fills on a Maker with Letter paper. Cricut's outline is
- * 7.44 in across and 9.94 in tall with the corners taken by the sensor marks, and Design Space
- * measures an uploaded bitmap's whole rectangle (clear corners and all), so an image gets one or
- * the other: the full width across the band between the top and bottom marks, 7.44 × 9.27 in
- * (Colin measured 9.27 inside the marks), or the full height down the narrower middle, 6.77 × 9.94.
- * The band is the better fit for these labels. A setting on the screen.
+ * 7.44 in across at its widest and 9.94 in tall at its tallest, but Design Space measures an
+ * uploaded bitmap's whole rectangle and, for any image near full height, caps the width at 6.76 in
+ * (it said so for a 7.44 × 9.94 image and again for a 7.25 × 9.09 one: "max size for this shape
+ * 6.76 × …"). So a sheet is the narrow full-height column, 6.77 × 9.94. A setting on the screen,
+ * because Design Space may cap the height too; its warning gives the number to type.
  */
-export const PRINT_THEN_CUT_AREA: [number, number] = [7.44 * PT_PER_INCH, 9.27 * PT_PER_INCH];
+export const PRINT_THEN_CUT_AREA: [number, number] = [6.77 * PT_PER_INCH, 9.94 * PT_PER_INCH];
 
 export type CutOptions = {
   /** The whole Print Then Cut rectangle; the image is this size, so it sits exactly over it. */
