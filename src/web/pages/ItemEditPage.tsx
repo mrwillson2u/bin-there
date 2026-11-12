@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Sparkles, Trash2, X } from "lucide-react";
@@ -8,6 +8,7 @@ import {
   trackingLabels,
   trackingModes,
   type Category,
+  type CategoryValues,
   type ItemDetail,
   type ItemKind,
   type Place,
@@ -135,6 +136,12 @@ export function ItemForm({
 
   // Category fields first (in order), then any extra fields.
   const fieldKeys = category?.fieldDefs.map((f) => f.key) ?? [];
+  const listId = useId();
+  const { data: used } = useQuery({
+    queryKey: ["categories", category?.id, "values"],
+    queryFn: () => api<CategoryValues>(`/categories/${category!.id}/values`),
+    enabled: !!category && category.fieldDefs.some((f) => f.type !== "choice"),
+  });
   const value = (key: string) => attrs.find(([k]) => k === key)?.[1] ?? "";
   const setValue = (key: string, v: string) =>
     setAttrs((a) => (a.some(([k]) => k === key) ? a.map(([k, old]) => [k, k === key ? v : old]) : [...a, [key, v]]));
@@ -321,7 +328,15 @@ export function ItemForm({
                     {value(f.key) && !(f.options ?? []).includes(value(f.key)) && <option value={value(f.key)}>{value(f.key)} (not in the list)</option>}
                   </select>
                 ) : (
-                  <input value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={inputClass} />
+                  <>
+                    <input value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={inputClass} list={`${listId}-${f.key}`} autoComplete="off" />
+                    {/* Values other parts of this kind already hold, offered as you type (DEC-060). */}
+                    <datalist id={`${listId}-${f.key}`}>
+                      {(used?.[f.key] ?? []).map((v) => (
+                        <option key={v} value={v} />
+                      ))}
+                    </datalist>
+                  </>
                 )}
               </Field>
             ))}

@@ -1552,6 +1552,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** No migration: field definitions are JSON on the category, and a field without a type reads as text. Not done: suggesting values already used for text fields (next), and a number type (Colin saw no use for it: values carry units).
 
+### DEC-060: Text fields offer the values the category's parts already hold
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** The cheaper half of the drop-down question (DEC-059): for fields that aren't a finite set, consistency still matters ("20 AWG" vs "20awg"), but a list to maintain doesn't fit.
+
+**Decision:** On a part's form, every text field of the category offers, as you type, the values other parts of that category already hold, most used first then alphabetical, at most 30 a field (`GET /categories/:id/values`, the browser's own suggestion list under the box). Blank values, archived parts and choice fields are left out. Nothing is enforced: a new value is typed as before.
+
+**Consequences:** One small read per form open, only when the category has a text field. Not done: the same on Fill in details' rows (they open the same form in a popup, so they get it there).
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1615,6 +1630,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-057 | Bulk editing of checked parts from Inventory and Search | UX | Accepted | 2026-11-12 |
 | DEC-058 | Adding several places in a run: name, scan, next | UX | Accepted | 2026-11-12 |
 | DEC-059 | Choice fields: a category field with a fixed list of options | UX / Data / AI | Accepted | 2026-11-12 |
+| DEC-060 | Text fields offer the values the category's parts already hold | UX | Accepted | 2026-11-12 |
 
 ---
 

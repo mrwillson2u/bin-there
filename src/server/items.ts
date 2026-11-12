@@ -9,6 +9,7 @@ import { crumbLabel } from "../shared/api";
 import type {
   Category,
   CategoryUsage,
+  CategoryValues,
   CheckedOutUnit,
   CreateItem,
   Crumb,
@@ -715,6 +716,34 @@ export function categoryUsage(db: Db): Record<number, CategoryUsage> {
     const u = out[row.categoryId]!;
     u.items++;
     for (const [k, v] of Object.entries(row.attributes ?? {})) if (String(v ?? "").trim() && k in u.fields) u.fields[k] = (u.fields[k] ?? 0) + 1;
+  }
+  return out;
+}
+
+/**
+ * The values a category's parts already hold in each text field (DEC-060), most used first,
+ * then alphabetical, at most 30 a field: the form offers them as you type, so "20 AWG" is
+ * spelled one way. Choice fields have their own list and are left out.
+ */
+export function categoryValues(db: Db, id: number): CategoryValues {
+  const cat = db.select().from(categories).where(eq(categories.id, id)).get();
+  if (!cat) throw new ApiError(404, "NOT_FOUND", "Category not found");
+  const counts = new Map<string, Map<string, number>>();
+  for (const f of cat.fieldDefs) if (f.type !== "choice") counts.set(f.key, new Map());
+  for (const row of db.select({ attributes: items.attributes }).from(items).where(and(eq(items.categoryId, id), eq(items.archived, false))).all()) {
+    for (const [k, v] of Object.entries(row.attributes ?? {})) {
+      const value = String(v ?? "").trim();
+      const m = counts.get(k);
+      if (!value || !m) continue;
+      m.set(value, (m.get(value) ?? 0) + 1);
+    }
+  }
+  const out: CategoryValues = {};
+  for (const [k, m] of counts) {
+    out[k] = [...m.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 30)
+      .map(([v]) => v);
   }
   return out;
 }

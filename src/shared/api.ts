@@ -392,6 +392,8 @@ export const updateCategorySchema = z.object({
     .optional(),
 });
 export type UpdateCategory = z.infer<typeof updateCategorySchema>;
+/** Per text field key, the values the category's parts already hold, most used first (DEC-060). */
+export type CategoryValues = Record<string, string[]>;
 /** How much a category is used: parts in it, and per field key, parts holding a value (DEC-056). */
 export type CategoryUsage = { items: number; fields: Record<string, number> };
 

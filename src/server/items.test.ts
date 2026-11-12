@@ -143,6 +143,22 @@ describe("categories (DEC-056)", () => {
     expect(text.fieldDefs[1]).toEqual({ key: type!.key, label: "Connector", type: "text" });
   });
 
+  it("lists the values a category's parts already hold, most used first, text fields only (DEC-060)", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const wire = cats.find((c) => c.name === "Wire & connectors")!;
+    const [gauge, type] = wire.fieldDefs;
+    await ok("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge!.key, label: "Gauge" }, { key: type!.key, label: "Type", type: "choice", options: ["JST"] }] });
+    for (const [g, t] of [["22 AWG", "JST"], ["20 AWG", "JST"], ["22 AWG", ""], [" ", "JST"]]) {
+      const i = await item({ name: "Wire", categoryId: wire.id });
+      await ok("PATCH", `/items/${i.id}`, { attributes: { [gauge!.key]: g, [type!.key]: t } });
+    }
+    const gone = await item({ name: "Old wire", categoryId: wire.id });
+    await ok("PATCH", `/items/${gone.id}`, { attributes: { [gauge!.key]: "30 AWG" } });
+    await ok("DELETE", `/items/${gone.id}`);
+    expect(await ok<Record<string, string[]>>("GET", `/categories/${wire.id}/values`)).toEqual({ [gauge!.key]: ["22 AWG", "20 AWG"] });
+    expect((await call("GET", "/categories/9999/values")).status).toBe(404);
+  });
+
   it("deletes an unused category, and refuses while parts use one", async () => {
     const cats = await ok<Category[]>("GET", "/categories");
     const fasteners = cats.find((c) => c.name === "Fasteners")!;

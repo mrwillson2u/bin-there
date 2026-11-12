@@ -77,8 +77,15 @@ await gaugeInput.press("Enter");
 await page.waitForTimeout(400);
 const plugAfter = await api("GET", `/items/${plug.id}`);
 check(plugAfter.fieldDefs[0].label === "Wire gauge" && plugAfter.attributes[gauge.key] === "20 AWG", "renamed: the part's form field is 'Wire gauge' and its value is kept");
+const plug2 = await api("POST", "/items", { name: "Barrel jack", locationId: tote.id, categoryId: wire.id, qty: 1 });
+await api("PATCH", `/items/${plug2.id}`, { attributes: { [gauge.key]: "22 AWG" } });
 await page.goto(`${base}/items/${plug.id}/edit`);
 check((await page.getByLabel("Wire gauge").inputValue()) === "20 AWG", "the part's form shows the renamed field with its value");
+// Values other parts of the kind hold are offered as you type (DEC-060): the box has a list, with both gauges.
+const listId = await page.getByLabel("Wire gauge").getAttribute("list");
+await page.locator(`datalist[id="${listId}"] option`).first().waitFor({ state: "attached" });
+const offered = await page.locator(`datalist[id="${listId}"] option`).evaluateAll((os) => os.map((o) => o.value));
+check(offered.join() === "20 AWG,22 AWG", "the gauge box offers the values already used: " + offered.join(", "));
 check((await page.getByRole("link", { name: "Manage categories and their fields" }).count()) === 1, "the form links to the Categories screen");
 
 // A choice field (DEC-059): Type becomes a Choice with options; the part's form offers them in a drop-down.
@@ -104,7 +111,7 @@ await page.locator('[data-category="Wire & connectors"]').waitFor();
 // Remove a field that holds values: a warning, then removal; the value stays stored, unseen.
 await page.goto(`${base}/categories`);
 await wireCard.getByRole("button", { name: "Remove Wire gauge from Wire & connectors" }).click();
-check((await wireCard.getByRole("alert").textContent()).includes("1 part has a value in Wire gauge"), "removing a field with values warns first");
+check((await wireCard.getByRole("alert").textContent()).includes("2 parts have a value in Wire gauge"), "removing a field with values warns first, with the count");
 await wireCard.getByRole("button", { name: "Remove anyway" }).click();
 await page.waitForTimeout(400);
 const plugTrim = await api("GET", `/items/${plug.id}`);
@@ -114,6 +121,7 @@ await page.screenshot({ path: `${shots}/cat-1-desktop.png`, fullPage: true });
 // Delete: refused while parts use the category, allowed once they don't.
 check((await wireCard.getByRole("button", { name: "Delete category" }).isDisabled()) === true, "delete is off while parts use the category");
 await api("PATCH", `/items/${plug.id}`, { categoryId: relaysCat.id });
+await api("PATCH", `/items/${plug2.id}`, { categoryId: relaysCat.id });
 await page.reload();
 await page.getByRole("heading", { name: "Categories" }).waitFor();
 page.once("dialog", (d) => d.accept());

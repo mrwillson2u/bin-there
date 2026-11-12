@@ -27,6 +27,7 @@ import {
   addPhoto,
   archiveItem,
   categoryUsage,
+  categoryValues,
   countNeedsDetails,
   createCategory,
   createItem,
@@ -430,6 +431,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   // ── Categories ──
   api.get("/categories", (c) => c.json(listCategories(db)));
   api.get("/categories/usage", (c) => c.json(categoryUsage(db)));
+  api.get("/categories/:id/values", (c) => c.json(categoryValues(db, intParam(c.req.param("id")))));
   api.patch("/categories/:id", async (c) => c.json(updateCategory(db, intParam(c.req.param("id")), parseBody(updateCategorySchema, await c.req.json()))));
   api.delete("/categories/:id", (c) => {
     deleteCategory(db, intParam(c.req.param("id")));

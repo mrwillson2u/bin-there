@@ -114,6 +114,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | PATCH | `/api/locations/:id` with `grid: { cols, rows }` | A gridded box's grid size (1–12 × 1–8); `409 CONFLICT` naming any placed bin that wouldn't fit; the front strip follows the new front row (DEC-047). `grid` is also taken on create |
 | GET | `/api/ai/status` | `{ enabled, model, modelReady, search, shops: { mouser, digikey } }`: AI data fill is on when `AI_URL` is set; the shop flags say whether a Mouser / Digi-Key API key is set (DEC-048, DEC-049; `ai` branch) |
 | POST | `/api/stickers/check` | Print stickers (DEC-052): `{ codes: string[] }` (up to 5000) → `{ used: string[] }`, the ones already on a location or a unit. The codes themselves are drawn on the device and never recorded. |
+| GET | `/api/categories/:id/values` | Per text field key, the values the category's parts already hold, most used first, at most 30 (DEC-060). |
 | GET | `/api/categories/usage` | Per category id (DEC-056): `{ items, fields: { [key]: parts holding a value } }`. |
 | PATCH | `/api/categories/:id` | Edit a category (DEC-056): `name?`, `defaultKind?`, `defaultTracking?`, `fieldDefs?: [{ key?, label, type?, options? }]` (a field with its key is renamed/moved, one without is new, fields left out are removed; `type` is `text` or `choice`, left out it keeps its type; `options` are a choice field's options in order, DEC-059). `409` on a name clash. `Category` back. |
 | DELETE | `/api/categories/:id` | Delete a category no part uses; `409` with the count while parts use it. |
