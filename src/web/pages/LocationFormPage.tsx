@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, ScanLine } from "lucide-react";
+import { Check, MapPin } from "lucide-react";
 import {
   rackLabel,
   holdsPositions,
@@ -16,7 +16,9 @@ import {
   type LocationType,
 } from "../../shared/api";
 import { DEFAULT_GRID } from "../../shared/grid";
+import { nextName } from "../../shared/names";
 import { api } from "../api";
+import { scanBad, scanOk } from "../scan/feedback";
 import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
 import { PickLocation } from "../components/PickLocation";
@@ -26,12 +28,22 @@ const creatableTypes = locationTypes;
 const insideTypes = creatableTypes.filter((t) => t !== "site");
 const isType = (v: string | null): v is LocationType => locationTypes.includes(v as LocationType);
 
+/** What one save in a run added (DEC-058), for the list under the form. */
+type Added = { id: number; name: string; code: string | null; position: string | null };
+
 export function LocationFormPage() {
   const [params] = useSearchParams();
-  const fixedParent = params.get("parent") ? Number(params.get("parent")) : null;
+  const urlParent = params.get("parent") ? Number(params.get("parent")) : null;
+  // Adding several (DEC-058): the form stays after each save; a scan saves with that sticker;
+  // the name counts up; every setting stays as it was for the next one, changeable at any time,
+  // the place included (so the parent from the link is only where the run starts).
+  const many = params.get("many") === "1";
+  const fixedParent = many ? null : urlParent;
+  const [numbering, setNumbering] = useState(true);
+  const [added, setAdded] = useState<Added[]>([]);
   const navigate = useNavigate();
   const { data: sites } = useQuery({ queryKey: ["locations", null], queryFn: () => api<LocationSummary[]>("/locations") });
-  const [chosenParent, setChosenParent] = useState<number | null>(null);
+  const [chosenParent, setChosenParent] = useState<number | null>(many ? urlParent : null);
   const [picking, setPicking] = useState(false);
   // With one site, new things go in it unless you choose otherwise.
   const parentId = fixedParent ?? chosenParent ?? (sites?.length === 1 ? sites[0]!.id : null);
@@ -69,24 +81,38 @@ export function LocationFormPage() {
     return { cols, rows };
   };
   const slotParam = params.get("slot");
-  const rackSlot = fixedParent !== null && slotParam !== null && /^\d+$/.test(slotParam) ? Number(slotParam) : null;
+  const askedSlot = fixedParent !== null && slotParam !== null && /^\d+$/.test(slotParam) ? Number(slotParam) : null;
+  // In a run, each new place takes the parent's next free position (counting the ones just added,
+  // in case the parent hasn't been fetched again yet).
+  const autoSlot = (() => {
+    if (!many || !parent?.rack || isSite || type === "project") return null;
+    const taken = new Set(parent.children.map((c) => c.rackSlot).filter((s): s is number => s !== null));
+    for (const a of added) if (a.position !== null) taken.add(parent.rack.labels.findIndex((l, i) => rackLabel(parent.rack!.labels, i) === a.position));
+    for (let i = 0; i < parent.rack.size; i++) if (!taken.has(i)) return i;
+    return null;
+  })();
+  const rackSlot = many ? autoSlot : askedSlot;
   const [code, setCode] = useState(params.get("code") ?? "");
+  const ready = (!!name.trim() || type === "bin") && (isSite || parentId !== null);
 
-  // On this screen a scan fills in the sticker instead of navigating away.
+  // On this screen a scan fills in the sticker instead of navigating away; in a run it saves with it.
   useScanHandler((scanned) => {
-    setCode(scanned);
+    if (many) {
+      if (ready && !create.isPending) create.mutate(scanned);
+      else scanBad();
+    } else setCode(scanned);
     return true;
   });
 
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: (stickerCode: string | null) =>
       api<LocationDetail>("/locations", {
         method: "POST",
         body: {
           name: name.trim() || undefined,
           type,
           parentId: isSite ? null : parentId,
-          code: code.trim() || null,
+          code: stickerCode?.trim() || null,
           binSize: type === "bin" ? binSize : null,
           ...(holdsPositions(type) && Number(rackSize) >= 1 ? { rackSize: Math.min(200, Number(rackSize)) } : {}),
           ...(rackSlot !== null ? { rackSlot } : {}),
@@ -96,13 +122,19 @@ export function LocationFormPage() {
     onSuccess: (loc) => {
       qc.invalidateQueries({ queryKey: ["locations"] });
       qc.invalidateQueries({ queryKey: ["location"] });
-      navigate(`/locations/${loc.id}`, { replace: true });
+      if (!many) return navigate(`/locations/${loc.id}`, { replace: true });
+      scanOk();
+      setAdded((a) => [{ id: loc.id, name: loc.name, code: loc.code, position: loc.position }, ...a]);
+      setName(numbering && type !== "bin" ? nextName(name.trim()) : "");
+    },
+    onError: () => {
+      if (many) scanBad();
     },
   });
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    create.mutate();
+    create.mutate(many ? null : code);
   };
 
   return (
@@ -110,13 +142,14 @@ export function LocationFormPage() {
       <div className="flex flex-col gap-1">
         {parent && !isSite && <Breadcrumbs path={[...parent.path, { id: -1, name: "" }]} />}
         <h1 className="text-xl font-semibold">
-          {isSite ? "New site" : type === "project" ? "New project kit" : `New location${parent ? ` in ${parent.name}` : ""}`}
+          {many ? `Add places${parent ? ` in ${parent.name}` : ""}` : isSite ? "New site" : type === "project" ? "New project kit" : `New location${parent ? ` in ${parent.name}` : ""}`}
         </h1>
+        {many && <p className="text-[13px] text-muted">Name it and scan its sticker, or save it without one; the next one is ready straight away. Change anything between saves.</p>}
       </div>
 
       {!isSite && fixedParent === null && (
         <Field label="Inside">
-          <button type="button" onClick={() => setPicking(true)} className={`${inputClass} flex items-center gap-2 text-left`}>
+          <button type="button" onClick={() => setPicking(true)} aria-label={`Change where: ${parent ? pathText(parent.path) : "not chosen yet"}`} className={`${inputClass} flex items-center gap-2 text-left`}>
             <MapPin size={18} className="text-muted" />
             <span className={`flex-1 ${parent ? "" : "text-muted"}`}>{parent ? pathText(parent.path) : "Choose where it goes"}</span>
             <span className="text-sm text-accent">Change</span>
@@ -125,7 +158,8 @@ export function LocationFormPage() {
       )}
       {picking && (
         <PickLocation
-          title="Scan or pick what it goes inside"
+          title={many ? "Scan or pick where the next ones go" : "Scan or pick what it goes inside"}
+          near={many ? parent?.path : undefined}
           onPick={(l) => {
             setChosenParent(l.id);
             setPicking(false);
@@ -136,7 +170,7 @@ export function LocationFormPage() {
 
       <Field label="Type">
         <div className="flex flex-wrap gap-2">
-          {(fixedParent === null ? creatableTypes : insideTypes).map((t) => (
+          {(fixedParent === null && !many ? creatableTypes : insideTypes).map((t) => (
             <button
               type="button"
               key={t}
@@ -176,6 +210,7 @@ export function LocationFormPage() {
           <PositionTag position={rackLabel(parent.rack.labels, rackSlot)} big /> Goes in this position of {parent.name}
         </p>
       )}
+      {many && rackSlot === null && parent?.rack && !isSite && type !== "project" && <p className="text-sm text-muted">Every position of {parent.name} is taken; the next one goes in with no position.</p>}
 
       {holdsPositions(type) && (
         <Field label="Numbered positions (optional)">
@@ -209,24 +244,55 @@ export function LocationFormPage() {
           placeholder={isSite ? "e.g. Garage, Basement, Office" : type === "project" ? "e.g. Weather station, Robot arm" : type === "bin" ? "Leave blank for the next ID, like Bin 0042" : "e.g. Rack A, Screws box, Tote 4"}
           required={type !== "bin"}
           autoFocus
+          aria-label="Name"
         />
       </Field>
+      {many && type !== "bin" && (
+        <label className="-mt-2 flex min-h-9 items-center gap-2 text-sm">
+          <input type="checkbox" checked={numbering} onChange={(e) => setNumbering(e.target.checked)} className="h-5 w-5 accent-accent" />
+          <span>
+            Number goes up: the next one is {name.trim() ? <span className="font-semibold">{nextName(name.trim())}</span> : "named from this one"}
+          </span>
+        </label>
+      )}
 
-      <Field label="Sticker (scan it now, or leave blank)">
-        <input className={`${inputClass} font-mono`} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Scan or type" />
-      </Field>
-      <ScanTarget compact what="Scan its sticker to fill that in" />
+      {many ? (
+        <ScanTarget compact what={ready ? "Scan its sticker to save it with that sticker" : "Name it, then scan its sticker"} />
+      ) : (
+        <>
+          <Field label="Sticker (scan it now, or leave blank)">
+            <input className={`${inputClass} font-mono`} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Scan or type" />
+          </Field>
+          <ScanTarget compact what="Scan its sticker to fill that in" />
+        </>
+      )}
 
-      {create.error && <p className="text-danger">{(create.error as Error).message}</p>}
+      {create.error && <p className="text-danger" role="alert">{(create.error as Error).message}</p>}
 
       <div className="mt-2 flex gap-2">
-        <Button variant="primary" type="submit" disabled={(!name.trim() && type !== "bin") || (!isSite && parentId === null) || create.isPending} className="flex-1">
-          {isSite ? "Save site" : type === "project" ? "Create kit" : type === "bin" ? "Add bin" : "Save location"}
+        <Button variant="primary" type="submit" disabled={!ready || create.isPending || picking} className="flex-1">
+          {many ? "Save without a sticker" : isSite ? "Save site" : type === "project" ? "Create kit" : type === "bin" ? "Add bin" : "Save location"}
         </Button>
-        <Button type="button" onClick={() => navigate(parentId !== null ? `/locations/${parentId}` : "/")}>
-          Cancel
+        <Button type="button" onClick={() => navigate(parentId !== null ? `/locations/${parentId}` : "/locations")}>
+          {many ? (added.length > 0 ? "Done" : "Cancel") : "Cancel"}
         </Button>
       </div>
+
+      {many && added.length > 0 && (
+        <section className="flex flex-col gap-1.5" aria-label="Added">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Added ({added.length})</h2>
+          <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+            {added.map((a) => (
+              <li key={a.id} className="flex min-h-11 items-center gap-2 px-3 py-1.5 text-sm">
+                <Check size={16} className="shrink-0 text-ok" aria-hidden />
+                {a.position && <PositionTag position={a.position} />}
+                <Link to={`/locations/${a.id}`} className="min-w-0 flex-1 truncate">{a.name}</Link>
+                <span className="font-mono text-[13px] text-muted">{a.code ?? "no sticker"}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </form>
   );
 }

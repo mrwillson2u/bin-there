@@ -141,7 +141,9 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   pin button on every row and tile (DEC-032). Select (DEC-057) turns rows and tiles into checkboxes and shows
   `components/BulkBar.tsx` (category, move, counting, delete for the checked parts); `SearchPage.tsx` has the same.
   `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits, and an
-  All places list (`GET /api/locations?all=1`) with type chips (DEC-027).
+  All places list (`GET /api/locations?all=1`) with type chips (DEC-027). `LocationFormPage.tsx` (`/locations/new`) is
+  the New location form; with `?many=1` (Add several, DEC-058) it stays after each save, a scan saves the place with
+  that sticker, the name counts up (`nextName` in `src/shared/names.ts`) and rack positions fill in order.
   `CapturePage.tsx` (`/capture`) is Quick capture: how it's counted is chosen there (an exact count of 1 unless
   changed, DEC-055) and "Look it up with AI after saving" queues the part. `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
   part needing details as rows that save as you go; each row reads `["item", id]`, seeded from

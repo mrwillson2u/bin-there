@@ -1522,6 +1522,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** `bulk.ts` on the server, `moveEverything` in `stock.ts` (one event with every stock row, unit and home before, so Undo puts it all back; a unit's home is now part of what Undo restores). `BulkBar.tsx` on the web, used by both screens; `ItemList` and the Inventory rows and tiles take a `select`. Not done: a bar-level Undo (the toast's Undo takes one event; a bulk undo would be a new kind of event) and bulk editing from a place's page.
 
+### DEC-058: Adding several places in a run: name, scan, next
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q103–Q104) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Colin added a batch of mini totes and found it one form per place. He didn't want to preset a count; he wanted a loop that fits how he works with stickers in hand: name it, scan, and the next one is ready, until he says he's done (Q103).
+
+**Decision:** **Add several** (from Locations next to Add location, and from a place's page next to Add inside) opens the New location form in a run (`/locations/new?many=1`). The form is the same, with the sticker box replaced by the scan target: **a scan saves the place with that sticker** on the spot, with a beep; **Save without a sticker** saves it without one (Q104); **Done** goes back to the parent. After each save the next is ready: with **Number goes up** on (the default), the name's trailing number counts up, keeping its padding ("Shelf 03" to "Shelf 04", "Tote A1" to "Tote A2", a name with no number gets " 2"; `nextName` in `src/shared/names.ts`); off, the name comes back empty. **Every other setting stays as it was** (where, type, bin size, positions, grid) and can be changed before any save, so a run can mix types and places (Colin's ask). In a rack or shelf, each new place takes the next free position, and when none is left it says so and the place goes in without one. A list under the form shows what the run added, each with its sticker or "no sticker" and its position, and a refused sticker (already in use) shows its error and leaves the name waiting.
+
+**Consequences:** No server change: the run uses `POST /locations` as the form always has. Bins keep their automatic numbers, so for bins the name box stays empty. Not done: a camera-first flow where the scan comes before the name.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1583,6 +1598,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-055 | Counting chosen at capture (an exact count of 1 unless changed); parts queued for the AI at capture, the answer kept for review | UX / Architecture | Accepted | 2026-11-12 |
 | DEC-056 | Categories and their fields are editable on a Categories screen | UX / Data | Accepted | 2026-11-12 |
 | DEC-057 | Bulk editing of checked parts from Inventory and Search | UX | Accepted | 2026-11-12 |
+| DEC-058 | Adding several places in a run: name, scan, next | UX | Accepted | 2026-11-12 |
 
 ---
 

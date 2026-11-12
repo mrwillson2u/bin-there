@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LayoutGrid, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
+import { CopyPlus, LayoutGrid, LogOut, MoveRight, Pencil, Plus, QrCode, ScanLine, Trash2 } from "lucide-react";
 import { holdsPositions, locationTypeLabels, type BinSize, type LocationDetail, type LocationSummary, type LocationType, tileViews, type TileView } from "../../shared/api";
 import type { Slot } from "../../shared/grid";
 import { api } from "../api";
@@ -209,9 +209,14 @@ export function LocationPage() {
     </Link>
   );
   const addInside = (
-    <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
-      <Plus size={18} /> Add inside
-    </Link>
+    <>
+      <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent">
+        <Plus size={18} /> Add inside
+      </Link>
+      <Link to={`/locations/new?many=1&parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-1.5 px-1 text-accent" title="Add several places, one scan each">
+        <CopyPlus size={18} /> Add several
+      </Link>
+    </>
   );
 
   const itemsSection = showItems && (
@@ -455,9 +460,14 @@ export function LocationPage() {
               </Link>
             )}
             {!showInside && canAddInside && (
-              <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
-                <Plus size={18} /> Add inside
-              </Link>
+              <>
+                <Link to={`/locations/new?parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4">
+                  <Plus size={18} /> Add inside
+                </Link>
+                <Link to={`/locations/new?many=1&parent=${loc.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4" title="Add several places, one scan each">
+                  <CopyPlus size={18} /> Add several
+                </Link>
+              </>
             )}
             {loc.type === "bin" && !loc.out && (
               <Button onClick={() => { setMessage(null); setMode("takeout"); }}>

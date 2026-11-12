@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronRight, FolderKanban, Pin, Plus, QrCode, Search, Settings, Tags, Warehouse, X } from "lucide-react";
+import { ChevronRight, CopyPlus, FolderKanban, Pin, Plus, QrCode, Search, Settings, Tags, Warehouse, X } from "lucide-react";
 import { crumbLabel, locationTypes, type LocationDetail, type LocationSummary, type LocationType, type PinnedLocation, type Pins, type ProjectSummary } from "../../shared/api";
 import { api } from "../api";
 import { contents, LocationList, LocationIcon } from "../components/LocationList";
@@ -60,6 +60,13 @@ export function LocationsPage() {
           className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-surface-2 px-4"
         >
           <Plus size={18} /> Add location
+        </Link>
+        <Link
+          to={single ? `/locations/new?many=1&parent=${single.id}` : "/locations/new?many=1"}
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border bg-surface-2 px-3"
+          title="Add several places, one scan each"
+        >
+          <CopyPlus size={18} /> <span className="hidden sm:inline">Add several</span>
         </Link>
       </div>
 
