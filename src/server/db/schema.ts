@@ -74,7 +74,7 @@ export const categories = sqliteTable("categories", {
   fieldDefs: text("field_defs", { mode: "json" }).$type<FieldDef[]>().notNull().default([]),
 });
 
-export type FieldDef = { key: string; label: string; type: "text" | "number" };
+export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[] };
 
 export const items = sqliteTable("items", {
   id: integer("id").primaryKey({ autoIncrement: true }),

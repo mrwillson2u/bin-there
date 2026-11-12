@@ -36,7 +36,8 @@ export type ResearchInput = {
   url: string | null;
   categoryName: string | null;
   /** The category's fields, label by key, so the model fills the ones that exist. */
-  fields: { key: string; label: string }[];
+  /** A field with `options` is a choice field (DEC-059): the model picks one of them or leaves it. */
+  fields: { key: string; label: string; options?: string[] }[];
   attributes: Record<string, string>;
   supplier: string | null;
   supplierPn: string | null;
@@ -217,10 +218,10 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   }
 
   // EXTRACT: fill the fields from the pages (and the markings), each with its source.
-  const fieldList = [
+  const fieldList: { key: string; label: string; options?: string[] }[] = [
     { key: "name", label: "Name" },
     ...(input.categoryName ? [] : [{ key: "category", label: "Category" }]),
-    ...input.fields.map((f) => ({ key: `attributes.${f.key}`, label: f.label })),
+    ...input.fields.map((f) => ({ key: `attributes.${f.key}`, label: f.label, options: f.options })),
     { key: "supplier", label: "Supplier" },
     { key: "supplierPn", label: "Supplier part #" },
     { key: "price", label: "Price (USD, number only)" },
@@ -261,7 +262,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     ...(input.categoryName ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
     "Put anything the owner should know in `notes` (an unreadable value, two likely matches, a field that needs a meter reading), in plain words, one short sentence each, no greeting and no name.",
     "",
-    "Fields to fill (use these keys exactly): " + fieldList.map((f) => `${f.key} = ${f.label}`).join("; "),
+    "Fields to fill (use these keys exactly): " + fieldList.map((f) => `${f.key} = ${f.label}${f.options?.length ? ` (exactly one of: ${f.options.join(" | ")}; leave it out if none fits)` : ""}`).join("; "),
     "",
     "Known so far:",
     known,
@@ -281,6 +282,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   }
 
   const labels = new Map(fieldList.map((f) => [f.key, f.label.replace(/ \(.*\)$/, "")]));
+  const choices = new Map(fieldList.filter((f) => f.options?.length).map((f) => [f.key, f.options!]));
   const seen = new Set<string>();
   const suggestions: Suggestion[] = [];
   const printed = (value: string) => look.markings.some((m) => squash(m).includes(squash(value)) && squash(value).length >= 3);
@@ -315,7 +317,10 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   }
   for (const s of extracted.suggestions ?? []) {
     if (!labels.has(s.field) || seen.has(s.field)) continue;
-    const value = clean(s.field, String(s.value ?? ""));
+    let value = clean(s.field, String(s.value ?? ""));
+    // A choice field takes one of its options, in the option's own spelling, or nothing (DEC-059).
+    const options = choices.get(s.field);
+    if (options) value = options.find((o) => o.toLowerCase() === value.toLowerCase()) ?? "";
     if (!value || sameAsNow(s.field, value)) continue;
     if (s.field === "category" && !input.categories.includes(value)) continue;
     // No photo and no page: the only thing with anything behind it is a category guessed from the name.

@@ -311,7 +311,18 @@ export function ItemForm({
           <div className="grid grid-cols-2 gap-3">
             {category.fieldDefs.map((f) => (
               <Field key={f.key} label={f.label}>
-                <input value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={inputClass} />
+                {f.type === "choice" ? (
+                  <select value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={inputClass}>
+                    <option value=""></option>
+                    {(f.options ?? []).map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                    {/* A value from before the field became a choice stays until it's changed (DEC-059). */}
+                    {value(f.key) && !(f.options ?? []).includes(value(f.key)) && <option value={value(f.key)}>{value(f.key)} (not in the list)</option>}
+                  </select>
+                ) : (
+                  <input value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={inputClass} />
+                )}
               </Field>
             ))}
           </div>

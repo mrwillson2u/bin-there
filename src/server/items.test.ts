@@ -127,6 +127,22 @@ describe("categories (DEC-056)", () => {
     expect((await ok<{ id: number }[]>("GET", "/items?q=wire+gauge")).map((i) => i.id)).toContain(plug.id);
   });
 
+  it("makes a field a choice with options, kept once each, and back to text (DEC-059)", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const wire = cats.find((c) => c.name === "Wire & connectors")!;
+    const [gauge, type] = wire.fieldDefs;
+    const choice = await ok<Category>("PATCH", `/categories/${wire.id}`, {
+      fieldDefs: [{ key: gauge!.key, label: gauge!.label }, { key: type!.key, label: "Connector", type: "choice", options: ["JST", "USB-C", "JST"] }],
+    });
+    expect(choice.fieldDefs[1]).toEqual({ key: type!.key, label: "Connector", type: "choice", options: ["JST", "USB-C"] });
+    expect(choice.fieldDefs[0]!.type).toBe("text");
+    // Left out, the type and options stay; back to text, the options go.
+    const same = await ok<Category>("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge!.key, label: gauge!.label }, { key: type!.key, label: "Connector" }] });
+    expect(same.fieldDefs[1]!.options).toEqual(["JST", "USB-C"]);
+    const text = await ok<Category>("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge!.key, label: gauge!.label }, { key: type!.key, label: "Connector", type: "text" }] });
+    expect(text.fieldDefs[1]).toEqual({ key: type!.key, label: "Connector", type: "text" });
+  });
+
   it("deletes an unused category, and refuses while parts use one", async () => {
     const cats = await ok<Category[]>("GET", "/categories");
     const fasteners = cats.find((c) => c.name === "Fasteners")!;

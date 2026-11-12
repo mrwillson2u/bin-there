@@ -50,11 +50,11 @@ check((await page.getByRole("button", { name: "Save without a sticker" }).isDisa
 
 // 2. Name, type Tote, a scan saves with that sticker and the next name is ready.
 await page.getByRole("button", { name: "Tote", exact: true }).click();
-await page.getByRole("textbox", { name: "Name", exact: true }).fill("Mini tote 1");
+await page.getByRole("textbox", { name: /^Name/ }).fill("Mini tote 1");
 check((await page.getByText("Number goes up: the next one is").textContent()).includes("Mini tote 2"), "the switch says what the next name will be");
 await scan("TOTE0000001");
 await addedRows().first().waitFor();
-check((await page.getByRole("textbox", { name: "Name", exact: true }).inputValue()) === "Mini tote 2", "a scan saved it; the name counted up to Mini tote 2");
+check((await page.getByRole("textbox", { name: /^Name/ }).inputValue()) === "Mini tote 2", "a scan saved it; the name counted up to Mini tote 2");
 const t1 = (await api("GET", "/scan/TOTE0000001"));
 check(t1.kind === "location" && t1.location.name === "Mini tote 1" && t1.location.type === "tote", "Mini tote 1 is a tote with that sticker");
 await page.screenshot({ path: `${shots}/places-1-after-first.png`, fullPage: true });
@@ -62,7 +62,7 @@ await page.screenshot({ path: `${shots}/places-1-after-first.png`, fullPage: tru
 // 3. Save without a sticker keeps the run going; a third by scan.
 await page.getByRole("button", { name: "Save without a sticker" }).click();
 await page.getByText("Added (2)").waitFor();
-check((await page.getByRole("textbox", { name: "Name", exact: true }).inputValue()) === "Mini tote 3", "saved without a sticker; Mini tote 3 is ready");
+check((await page.getByRole("textbox", { name: /^Name/ }).inputValue()) === "Mini tote 3", "saved without a sticker; Mini tote 3 is ready");
 await scan("TOTE0000003");
 await page.getByText("Added (3)").waitFor();
 const rows = await addedRows().allTextContents();
@@ -71,15 +71,15 @@ check(rows[0].includes("Mini tote 3") && rows[0].includes("TOTE0000003") && rows
 // 4. A used sticker is refused and the name stays.
 await scan("TOTE0000001");
 await page.getByRole("alert").waitFor();
-check((await page.getByRole("alert").textContent()).includes("already assigned") && (await page.getByRole("textbox", { name: "Name", exact: true }).inputValue()) === "Mini tote 4", "a sticker already in use is refused; the name waits");
+check((await page.getByRole("alert").textContent()).includes("already assigned") && (await page.getByRole("textbox", { name: /^Name/ }).inputValue()) === "Mini tote 4", "a sticker already in use is refused; the name waits");
 
 // 5. Change the type mid-run: the settings stay editable; the number switch off gives an empty name.
 await page.getByRole("button", { name: "Gridded box", exact: true }).click();
-await page.getByRole("textbox", { name: "Name", exact: true }).fill("Parts case");
+await page.getByRole("textbox", { name: /^Name/ }).fill("Parts case");
 await page.getByRole("checkbox", { name: /Number goes up/ }).uncheck();
 await page.getByRole("button", { name: "Save without a sticker" }).click();
 await page.getByText("Added (4)").waitFor();
-check((await page.getByRole("textbox", { name: "Name", exact: true }).inputValue()) === "Parts case", "with the number switch off the same name is ready again");
+check((await page.getByRole("textbox", { name: /^Name/ }).inputValue()) === "Parts case", "with the number switch off the same name is ready again");
 const kids = await api("GET", `/locations/${site.id}`);
 check(kids.children.find((c) => c.name === "Parts case")?.type === "gridded_box", "the type changed mid-run was used");
 
@@ -88,7 +88,7 @@ await page.getByRole("button", { name: /^Change where/ }).click();
 await page.getByRole("button", { name: "Pick from list" }).click();
 await page.getByRole("button", { name: "Choose Shelf" }).click();
 await page.getByText("Goes in this position of Shelf").waitFor();
-await page.getByRole("textbox", { name: "Name", exact: true }).fill("Bench box");
+await page.getByRole("textbox", { name: /^Name/ }).fill("Bench box");
 await page.getByRole("button", { name: "Save without a sticker" }).click();
 await page.getByText("Added (5)").waitFor();
 const bench = (await api("GET", `/locations/${shelf.id}`)).children.find((c) => c.name === "Bench box");
@@ -105,7 +105,7 @@ await page.getByRole("link", { name: "Add several" }).first().click();
 await page.getByRole("heading", { name: "Add places in Shelf" }).waitFor();
 await page.getByRole("button", { name: "Tote", exact: true }).click();
 check((await page.getByText("Goes in this position of Shelf").count()) === 1, "the first goes in the next free position");
-await page.getByRole("textbox", { name: "Name", exact: true }).fill("Box A");
+await page.getByRole("textbox", { name: /^Name/ }).fill("Box A");
 for (let i = 0; i < 2; i++) {
   await page.getByRole("button", { name: "Save without a sticker" }).click();
   await page.getByText(`Added (${i + 1})`).waitFor();

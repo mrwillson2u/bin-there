@@ -1537,6 +1537,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** No server change: the run uses `POST /locations` as the form always has. Bins keep their automatic numbers, so for bins the name box stays empty. Not done: a camera-first flow where the scan comes before the name.
 
+### DEC-059: Choice fields: a category field with a fixed list of options
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin) |
+| **Deciders** | Colin |
+| **Category** | UX / Data / AI |
+
+**Context:** Asked whether fields should have types or drop-downs, Colin said he wouldn't use a drop-down for resistance or voltage, but would for a finite set: battery chemistry, capacitor type. The AI guard (DEC-053) already prefers a plain right answer to a specific wrong one, and a closed list is the strongest form of that.
+
+**Decision:** A field is **Text** (as before) or **Choice**, set on the Categories screen with the options typed as a comma-separated line, saved on blur. On a part's form a choice field is a drop-down: blank, the options, and, until it's changed, a value from before the field became a choice, marked "(not in the list)". **The AI gets the options** with the field ("exactly one of: Li-ion | LiPo | NiMH; leave it out if none fits") and its answer is kept only when it is one of them, put into the option's own spelling; anything else is dropped. Turning a choice back to text keeps the parts' values and drops the options. `FieldDef` gains `type: "choice"` and `options`; `PATCH /categories/:id` takes `type` and `options` per field (left out, a field keeps its type).
+
+**Consequences:** No migration: field definitions are JSON on the category, and a field without a type reads as text. Not done: suggesting values already used for text fields (next), and a number type (Colin saw no use for it: values carry units).
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1599,6 +1614,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-056 | Categories and their fields are editable on a Categories screen | UX / Data | Accepted | 2026-11-12 |
 | DEC-057 | Bulk editing of checked parts from Inventory and Search | UX | Accepted | 2026-11-12 |
 | DEC-058 | Adding several places in a run: name, scan, next | UX | Accepted | 2026-11-12 |
+| DEC-059 | Choice fields: a category field with a fixed list of options | UX / Data / AI | Accepted | 2026-11-12 |
 
 ---
 

@@ -81,6 +81,26 @@ await page.goto(`${base}/items/${plug.id}/edit`);
 check((await page.getByLabel("Wire gauge").inputValue()) === "20 AWG", "the part's form shows the renamed field with its value");
 check((await page.getByRole("link", { name: "Manage categories and their fields" }).count()) === 1, "the form links to the Categories screen");
 
+// A choice field (DEC-059): Type becomes a Choice with options; the part's form offers them in a drop-down.
+await page.goto(`${base}/categories`);
+await wireCard.getByRole("radio", { name: "Choice" }).nth(1).click();
+const opts = wireCard.getByRole("textbox", { name: "Options for Type" });
+await opts.waitFor();
+await opts.fill("DC barrel, USB-C, JST");
+await opts.press("Enter");
+await page.waitForTimeout(400);
+const typeField = (await api("GET", "/categories")).find((c) => c.id === wire.id).fieldDefs.find((f) => f.label === "Type");
+check(typeField.type === "choice" && typeField.options.join() === "DC barrel,USB-C,JST", "Type is a choice field with three options: " + JSON.stringify(typeField));
+await page.goto(`${base}/items/${plug.id}/edit`);
+const typeSelect = page.getByRole("combobox", { name: "Type", exact: true });
+check((await typeSelect.locator("option").allTextContents()).join("|") === "|DC barrel|USB-C|JST", "the part's form offers the options in a drop-down: " + JSON.stringify(await typeSelect.locator("option").allTextContents()));
+await typeSelect.selectOption("USB-C");
+await page.getByRole("button", { name: "Save" }).click();
+await page.waitForURL(`${base}/items/${plug.id}`);
+check((await api("GET", `/items/${plug.id}`)).attributes[typeField.key] === "USB-C", "the chosen option is saved on the part");
+await page.goto(`${base}/categories`);
+await page.locator('[data-category="Wire & connectors"]').waitFor();
+
 // Remove a field that holds values: a warning, then removal; the value stays stored, unseen.
 await page.goto(`${base}/categories`);
 await wireCard.getByRole("button", { name: "Remove Wire gauge from Wire & connectors" }).click();
@@ -88,7 +108,7 @@ check((await wireCard.getByRole("alert").textContent()).includes("1 part has a v
 await wireCard.getByRole("button", { name: "Remove anyway" }).click();
 await page.waitForTimeout(400);
 const plugTrim = await api("GET", `/items/${plug.id}`);
-check(plugTrim.fieldDefs.map((f) => f.label).join() === "Type" && plugTrim.attributes[gauge.key] === "20 AWG", "the field is gone from the form; the value is still stored");
+check(plugTrim.fieldDefs.map((f) => f.label).join() === "Type" && plugTrim.fieldDefs[0].type === "choice" && plugTrim.attributes[gauge.key] === "20 AWG", "the field is gone from the form; the value is still stored; the choice field stays a choice");
 await page.screenshot({ path: `${shots}/cat-1-desktop.png`, fullPage: true });
 
 // Delete: refused while parts use the category, allowed once they don't.

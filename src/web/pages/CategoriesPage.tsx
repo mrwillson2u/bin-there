@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Plus, Tags, Trash2, X } from "lucide-react";
-import { itemKindLabels, itemKinds, trackingLabels, trackingModes, type Category, type CategoryUsage, type UpdateCategory } from "../../shared/api";
+import { fieldTypeLabels, fieldTypes, itemKindLabels, itemKinds, trackingLabels, trackingModes, type Category, type CategoryUsage, type FieldDef, type UpdateCategory } from "../../shared/api";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
 import { Button, inputClass } from "../components/ui";
@@ -11,7 +11,9 @@ import { Button, inputClass } from "../components/ui";
 // and its fields to add, rename, reorder and remove. Changes save as you go. A field keeps its
 // hidden key when renamed, so every part's value stays attached; a removed field's values stay
 // stored on the parts, unseen, and come back if the field is added again under the same name.
-// A category parts still use can't be deleted (bulk editing moves them).
+// A category parts still use can't be deleted (bulk editing moves them). A field is Text or
+// Choice (DEC-059): a choice field lists its options, which the part's form offers in a drop-down
+// and the AI picks from.
 
 export function CategoriesPage() {
   const qc = useQueryClient();
@@ -71,6 +73,9 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
   const toast = useToast();
   const [name, setName] = useState(c.name);
   const [labels, setLabels] = useState<Record<string, string>>(Object.fromEntries(c.fieldDefs.map((f) => [f.key, f.label])));
+  // Options as typed, one line of commas per choice field; saved on blur.
+  const optionsText = (defs: FieldDef[]) => Object.fromEntries(defs.filter((f) => f.type === "choice").map((f) => [f.key, (f.options ?? []).join(", ")]));
+  const [options, setOptions] = useState<Record<string, string>>(() => optionsText(c.fieldDefs));
   const [newField, setNewField] = useState("");
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
@@ -79,6 +84,7 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
     onSuccess: (updated) => {
       qc.setQueryData<Category[]>(["categories"], (old) => old?.map((x) => (x.id === updated.id ? updated : x)).sort((a, b) => a.name.localeCompare(b.name)));
       setLabels(Object.fromEntries(updated.fieldDefs.map((f) => [f.key, f.label])));
+      setOptions(optionsText(updated.fieldDefs));
       for (const key of ["item", "items", "categories"]) qc.invalidateQueries({ queryKey: [key] });
     },
     onError: (e: Error) => {
@@ -92,8 +98,16 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
     onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
   });
 
-  const fields = c.fieldDefs.map((f) => ({ key: f.key, label: labels[f.key] ?? f.label }));
-  const saveFields = (next: { key?: string; label: string }[]) => patch.mutate({ fieldDefs: next });
+  const fields = c.fieldDefs.map((f) => ({ key: f.key, label: labels[f.key] ?? f.label, type: f.type === "choice" ? ("choice" as const) : ("text" as const), options: f.options }));
+  type FieldIn = { key?: string; label: string; type?: "text" | "choice"; options?: string[] };
+  const saveFields = (next: FieldIn[]) => patch.mutate({ fieldDefs: next });
+  const parseOptions = (text: string) => text.split(/[,\n]/).map((o) => o.trim()).filter(Boolean);
+  const setType = (key: string, type: "text" | "choice") => saveFields(fields.map((x) => (x.key === key ? { ...x, type, options: type === "choice" ? x.options ?? [] : undefined } : x)));
+  const saveOptions = (key: string) => {
+    const next = parseOptions(options[key] ?? "");
+    const f = fields.find((x) => x.key === key);
+    if (f && next.join("\u0000") !== (f.options ?? []).join("\u0000")) saveFields(fields.map((x) => (x.key === key ? { ...x, options: next } : x)));
+  };
   const move = (i: number, by: number) => {
     const next = [...fields];
     const j = i + by;
@@ -169,6 +183,28 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
                 <button type="button" onClick={() => removeField(f.key)} className="flex h-10 w-9 items-center justify-center rounded-lg text-muted" aria-label={`Remove ${f.label} from ${c.name}`}>
                   <X size={16} />
                 </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pl-1">
+                <div className="flex overflow-hidden rounded-lg border border-border text-[13px]" role="radiogroup" aria-label={`Kind of ${f.label}`}>
+                  {fieldTypes.map((t) => (
+                    <button key={t} type="button" role="radio" aria-checked={f.type === t} onClick={() => f.type !== t && setType(f.key, t)} className={`min-h-8 px-2.5 ${f.type === t ? "bg-accent/15 text-accent" : "text-muted"}`}>
+                      {fieldTypeLabels[t]}
+                    </button>
+                  ))}
+                </div>
+                {f.type === "choice" && (
+                  <input
+                    value={options[f.key] ?? ""}
+                    onChange={(e) => setOptions((o) => ({ ...o, [f.key]: e.target.value }))}
+                    onBlur={() => saveOptions(f.key)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    className={`${inputClass} min-h-9 min-w-0 flex-1 text-sm`}
+                    placeholder="Options, separated by commas: Li-ion, LiPo, NiMH"
+                    aria-label={`Options for ${f.label}`}
+                  />
+                )}
               </div>
               {confirmRemove === f.key && (
                 <p className="rounded-lg bg-warn/10 px-3 py-2 text-[13px] text-warn" role="alert">

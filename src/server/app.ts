@@ -253,7 +253,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
         name: now.name || item.name,
         url: now.url !== undefined ? now.url || null : item.url,
         categoryName: item.categoryName,
-        fields: item.fieldDefs.map((d) => ({ key: d.key, label: d.label })),
+        fields: item.fieldDefs.map((d) => ({ key: d.key, label: d.label, ...(d.type === "choice" && d.options?.length ? { options: d.options } : {}) })),
         attributes: item.attributes,
         supplier: now.supplier !== undefined ? now.supplier || null : item.supplier,
         supplierPn: now.supplierPn !== undefined ? now.supplierPn || null : item.supplierPn,

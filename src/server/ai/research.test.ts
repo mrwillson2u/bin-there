@@ -441,6 +441,26 @@ describe("researchItem", () => {
     expect(r2.suggestions.find((s) => s.field === "name")!.value).toBe("Molex socket");
   });
 
+  it("a choice field (DEC-059): the model gets the options, and only one of them is kept, in its own spelling", async () => {
+    const f = fakes({
+      look: { markings: [], description: "A cell", likelyPart: "Battery", queries: ["18650 cell"] },
+      extract: {
+        identified: "18650 cell",
+        suggestions: [
+          { field: "attributes.chem", value: "li-ion", source: "page 1", confidence: "high" }, // kept as Li-ion
+          { field: "attributes.form", value: "cylindrical", source: "page 1", confidence: "high" }, // not an option: dropped
+        ],
+        notes: [],
+      },
+    });
+    const r = await researchItem(
+      { ...input, fields: [{ key: "chem", label: "Chemistry", options: ["Li-ion", "NiMH"] }, { key: "form", label: "Form", options: ["Pouch", "Prismatic"] }], attributes: {} },
+      f.deps,
+    );
+    expect(f.prompts[1]!.content).toContain("attributes.chem = Chemistry (exactly one of: Li-ion | NiMH; leave it out if none fits)");
+    expect(r.suggestions.filter((s) => s.field.startsWith("attributes.")).map((s) => [s.field, s.value])).toEqual([["attributes.chem", "Li-ion"]]);
+  });
+
   it("reads product links off labels", () => {
     expect(labelLinks(["RasPi stacking headers", "http://adafru.it/1112", "adafru.it/1112"])).toEqual([{ supplier: "Adafruit", productNumber: "1112", url: "https://www.adafruit.com/product/1112" }]);
     expect(labelLinks(["https://www.sparkfun.com/products/13678"])).toEqual([{ supplier: "SparkFun", productNumber: "13678", url: "https://www.sparkfun.com/products/13678" }]);

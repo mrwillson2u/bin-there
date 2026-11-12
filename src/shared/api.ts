@@ -377,13 +377,28 @@ export const updateCategorySchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   defaultKind: z.enum(itemKinds).optional(),
   defaultTracking: z.enum(trackingModes).optional(),
-  fieldDefs: z.array(z.object({ key: z.string().min(1).max(60).optional(), label: z.string().trim().min(1).max(50) })).max(20).optional(),
+  fieldDefs: z
+    .array(
+      z.object({
+        key: z.string().min(1).max(60).optional(),
+        label: z.string().trim().min(1).max(50),
+        /** Left out, a field keeps its type (text for a new one). */
+        type: z.enum(["text", "choice"]).optional(),
+        /** For a choice field: its options, in order (DEC-059). */
+        options: z.array(z.string().trim().min(1).max(60)).max(50).optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 export type UpdateCategory = z.infer<typeof updateCategorySchema>;
 /** How much a category is used: parts in it, and per field key, parts holding a value (DEC-056). */
 export type CategoryUsage = { items: number; fields: Record<string, number> };
 
-export type FieldDef = { key: string; label: string; type: "text" | "number" };
+/** A category's field (DEC-056). A `choice` field (DEC-059) has a fixed list of options, and the AI picks from them or leaves it. */
+export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[] };
+export const fieldTypes = ["text", "choice"] as const;
+export const fieldTypeLabels: Record<(typeof fieldTypes)[number], string> = { text: "Text", choice: "Choice" };
 
 export type Category = {
   id: number;

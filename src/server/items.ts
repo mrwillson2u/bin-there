@@ -684,7 +684,10 @@ export function updateCategory(db: Db, id: number, input: UpdateCategory): Categ
       let candidate = key;
       for (let n = 2; taken.has(candidate); n++) candidate = `${key}_${n}`;
       taken.add(candidate);
-      next.push({ key: candidate, label: f.label, type: existing?.type ?? "text" });
+      const type = f.type ?? existing?.type ?? "text";
+      // A choice field's options, each once (DEC-059); turning a field back to text drops them.
+      const options = type === "choice" ? [...new Set(f.options ?? existing?.options ?? [])] : undefined;
+      next.push({ key: candidate, label: f.label, type, ...(options ? { options } : {}) });
     }
     changes.fieldDefs = next;
   }
