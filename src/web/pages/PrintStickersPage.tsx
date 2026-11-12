@@ -59,10 +59,15 @@ const stamp = () => {
 };
 
 export function PrintStickersPage() {
-  const [templateName, setTemplateName] = useStored<string>("stickers.template", "SL855");
+  const [templateName, setTemplateName] = useStored<string>("stickers.template", "SL588");
   const [output, setOutput] = useStored<Output>("stickers.output", "cricut");
   const [title, setTitle] = useStored<string>("stickers.title", DEFAULT_STYLE.title);
   const [subtitle, setSubtitle] = useStored<string>("stickers.subtitle", DEFAULT_STYLE.subtitle);
+  // The Print Then Cut area for the machine and paper, from Cricut's help page "How large can I
+  // Print Then Cut" (Maker on Letter: 7.44 in across, 9.94 in tall, corners notched for the sensor
+  // marks, the notch size unstated); 6.75 × 9.25 in is the old safe figure.
+  const [cutW, setCutW] = useStored<string>("stickers.cutWidth", "6.75");
+  const [cutH, setCutH] = useStored<string>("stickers.cutHeight", "9.25");
   const [sheets, setSheets] = useState("1");
   const [skip, setSkip] = useState("0");
   const [outlines, setOutlines] = useState(false);
@@ -71,7 +76,8 @@ export function PrintStickersPage() {
   const [error, setError] = useState<string | null>(null);
 
   const base = getTemplate(templateName);
-  const template = output === "cricut" ? printThenCut(base) : base;
+  const cutArea: [number, number] = [Math.max(2, Number(cutW) || 6.75) * PT_PER_INCH, Math.max(2, Number(cutH) || 9.25) * PT_PER_INCH];
+  const template = output === "cricut" ? printThenCut(base, 9, 4.5, cutArea) : base;
   const perSheet = slotsOf(template).length;
   const sheetCount = Math.min(20, Math.max(1, Number(sheets) || 1));
   const skipCount = output === "sheet" ? Math.min(perSheet - 1, Math.max(0, Number(skip) || 0)) : 0;
@@ -83,13 +89,13 @@ export function PrintStickersPage() {
   const preview = useMemo(
     () => pageSvg(layoutSheet(template, sample.slice(0, perSheet - skipCount), style, { skip: skipCount, background: output === "cricut", outlines: output === "sheet" && outlines })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, sample, skipCount, title, subtitle, output, outlines],
+    [template, sample, skipCount, title, subtitle, output, outlines, cutW, cutH],
   );
   const previewUrl = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(preview)}`, [preview]);
 
   useEffect(() => {
     setDone(null);
-  }, [templateName, output, sheets, skip, title, subtitle, outlines]);
+  }, [templateName, output, sheets, skip, title, subtitle, outlines, cutW, cutH]);
 
   const make = async () => {
     setBusy(true);
@@ -155,6 +161,27 @@ export function PrintStickersPage() {
               <a href={base.url} target="_blank" rel="noreferrer" className="-mt-1 text-[13px] text-accent">
                 The sheet at the maker's site
               </a>
+            )}
+            {output === "cricut" && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Cut area width (in)">
+                    <input inputMode="decimal" value={cutW} onChange={(e) => setCutW(e.target.value.replace(/[^\d.]/g, ""))} className={inputClass} aria-label="Cut area width (in)" />
+                  </Field>
+                  <Field label="Cut area height (in)">
+                    <input inputMode="decimal" value={cutH} onChange={(e) => setCutH(e.target.value.replace(/[^\d.]/g, ""))} className={inputClass} aria-label="Cut area height (in)" />
+                  </Field>
+                </div>
+                <p className="-mt-1 text-[13px] text-muted">
+                  The most Design Space lets your machine Print Then Cut on your paper: see Cricut's page{" "}
+                  <a href="https://help.cricut.com/hc/en-us/articles/360009429814-How-large-can-I-Print-Then-Cut" target="_blank" rel="noreferrer" className="text-accent">
+                    How large can I Print Then Cut
+                  </a>
+                  . For a Maker on Letter paper it says 7.44 in wide by 9.94 in tall, but the corners are notched out for the sensor marks, so one rectangle
+                  can't have both. To find the rectangle: in Design Space draw a plain square, make it huge, set it to Print Then Cut, and the warning in the
+                  Layers panel names the biggest size for that shape. 6.75 × 9.25 in is the old safe figure.
+                </p>
+              </>
             )}
           </Card>
 
