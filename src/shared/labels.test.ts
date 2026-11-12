@@ -41,35 +41,41 @@ describe("templates", () => {
     expect(() => getTemplate("nope")).toThrow("unknown template");
   });
 
-  it("lays a label out for Cricut Print Then Cut: the 6.77 × 9.27 in rectangle, as many as fit, the grid centred, sideways when that's more", () => {
+  it("lays a label out for Cricut Print Then Cut: the 7.44 × 9.27 in band, as many as fit, the grid centred, sideways only when that's more", () => {
     const base = getTemplate("SL588");
     const c = printThenCut(base);
-    // Upright, four columns of fourteen fit (56); sideways, ten of six (60), so sideways it is.
-    expect(isSideways(c, base)).toBe(true);
-    expect(c.labelSize).toEqual([40.5, 99]);
-    expect(c.rotation).toBe(90);
-    expect([c.columns, c.rows]).toEqual([10, 6]);
-    expect(slotsOf(c)).toHaveLength(60);
-    expect(c.pageSize).toEqual([6.77 * 72, 9.27 * 72]);
-    expect(c.description).toContain("turned sideways");
-    // The gap is spread evenly up to 0.125 in, and the grid is centred.
-    expect(c.gap[0]).toBeCloseTo(Math.min(9, (6.77 * 72 - 10 * 40.5) / 11));
-    expect(c.gap[1]).toBeCloseTo(9);
-    expect(c.origin[0]).toBeCloseTo((6.77 * 72 - 10 * 40.5 - 9 * c.gap[0]) / 2);
+    // Five columns of fourteen upright (70) beats eleven of six turned (66), so upright it is.
+    expect(isSideways(c, base)).toBe(false);
+    expect([c.columns, c.rows]).toEqual([5, 14]);
+    expect(slotsOf(c)).toHaveLength(70);
+    expect(c.pageSize).toEqual([7.44 * 72, 9.27 * 72]);
+    expect(c.description).not.toContain("turned sideways");
+    // The gap is spread evenly up to 0.125 in (five columns only fit with 0.094 in between), and the grid is centred.
+    expect(c.gap[0]).toBeCloseTo((7.44 * 72 - 5 * 99) / 6);
+    expect(c.gap[1]).toBeCloseTo((9.27 * 72 - 14 * 40.5) / 15);
+    expect(c.origin[0]).toBeCloseTo(c.gap[0]);
+    expect(c.origin[1]).toBeCloseTo(c.gap[1]);
     const [w, h] = c.labelSize;
     for (const s of slotsOf(c)) {
       expect(s.x).toBeGreaterThanOrEqual(0);
       expect(s.y).toBeGreaterThanOrEqual(0);
-      expect(s.x + w).toBeLessThanOrEqual(6.77 * 72 + 0.01);
+      expect(s.x + w).toBeLessThanOrEqual(7.44 * 72 + 0.01);
       expect(s.y + h).toBeLessThanOrEqual(9.27 * 72 + 0.01);
     }
     expect(c.name).toBe("SL588-cricut");
-    // Told to stay upright: four columns of fourteen, a full 0.125 in apart.
-    const up = printThenCut(base, { sideways: false });
+    // The narrower 6.77 in middle: upright four of fourteen (56), turned ten of six (60), so turned when allowed.
+    const narrow = printThenCut(base, { area: [6.77 * 72, 9.27 * 72] });
+    expect(isSideways(narrow, base)).toBe(true);
+    expect(narrow.labelSize).toEqual([40.5, 99]);
+    expect(narrow.rotation).toBe(90);
+    expect([narrow.columns, narrow.rows]).toEqual([10, 6]);
+    expect(slotsOf(narrow)).toHaveLength(60);
+    expect(narrow.description).toContain("turned sideways");
+    const up = printThenCut(base, { area: [6.77 * 72, 9.27 * 72], sideways: false });
     expect(isSideways(up, base)).toBe(false);
     expect([up.columns, up.rows, up.gap[0]]).toEqual([4, 14, 9]);
     expect(slotsOf(up)).toHaveLength(56);
-    // In Cricut's full 7.44 × 9.94 in outline, upright wins (five of fifteen, 75, against eleven of six sideways).
+    // Cricut's whole 7.44 × 9.94 in outline would hold five of fifteen; Design Space won't take an image that size.
     const full = printThenCut(base, { area: [7.44 * 72, 9.94 * 72] });
     expect(isSideways(full, base)).toBe(false);
     expect(slotsOf(full)).toHaveLength(75);

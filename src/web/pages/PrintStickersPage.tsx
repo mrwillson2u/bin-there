@@ -66,10 +66,11 @@ export function PrintStickersPage() {
   const [subtitle, setSubtitle] = useStored<string>("stickers.subtitle", DEFAULT_STYLE.subtitle);
   const [titleColor, setTitleColor] = useStored<string>("stickers.titleColor", DEFAULT_STYLE.titleColor);
   const [subtitleColor, setSubtitleColor] = useStored<string>("stickers.subtitleColor", DEFAULT_STYLE.subtitleColor);
-  // The rectangle Design Space lets one Print Then Cut image fill: it measures the bitmap's whole
-  // rectangle, clear corners and all, so Cricut's bigger notched outline is out of reach. Colin
-  // measured 6.77 × 9.27 in inside the marks on a Maker with Letter paper.
-  const [cutW, setCutW] = useStored<string>("stickers.cutWidth", "6.77");
+  // The rectangle one Print Then Cut image fills: Design Space measures the bitmap's whole
+  // rectangle, clear corners and all, so of Cricut's notched outline an image gets the full width
+  // across the band between the top and bottom marks (7.44 × 9.27 in on a Maker with Letter
+  // paper; Colin measured the 9.27) or the full height down the narrower middle (6.77 × 9.94).
+  const [cutW, setCutW] = useStored<string>("stickers.cutWidth", "7.44");
   const [cutH, setCutH] = useStored<string>("stickers.cutHeight", "9.27");
   // Upright as Colin has always cut them, or turned a quarter turn when that fits more (the same sticker once peeled).
   const [turn, setTurn] = useStored<"upright" | "more">("stickers.turn", "upright");
@@ -81,7 +82,7 @@ export function PrintStickersPage() {
   const [error, setError] = useState<string | null>(null);
 
   const base = getTemplate(templateName);
-  const cutArea: [number, number] = [Math.max(2, Number(cutW) || 6.77) * PT_PER_INCH, Math.max(2, Number(cutH) || 9.27) * PT_PER_INCH];
+  const cutArea: [number, number] = [Math.max(2, Number(cutW) || 7.44) * PT_PER_INCH, Math.max(2, Number(cutH) || 9.27) * PT_PER_INCH];
   const template = output === "cricut" ? printThenCut(base, { area: cutArea, sideways: turn === "more" ? "auto" : false }) : base;
   const sideways = output === "cricut" && isSideways(template, base);
   const moreIfTurned = output === "cricut" ? slotsOf(printThenCut(base, { area: cutArea, sideways: "auto" })).length - slotsOf(printThenCut(base, { area: cutArea, sideways: false })).length : 0;
@@ -181,11 +182,13 @@ export function PrintStickersPage() {
                   </Field>
                 </div>
                 <p className="-mt-1 text-[13px] text-muted">
-                  The rectangle Design Space lets one image fill inside the sensor marks: 6.77 × 9.27 in on a Maker with Letter paper. (Cricut's page{" "}
+                  Cricut's cut outline (its page{" "}
                   <a href="https://help.cricut.com/hc/en-us/articles/360009429814-How-large-can-I-Print-Then-Cut" target="_blank" rel="noreferrer" className="text-accent">
                     How large can I Print Then Cut
-                  </a>{" "}
-                  gives 7.44 × 9.94 in, but that's the notched outline, and Design Space measures an uploaded image's whole rectangle.)
+                  </a>
+                  ) is 7.44 in across and 9.94 in tall on a Maker with Letter paper, with the corners taken by the sensor marks. Design Space measures an
+                  image's whole rectangle, so one image gets the full width across the band between the top and bottom marks, 7.44 × 9.27 in, or the full
+                  height down the narrower middle, 6.77 × 9.94 in. The band fits more of these stickers.
                 </p>
                 <div className="flex gap-2" role="group" aria-label="Sticker direction">
                   <Choice on={turn === "upright"} onClick={() => setTurn("upright")} label="Upright" hint="As always" />

@@ -42,21 +42,19 @@ await page.goto(`${base}/locations`);
 await page.getByRole("link", { name: "Print stickers" }).click();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByRole("button", { name: /Sticker vinyl, Cricut/ }).getAttribute("aria-pressed")) === "true", "the Cricut vinyl is the first choice");
-check((await page.getByText("56 per sheet (4 across by 14 down)").count()) === 1, "SL588 upright in the 6.77 × 9.27 in rectangle: 56 per sheet, as always");
-// Turned a quarter turn when that fits more: ten across by six down. A choice, remembered.
+check((await page.getByText("70 per sheet (5 across by 14 down)").count()) === 1, "SL588 upright across the 7.44 × 9.27 in band: 70 per sheet");
+// The narrower 6.77 in middle: four columns upright, or turned a quarter turn for more. A choice, remembered.
+await page.getByLabel("Cut area width (in)").fill("6.77");
+check((await page.getByText("56 per sheet (4 across by 14 down)").count()) === 1, "6.77 in wide: 56 upright");
 await page.getByRole("button", { name: /Turn them if more fit/ }).click();
 check((await page.getByText("60 per sheet (10 across by 6 down, turned sideways)").count()) === 1, "turned: 60 per sheet");
 check((await page.getByText("4 more a sheet").count()) === 1, "the choice says how many more");
-// A bigger rectangle fits more, upright; the setting is remembered on the device.
-await page.getByLabel("Cut area width (in)").fill("7.44");
-await page.getByLabel("Cut area height (in)").fill("9.94");
-check((await page.getByText("75 per sheet (5 across by 15 down)").count()) === 1, "7.44 × 9.94 in fits 75 upright");
 await page.reload();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
-check((await page.getByText("75 per sheet").count()) === 1, "the cut area is remembered");
-await page.getByLabel("Cut area width (in)").fill("6.77");
-await page.getByLabel("Cut area height (in)").fill("9.27");
-check((await page.getByText("60 per sheet").count()) === 1, "back to 60, still turned after the reload");
+check((await page.getByText("60 per sheet").count()) === 1, "the cut area and the choice are remembered");
+await page.getByLabel("Cut area width (in)").fill("7.44");
+check((await page.getByText("70 per sheet (5 across by 14 down)").count()) === 1, "back to the band: 70 upright, since turning fits no more there");
+check((await page.getByText("No more would fit turned").count()) === 1, "and the choice says so");
 const preview = page.locator("img[data-preview]");
 check((await preview.getAttribute("src")).startsWith("data:image/svg+xml"), "a preview of the sheet is drawn");
 await page.screenshot({ path: `${shots}/st1-cricut.png`, fullPage: true });
@@ -70,10 +68,10 @@ const pngPath = `${shots}/${png.suggestedFilename()}`;
 await png.saveAs(pngPath);
 const pngBytes = readFileSync(pngPath);
 const dims = { w: pngBytes.readUInt32BE(16), h: pngBytes.readUInt32BE(20), colour: pngBytes[25] };
-check(dims.w === 4062 && dims.h === 5562 && dims.colour === 6, `the PNG is 4062 × 5562 px (the 6.77 × 9.27 in rectangle at 600 dpi) with an alpha channel: ${JSON.stringify(dims)}`);
+check(dims.w === 4464 && dims.h === 5562 && dims.colour === 6, `the PNG is 4464 × 5562 px (the 7.44 × 9.27 in band at 600 dpi) with an alpha channel: ${JSON.stringify(dims)}`);
 const found = await readBarcodes(new Blob([pngBytes]), { formats: ["QRCode"], maxNumberOfSymbols: 255 });
 const codes = found.map((r) => r.text);
-check(codes.length === 60 && codes.every((c) => CODE.test(c)) && new Set(codes).size === codes.length, `the PNG's sideways codes scan: ${codes.length} found, all 12-character codes, all different`);
+check(codes.length === 70 && codes.every((c) => CODE.test(c)) && new Set(codes).size === codes.length, `the PNG's codes scan: ${codes.length} found, all 12-character codes, all different`);
 // The gaps are clear: the PNG's edge pixels are transparent (a sticker there would be white).
 const { PNG } = await import("pngjs").catch(() => ({ PNG: null }));
 if (PNG) {
@@ -84,7 +82,7 @@ if (PNG) {
 const scan = await api("GET", `/scan/${codes[0]}`);
 check(scan.kind === "unassigned", "a printed code isn't on anything yet: " + scan.kind);
 await page.locator("[data-done]").waitFor();
-check((await page.getByText("W 6.77 in × H 9.27 in").count()) === 1, "the size to type into Design Space is the cut rectangle");
+check((await page.getByText("W 7.44 in × H 9.27 in").count()) === 1, "the size to type into Design Space is the band");
 await page.screenshot({ path: `${shots}/st2-cricut-done.png`, fullPage: true });
 
 // The die-cut sheet PDF: two sheets, ten skipped, Letter pages.
