@@ -36,6 +36,10 @@ services:
     image: ollama/ollama:latest
     container_name: bin-there-ollama
     restart: unless-stopped
+    # At boot Docker starts this before the card's driver is up, and Ollama then runs on the CPU
+    # all day (ten times slower; `ollama ps` says "100% CPU"). So: wait for the card, up to two
+    # minutes, before serving (DEC-049 found the first case, DEC-053 the boot one).
+    entrypoint: ["sh", "-c", "n=0; until nvidia-smi >/dev/null 2>&1 || [ $$n -ge 60 ]; do n=$$((n+1)); sleep 2; done; exec ollama serve"]
     ports:
       - "127.0.0.1:11435:11434"
     volumes:

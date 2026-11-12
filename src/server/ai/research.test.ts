@@ -366,6 +366,8 @@ describe("researchItem", () => {
       "P1938",
     ]);
     expect(partNumberCandidates(["LM2596S-ADJ/NOPB", "IN+ IN- OUT+ OUT-"])).toEqual(["LM2596S-ADJ/NOPB"]);
+    // A size or a rating with a unit isn't a part number.
+    expect(partNumberCandidates(["30AWG", "5mm", "12V", "100uF", "2x20", "10pcs"])).toEqual([]);
     expect(partNumberCandidates(["just words here"])).toEqual([]);
   });
 
