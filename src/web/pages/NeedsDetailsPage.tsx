@@ -1,18 +1,23 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, SlidersHorizontal, X } from "lucide-react";
-import { trackingLabels, trackingModes, type Category, type ItemDetail, type Place, type StockResult, type TrackingMode, type UpdateItem } from "../../shared/api";
+import { Check, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { trackingLabels, trackingModes, type Category, type ItemDetail, type Place, type ResearchResult, type StockResult, type TrackingMode, type UpdateItem } from "../../shared/api";
 import { api } from "../api";
+import { useAiStatus } from "../components/AiSuggestions";
 import { CategoryPicker, useCreateCategory } from "../components/CategoryPicker";
 import { StockControl, useStockMutation } from "../components/StockControl";
 import { useToast } from "../components/Toast";
-import { inputClass, itemName, PlacePath, Thumb } from "../components/ui";
+import { Button, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
 import { ItemForm } from "./ItemEditPage";
 
 // Fill in details (DEC-037): every part on the Needs details list on one page, each a row you
 // can fill in where it is: name, category (type to find it), how it's counted, and how many.
 // Each change saves as you go. A part that's done stays on screen with a tick until you leave.
+// "Suggest names with AI" (DEC-053) runs the quick look, photo only, over every part still
+// needing details, one at a time, and puts a likely name and category under each row to Use.
+
+type AiGuess = { name?: string; category?: string } | null;
 
 const fetchItem = (id: number) => api<ItemDetail>(`/items/${id}`);
 
@@ -48,6 +53,29 @@ export function NeedsDetailsPage() {
   const left = items.filter((i) => i.needsDetails).length;
   const editItem = items.find((i) => i.id === editing);
 
+  const ai = useAiStatus();
+  const toast = useToast();
+  const [guesses, setGuesses] = useState<Record<number, AiGuess>>({});
+  const [running, setRunning] = useState<{ at: number; of: number } | null>(null);
+  const suggestAll = async () => {
+    const todo = items.filter((i) => i.needsDetails && i.photos.length > 0);
+    if (todo.length === 0) return toast.show({ message: "Nothing with a photo needs details.", tone: "error" });
+    setRunning({ at: 1, of: todo.length });
+    for (const [n, it] of todo.entries()) {
+      setRunning({ at: n + 1, of: todo.length });
+      try {
+        const r = await api<ResearchResult>(`/items/${it.id}/research`, { method: "POST", body: { mode: "quick" } });
+        const name = r.suggestions.find((s) => s.field === "name")?.value;
+        const category = r.suggestions.find((s) => s.field === "category")?.value;
+        setGuesses((g) => ({ ...g, [it.id]: name || category ? { name, category } : null }));
+      } catch (e) {
+        toast.show({ message: (e as Error).message, tone: "error" });
+        break;
+      }
+    }
+    setRunning(null);
+  };
+
   if (!ids || !categories) return <p className="text-muted">Loading…</p>;
 
   return (
@@ -60,6 +88,16 @@ export function NeedsDetailsPage() {
           </p>
         )}
       </div>
+      {ai?.enabled && left > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" onClick={suggestAll} disabled={!!running || ai.modelReady === false}>
+            <Sparkles size={18} /> {running ? `Looking at ${running.at} of ${running.of}…` : "Suggest names with AI"}
+          </Button>
+          <span className="text-[13px] text-muted">
+            From each part's photo alone, no web: a likely name and category under the row. Nothing is saved until you press Use.
+          </span>
+        </div>
+      )}
 
       {shown.length === 0 ? (
         <p className="px-1 py-6 text-center text-muted">
@@ -77,7 +115,15 @@ export function NeedsDetailsPage() {
           </div>
           <ul className="flex flex-col gap-3 lg:gap-0 lg:divide-y lg:divide-border lg:overflow-visible lg:rounded-2xl lg:border lg:border-border lg:bg-surface">
             {items.map((item) => (
-              <FillRow key={item.id} item={item} categories={categories} onMore={() => setEditing(item.id)} onPhoto={() => setViewing(item)} />
+              <FillRow
+                key={item.id}
+                item={item}
+                categories={categories}
+                onMore={() => setEditing(item.id)}
+                onPhoto={() => setViewing(item)}
+                guess={guesses[item.id]}
+                onGuessDone={() => setGuesses((g) => { const { [item.id]: _, ...rest } = g; return rest; })}
+              />
             ))}
           </ul>
         </>
@@ -101,7 +147,22 @@ export function NeedsDetailsPage() {
   );
 }
 
-function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; categories: Category[]; onMore: () => void; onPhoto: () => void }) {
+function FillRow({
+  item,
+  categories,
+  onMore,
+  onPhoto,
+  guess,
+  onGuessDone,
+}: {
+  item: ItemDetail;
+  categories: Category[];
+  onMore: () => void;
+  onPhoto: () => void;
+  /** The AI's quick guess for this row: a name and/or category, null for "couldn't tell", undefined for none yet. */
+  guess?: AiGuess;
+  onGuessDone?: () => void;
+}) {
   const qc = useQueryClient();
   const toast = useToast();
   const createCategory = useCreateCategory();
@@ -130,15 +191,30 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
     if (n !== item.name) patch.mutate({ name: n });
   };
 
-  const pickCategory = (c: Category | null) => {
-    if (!c) return;
+  const categoryBody = (c: Category): UpdateItem => {
     const body: UpdateItem = { categoryId: c.id };
     // The category's usual way of counting, unless that would throw away a count typed here.
     const counted = item.tracking === "exact" && item.places.some((p) => p.qty !== null);
     if (!trackingSet.current && c.defaultTracking !== item.tracking && !counted) body.tracking = c.defaultTracking;
     // A part with its own sticker stays returnable.
     if (c.defaultKind !== item.kind && item.unitList.length === 0) body.kind = c.defaultKind;
-    patch.mutate(body);
+    return body;
+  };
+  const pickCategory = (c: Category | null) => {
+    if (c) patch.mutate(categoryBody(c));
+  };
+
+  // The AI's quick guess, used: the name and the category (with its usual way of counting) in one save.
+  const useGuess = () => {
+    if (!guess) return;
+    const c = guess.category ? categories.find((x) => x.name === guess.category) : undefined;
+    const body: UpdateItem = c && c.id !== item.categoryId ? categoryBody(c) : {};
+    if (guess.name && guess.name !== item.name) {
+      body.name = guess.name;
+      setName(guess.name);
+    }
+    if (Object.keys(body).length > 0) patch.mutate(body);
+    onGuessDone?.();
   };
 
   const done = !item.needsDetails;
@@ -195,6 +271,27 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
         onCreate={(n) => createCategory(n, { defaultKind: item.kind, defaultTracking: item.tracking })}
         label={`Category for ${itemName(item.name)}`}
       />
+
+      {guess !== undefined && (
+        <div data-ai-guess className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:col-span-5">
+          <Sparkles size={16} className="shrink-0 text-accent" />
+          {guess ? (
+            <>
+              <span className="text-muted">AI thinks:</span>
+              {guess.name && <strong>{guess.name}</strong>}
+              {guess.category && <span className="text-muted">· {guess.category}</span>}
+              <Button type="button" variant="ghost" onClick={useGuess} aria-label={`Use the AI's guess for ${itemName(item.name)}`}>
+                Use
+              </Button>
+            </>
+          ) : (
+            <span className="text-muted">The AI couldn't tell from the photo.</span>
+          )}
+          <button type="button" onClick={onGuessDone} aria-label={`Dismiss the AI's guess for ${itemName(item.name)}`} className="ml-auto flex h-9 w-9 items-center justify-center text-muted">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2.5">
         <TrackingToggle

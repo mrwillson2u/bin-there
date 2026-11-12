@@ -45,24 +45,32 @@ export type ResearchInput = {
   categories: string[];
 };
 
-const LOOK_SCHEMA = {
+/** The photo step's answer; `category` is one of the inventory's own when the part has none yet. */
+const lookSchema = (categories: string[] | null) => ({
   type: "object",
   properties: {
     markings: { type: "array", items: { type: "string" } },
     description: { type: "string" },
     likelyPart: { type: "string" },
+    name: { type: "string" },
+    ...(categories ? { category: { type: "string", enum: categories } } : {}),
     queries: { type: "array", items: { type: "string" } },
   },
-  required: ["markings", "description", "likelyPart", "queries"],
-};
+  required: ["markings", "description", "likelyPart", "name", ...(categories ? ["category"] : []), "queries"],
+});
 
-type Look = { markings: string[]; description: string; likelyPart: string; queries: string[] };
+type Look = { markings: string[]; description: string; likelyPart: string; name?: string; category?: string; queries: string[] };
+
+export type ResearchOptions = {
+  /** Quick naming (DEC-053): the photo alone, no reading or searching; a likely name and category. */
+  quick?: boolean;
+};
 
 /** Suppliers and makers first: their pages have the fields. Forums and videos last. */
 const GOOD_HOSTS = /digikey|mouser|lcsc|ti\.com|st\.com|microchip|nxp|analog\.com|adafruit|sparkfun|pololu|seeedstudio|dfrobot|raspberrypi|arduino|espressif|amazon|aliexpress|mcmaster|boltdepot|datasheet|alldatasheet|octopart|farnell|newark|rs-online|element14/i;
 const BAD_HOSTS = /youtube|facebook|reddit|pinterest|tiktok|instagram|twitter|x\.com|quora/i;
 
-export async function researchItem(input: ResearchInput, deps: Deps): Promise<ResearchResult> {
+export async function researchItem(input: ResearchInput, deps: Deps, opts: ResearchOptions = {}): Promise<ResearchResult> {
   const log = deps.log ?? (() => {});
   const known = describeKnown(input);
   const t0 = Date.now();
@@ -76,21 +84,36 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     if (b64) images.push(b64);
   }
   let look: Look = { markings: [], description: "", likelyPart: input.name, queries: [] };
+  const wantCategory = !input.categoryName && input.categories.length > 0;
   if (images.length > 0) {
     const lookPrompt = [
       "You identify parts and components in a garage or electronics workshop inventory. These are photo(s) of one part, and you know nothing else about it.",
       "`markings`: every piece of text actually printed on the part, its label or its bag, exactly as written, one string each (model numbers, values, web addresses, brand names you can see). Only text you can see. If nothing is printed, leave it empty. Never list a brand, a type or a part number you merely recognise or expect: that is not a marking.",
       "`description`: one sentence saying what you see (what kind of part, how many pins or leads, colour, size clues).",
       "`likelyPart`: what it most likely is: a specific product if a marking names one, otherwise just the kind of part.",
+      "`name`: a short, clear name for it as its owner would write it on a label: the kind of thing and what matters (e.g. \"Claw hammer\", \"2.1 mm DC barrel jack\", \"M3 × 10 socket cap screws\", \"JST PH 3-pin cable\"). A maker's number only if it's printed. Never a sentence.",
+      ...(wantCategory ? [`\`category\`: the one of these it belongs in: ${input.categories.join(" | ")}`] : []),
       "`queries`: 2 or 3 web searches that would find its supplier or datasheet page, built from the markings and what you see: the most specific first. Don't put a part number in a query unless it's in the markings.",
     ].join("\n");
-    const lookRaw = await deps.chat({ messages: [{ role: "user", content: lookPrompt, images }], schema: LOOK_SCHEMA });
+    const lookRaw = await deps.chat({ messages: [{ role: "user", content: lookPrompt, images }], schema: lookSchema(wantCategory ? input.categories : null) });
     look = parseJson<Look>(lookRaw, look);
     look.markings = (look.markings ?? []).filter((m) => typeof m === "string" && m.trim()).map((m) => m.trim());
   }
   // What's on record searches too: a known part number first, the name last.
   look.queries = uniq([...(input.supplierPn ? [input.supplierPn] : []), ...(look.queries ?? []), input.name].filter((q) => q && q.trim().length > 1)).slice(0, 3);
   log(`look (${elapsed()}): ${look.likelyPart} | markings ${look.markings.length} | queries ${look.queries.join(" / ")}`);
+
+  // QUICK (DEC-053): the photo alone. A likely name, and a category when the part has none;
+  // nothing read, nothing searched, one model call. For the things with nothing to look up.
+  if (opts.quick) {
+    const quick: Suggestion[] = [];
+    const name = clean("name", String(look.name ?? ""));
+    if (images.length > 0 && name && name.trim().toLowerCase() !== input.name.trim().toLowerCase()) quick.push({ field: "name", label: "Name", value: name, source: "photo", confidence: "medium" });
+    const category = String(look.category ?? "");
+    if (images.length > 0 && wantCategory && input.categories.includes(category)) quick.push({ field: "category", label: "Category", value: category, source: "photo", confidence: "high" });
+    log(`quick (${elapsed()}): ${quick.length} suggestions`);
+    return { identified: look.likelyPart || input.name, markings: look.markings, queries: look.queries, sources: [], suggestions: quick, notes: images.length === 0 ? ["No photo to go by."] : [] };
+  }
 
   // READ: the pages that name this exact part, no search engine needed. The link on record
   // first (the owner's own), then the shop page for the supplier and part number on record, then

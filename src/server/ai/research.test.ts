@@ -371,6 +371,34 @@ describe("researchItem", () => {
     expect(partNumberCandidates(["just words here"])).toEqual([]);
   });
 
+  it("quick naming (DEC-053): the photo alone, one model call, a likely name and a category, nothing read or searched", async () => {
+    const f = fakes({
+      look: { markings: [], description: "a claw hammer", likelyPart: "Claw hammer", name: "Claw hammer", category: "Electronic components", queries: ["claw hammer"] },
+      extract: { identified: "should not be asked", suggestions: [{ field: "name", value: "wrong", source: "photo", confidence: "high" }], notes: [] },
+    });
+    const r = await researchItem({ ...input, name: "", categoryName: null }, f.deps, { quick: true });
+    expect(f.prompts).toHaveLength(1);
+    expect(f.prompts[0]!.content).toContain("`name`: a short, clear name");
+    expect(f.prompts[0]!.content).toContain("`category`: the one of these it belongs in: Modules & boards | Electronic components");
+    expect(f.searched).toEqual([]);
+    expect(f.fetched).toEqual([]);
+    expect(r.suggestions).toEqual([
+      { field: "name", label: "Name", value: "Claw hammer", source: "photo", confidence: "medium" },
+      { field: "category", label: "Category", value: "Electronic components", source: "photo", confidence: "high" },
+    ]);
+    expect(r.sources).toEqual([]);
+    // A part that has a category isn't asked for one, and a name that's already there isn't repeated.
+    const g = fakes({ look: { markings: [], description: "", likelyPart: "Claw hammer", name: "Claw Hammer", queries: [] }, extract: {} });
+    const r2 = await researchItem({ ...input, name: "claw hammer" }, g.deps, { quick: true });
+    expect(g.prompts[0]!.content).not.toContain("`category`");
+    expect(r2.suggestions).toEqual([]);
+    // No photo: nothing to go by.
+    const h = fakes({ look: {}, extract: {} });
+    const r3 = await researchItem({ ...input, photos: [] }, h.deps, { quick: true });
+    expect(h.prompts).toHaveLength(0);
+    expect(r3.notes).toEqual(["No photo to go by."]);
+  });
+
   it("reads product links off labels", () => {
     expect(labelLinks(["RasPi stacking headers", "http://adafru.it/1112", "adafru.it/1112"])).toEqual([{ supplier: "Adafruit", productNumber: "1112", url: "https://www.adafruit.com/product/1112" }]);
     expect(labelLinks(["https://www.sparkfun.com/products/13678"])).toEqual([{ supplier: "SparkFun", productNumber: "13678", url: "https://www.sparkfun.com/products/13678" }]);

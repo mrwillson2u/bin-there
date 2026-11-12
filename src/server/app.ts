@@ -260,6 +260,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
         readPhoto: (file) => (PHOTO_FILE.test(file) ? readFile(join(opts.photoDir, file)).then((b) => b.toString("base64")).catch(() => null) : Promise.resolve(null)),
         log: (line) => console.log(`[ai] item ${item.id}: ${line}`),
       },
+      { quick: now.mode === "quick" },
     );
     return c.json<ResearchResult>(result);
   });

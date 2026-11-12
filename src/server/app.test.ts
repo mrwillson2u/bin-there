@@ -708,5 +708,10 @@ describe("AI data fill (DEC-048)", () => {
     expect(calls).toContain("https://www.example-supplier.com/typed");
     expect(calls.some((c) => c.includes("/search?"))).toBe(false);
     expect(((await (await aiApi.request(`/items/${item.id}`)).json()) as { url: string | null }).url).toBeNull(); // still nothing saved
+    // Quick mode (DEC-053): the photo alone, so with no photo there's one note and nothing asked of the web.
+    calls.length = 0;
+    const quick = (await (await aiApi.request(`/items/${item.id}/research`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "quick" }) })).json()) as { suggestions: unknown[]; notes: string[] };
+    expect(quick.notes).toEqual(["No photo to go by."]);
+    expect(calls.some((c) => c.includes("/search?") || c.includes("/api/chat"))).toBe(false);
   });
 });

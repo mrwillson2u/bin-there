@@ -294,6 +294,8 @@ export type Suggestion = {
  * saving first (DEC-049). A field left out means "as saved"; an empty one means "none".
  */
 export const researchSchema = z.object({
+  /** "quick" (DEC-053): the photo alone, a likely name and category, no reading or searching. */
+  mode: z.enum(["full", "quick"]).optional(),
   name: z.string().trim().max(200).optional(),
   url: z.string().trim().max(2000).nullable().optional(),
   supplier: z.string().trim().max(200).nullable().optional(),

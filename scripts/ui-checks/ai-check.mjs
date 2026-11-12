@@ -33,7 +33,7 @@ const fake = createServer(async (req, res) => {
   if (url.pathname === "/api/chat") {
     const msg = JSON.parse(body).messages[0];
     if (!msg.content.startsWith("You fill in")) {
-      return json({ message: { content: JSON.stringify({ markings: ["LM2596S", "IN+ IN-"], description: "A small blue DC-DC module", likelyPart: "LM2596 buck converter module", queries: ["LM2596 buck module"] }) } });
+      return json({ message: { content: JSON.stringify({ markings: ["LM2596S", "IN+ IN-"], description: "A small blue DC-DC module", likelyPart: "LM2596 buck converter module", name: "LM2596 buck module", category: "Modules & boards", queries: ["LM2596 buck module"] }) } });
     }
     return json({ message: { content: JSON.stringify({ identified: "LM2596 adjustable step-down module (3 A)", suggestions: [
       { field: "name", value: "LM2596 buck converter module", source: "photo", confidence: "high" },
@@ -153,6 +153,30 @@ await page.getByText("It looks like:").waitFor({ timeout: 20000 });
 const panel3 = page.getByRole("region", { name: "AI suggestions" });
 check(searches === before2 && (await panel3.getByRole("button", { name: "Use Price: 2.49" }).count()) === 1, "a link typed into the form, not saved, is read without a search");
 check((await api("GET", `/items/${typed.id}`)).url === null, "and nothing was saved by looking");
+
+// Quick naming over the Needs details list (DEC-053): photo only, a guess under each row, Use saves name and category.
+const quick1 = await api("POST", "/items", { name: "", locationId: tote.id, qty: 1 });
+const quick2 = await api("POST", "/items", { name: "", locationId: tote.id, qty: 1 });
+for (const q of [quick1, quick2]) {
+  const form = new FormData();
+  form.append("photo", new Blob([readFileSync(`${shots}/part.jpg`)], { type: "image/jpeg" }), "photo.jpg");
+  form.append("thumb", new Blob([readFileSync(`${shots}/part.jpg`)], { type: "image/jpeg" }), "thumb.jpg");
+  const up = await fetch(`${base}/api/items/${q.id}/photos`, { method: "POST", body: form });
+  if (!up.ok) throw new Error("photo upload failed " + up.status);
+}
+await page.goto(`${base}/needs-details`);
+await page.getByRole("button", { name: "Suggest names with AI" }).click();
+await page.locator("[data-ai-guess]").nth(1).waitFor({ timeout: 30000 });
+check((await page.locator("[data-ai-guess]").count()) === 2, "a guess under each part with a photo: " + (await page.locator("[data-ai-guess]").count()));
+check((await page.getByText("AI thinks:").count()) === 2 && (await page.locator("[data-ai-guess]").first().textContent()).includes("LM2596 buck module") && (await page.locator("[data-ai-guess]").first().textContent()).includes("Modules & boards"), "the guess names the part and its category");
+await page.locator("[data-ai-guess]").first().getByRole("button", { name: /^Use the AI's guess/ }).click();
+await page.getByRole("listitem", { name: "LM2596 buck module, done" }).waitFor({ timeout: 10000 });
+const quickSaved = await api("GET", `/items/${quick1.id}`);
+check(quickSaved.name === "LM2596 buck module" && quickSaved.categoryId === modules.id && !quickSaved.needsDetails, "Use saved the name and category and the part is done");
+check((await page.locator("[data-ai-guess]").count()) === 1, "the used guess is gone, the other stays");
+await page.locator("[data-ai-guess]").first().getByRole("button", { name: /^Dismiss/ }).click();
+check((await page.locator("[data-ai-guess]").count()) === 0, "a dismissed guess goes too");
+await page.screenshot({ path: `${shots}/ai-5-quick-names.png`, fullPage: true });
 
 await browser.close();
 server.kill();
