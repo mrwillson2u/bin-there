@@ -134,7 +134,7 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
         <span className="shrink-0 text-[13px] text-muted">{usage.items === 1 ? "1 part" : `${usage.items} parts`}</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Choices label={`Usual type for ${c.name}`} options={itemKinds} labels={itemKindLabels} value={c.defaultKind} onPick={(v) => patch.mutate({ defaultKind: v })} />
         <Choices label={`Usual way of counting for ${c.name}`} options={trackingModes} labels={trackingLabels} value={c.defaultTracking} onPick={(v) => patch.mutate({ defaultTracking: v })} />
       </div>
