@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelLinks, partNumberCandidates, researchItem, type Deps, type ResearchInput } from "./research";
+import { labelLinks, partNumberCandidates, researchItem, withoutUnprintedNumbers, type Deps, type ResearchInput } from "./research";
 
 // The pipeline with a fake model, fake search and fake pages (DEC-048): what it asks, what it
 // keeps, what it throws away.
@@ -422,6 +422,23 @@ describe("researchItem", () => {
     g.deps.readPdf = async (url) => { read2.push(url); return "z".repeat(100); };
     await researchItem({ ...input, fields: [], url: "https://www.mouser.com/ProductDetail/926-LM2596SADJ" }, g.deps);
     expect(read2).toEqual([]);
+  });
+
+  it("keeps a photo-only name only as specific as the markings: an unprinted number comes out (DEC-053)", async () => {
+    expect(withoutUnprintedNumbers("Kycon KPPX-4P DC power plug", [])).toBe("Kycon DC power plug");
+    expect(withoutUnprintedNumbers("Kycon KPPX-4P DC power plug", ["KYCON KPPX-4P"])).toBe("Kycon KPPX-4P DC power plug");
+    expect(withoutUnprintedNumbers("LM2596 buck module", ["LM2596S-ADJ"])).toBe("LM2596 buck module");
+    expect(withoutUnprintedNumbers("2-pin JST cable, 5mm pitch, 2x20", [])).toBe("2-pin JST cable, 5mm pitch, 2x20");
+    expect(withoutUnprintedNumbers("RadioShack 276-0145 Phototransistor", [])).toBe("RadioShack Phototransistor");
+    expect(withoutUnprintedNumbers("Edge connector S-8898", [])).toBe("Edge connector");
+    // Through the quick pass and the full pass alike.
+    const f = fakes({ look: { markings: ["303"], description: "", likelyPart: "plug", name: "Kycon KPPX-4P plug", category: "Electronic components", queries: [] }, extract: {} });
+    const r = await researchItem({ ...input, name: "", categoryName: null }, f.deps, { quick: true });
+    expect(r.suggestions.find((s) => s.field === "name")!.value).toBe("Kycon plug");
+    expect(f.prompts[0]!.content).toContain("A plain right name beats a specific wrong one.");
+    const g = fakes({ look: { markings: [], description: "", likelyPart: "x", queries: ["q"] }, extract: { identified: "x", suggestions: [{ field: "name", value: "Molex 5011938000 socket", source: "photo", confidence: "high" }], notes: [] } }, []);
+    const r2 = await researchItem({ ...input, name: "" }, g.deps);
+    expect(r2.suggestions.find((s) => s.field === "name")!.value).toBe("Molex socket");
   });
 
   it("reads product links off labels", () => {

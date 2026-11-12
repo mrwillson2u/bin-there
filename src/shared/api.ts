@@ -296,6 +296,8 @@ export type Suggestion = {
 export const researchSchema = z.object({
   /** "quick" (DEC-053): the photo alone, a likely name and category, no reading or searching. */
   mode: z.enum(["full", "quick"]).optional(),
+  /** Another model on the same Ollama, for comparisons; the configured one otherwise. */
+  model: z.string().trim().max(80).optional(),
   name: z.string().trim().max(200).optional(),
   url: z.string().trim().max(2000).nullable().optional(),
   supplier: z.string().trim().max(200).nullable().optional(),

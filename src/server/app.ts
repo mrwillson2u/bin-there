@@ -250,7 +250,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
         categories: listCategories(db).map((cat) => cat.name),
       },
       {
-        chat: ollamaChat(ai.url, ai.model, f),
+        chat: ollamaChat(ai.url, now.model || ai.model, f),
         search: ai.searchUrl ? searxng(ai.searchUrl, f) : async () => [],
         fetchPage: pageFetcher(f),
         readPdf: pdfReader(f),

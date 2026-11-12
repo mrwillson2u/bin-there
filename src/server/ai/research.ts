@@ -93,7 +93,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
       "`markings`: every piece of text actually printed on the part, its label or its bag, exactly as written, one string each (model numbers, values, web addresses, brand names you can see). Only text you can see. If nothing is printed, leave it empty. Never list a brand, a type or a part number you merely recognise or expect: that is not a marking.",
       "`description`: one sentence saying what you see (what kind of part, how many pins or leads, colour, size clues).",
       "`likelyPart`: what it most likely is: a specific product if a marking names one, otherwise just the kind of part.",
-      "`name`: a short, clear name for it as its owner would write it on a label: the kind of thing and what matters (e.g. \"Claw hammer\", \"2.1 mm DC barrel jack\", \"M3 × 10 socket cap screws\", \"JST PH 3-pin cable\"). A maker's number only if it's printed. Never a sentence.",
+      "`name`: a short, clear name for it as its owner would write it on a label: the kind of thing and what matters (e.g. \"Claw hammer\", \"2.1 mm DC barrel jack\", \"M3 × 10 socket cap screws\", \"2-pin JST cable\", \"Bench power supply\"). Only as specific as what you can actually see: a brand, series, model or part number goes in only when it's printed and in `markings`; otherwise name just the kind of thing, with what's plainly visible (pins, colour, size). A plain right name beats a specific wrong one. Never a sentence.",
       ...(wantCategory ? [`\`category\`: the one of these it belongs in: ${input.categories.join(" | ")}`] : []),
       "`queries`: 2 or 3 web searches that would find its supplier or datasheet page, built from the markings and what you see: the most specific first. Don't put a part number in a query unless it's in the markings.",
     ].join("\n");
@@ -109,7 +109,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   // nothing read, nothing searched, one model call. For the things with nothing to look up.
   if (opts.quick) {
     const quick: Suggestion[] = [];
-    const name = clean("name", String(look.name ?? ""));
+    const name = withoutUnprintedNumbers(clean("name", String(look.name ?? "")), look.markings);
     if (images.length > 0 && name && name.trim().toLowerCase() !== input.name.trim().toLowerCase()) quick.push({ field: "name", label: "Name", value: name, source: "photo", confidence: "medium" });
     const category = String(look.category ?? "");
     if (images.length > 0 && wantCategory && input.categories.includes(category)) quick.push({ field: "category", label: "Category", value: category, source: "photo", confidence: "high" });
@@ -256,7 +256,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     "A page marked 'the owner's page for this exact part' is the shop page the owner saved or ordered from: what it says about the part is certain (high), and its price and specifications are this part's.",
     "A page marked 'the part's datasheet' is the maker's own document for it: its ratings and specifications fill the fields (high); it has no price.",
     "An Amazon page lists other products first (sponsored, 'consider these alternative items', 'customers also bought'); this part's own price is the one by its own title, and if that isn't shown, suggest no price.",
-    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the address (the URL line) of the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong; when a page names the part, the name comes from the page's description, not from what the photo looked like.",
+    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the address (the URL line) of the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong; when a page names the part, the name comes from the page's description, not from what the photo looked like. With no page, only as specific as the markings: no brand, series, model or number that isn't printed on the part. A plain right name beats a specific wrong one.",
     "`supplierPn` is the number to order it by: for Adafruit or SparkFun that is the product number in the adafru.it or sparkfun.com link, not a lot or date code.",
     ...(input.categoryName ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
     "Put anything the owner should know in `notes` (an unreadable value, two likely matches, a field that needs a meter reading), in plain words, one short sentence each, no greeting and no name.",
@@ -327,13 +327,16 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     // a part number must be in the markings, and anything else unprinted is at best likely.
     if (s.field === "price" && (fromPhoto || !priceOnPage(value, page!.text))) continue;
     if ((s.field === "url" || s.field === "supplierPn") && fromPhoto && !printed(value)) continue;
+    // A name from the photo alone carries no number that isn't printed there.
+    const value2 = s.field === "name" && fromPhoto ? withoutUnprintedNumbers(value, look.markings) : value;
+    if (!value2) continue;
     let confidence: Suggestion["confidence"] = s.confidence ?? "low";
     // Amazon's page shows neighbouring products' prices first, and the model can take one of those.
     if (s.field === "price" && page && /\bamazon\./i.test(page.url) && confidence === "high") confidence = "medium";
     if (fromPhoto && !printed(value) && confidence === "high") confidence = s.field === "category" ? "high" : "medium";
     const source = page ? page.url : "photo";
     seen.add(s.field);
-    suggestions.push({ field: s.field, label: labels.get(s.field)!, value, source, confidence });
+    suggestions.push({ field: s.field, label: labels.get(s.field)!, value: value2, source, confidence });
   }
   log(`extract (${elapsed()}): ${suggestions.length} suggestions`);
 
@@ -412,6 +415,23 @@ export function labelLinks(markings: string[]): { supplier: string; productNumbe
     if (spark) out.push({ supplier: "SparkFun", productNumber: spark[1]!, url: `https://www.sparkfun.com/products/${spark[1]}` });
   }
   return out.filter((l, i) => out.findIndex((o) => o.url === l.url) === i);
+}
+
+/**
+ * A name with any number-like token that isn't printed on the part taken out (DEC-053): the model
+ * is told not to invent a series or a number, and this is the guard behind that. "Kycon KPPX-4P
+ * plug" with nothing printed becomes "Kycon plug"; a printed number stays.
+ */
+export function withoutUnprintedNumbers(name: string, markings: string[]): string {
+  const printed = markings.map(squash).join(" ");
+  const kept = name.split(/\s+/).filter((token) => {
+    const bare = token.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "");
+    // "2-pin", "4-way", "12V", "5mm", "2x20": a count, size or rating, not a part number.
+    const descriptive = /^\d+(\.\d+)?-?(mm|cm|in|v|vdc|vac|a|ma|w|k|m|uf|nf|pf|ohm|ohms|hz|khz|mhz|pin|pins|p|pcs|x|awg|way|ways|wire|wires|core|lead|leads|pole|poles|position|positions|pos|ch|channel|channels|bit|row|rows|strand|conductor|conductors|speed|stage|layer|axis|slot|slots|pack|pc|piece|pieces|ft|m|cell|cells)$/i.test(bare) || /^\d+x\d+$/i.test(bare);
+    const numberLike = bare.length >= 3 && /\d/.test(bare) && (/[A-Za-z]/.test(bare) || /-/.test(bare) || /^\d{6,}$/.test(bare)) && !descriptive;
+    return !numberLike || printed.includes(squash(bare));
+  });
+  return kept.join(" ").replace(/\s+([,;:)])/g, "$1").replace(/[\s,;:(-]+$/g, "").trim();
 }
 
 /**
