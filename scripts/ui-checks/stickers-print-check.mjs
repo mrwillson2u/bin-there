@@ -42,7 +42,11 @@ await page.goto(`${base}/locations`);
 await page.getByRole("link", { name: "Print stickers" }).click();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByRole("button", { name: /Sticker vinyl, Cricut/ }).getAttribute("aria-pressed")) === "true", "the Cricut vinyl is the first choice");
-check((await page.getByText("60 per sheet (10 across by 6 down, turned sideways)").count()) === 1, "SL588 in the 6.77 × 9.27 in rectangle: 60 per sheet, turned sideways (upright would be 56)");
+check((await page.getByText("56 per sheet (4 across by 14 down)").count()) === 1, "SL588 upright in the 6.77 × 9.27 in rectangle: 56 per sheet, as always");
+// Turned a quarter turn when that fits more: ten across by six down. A choice, remembered.
+await page.getByRole("button", { name: /Turn them if more fit/ }).click();
+check((await page.getByText("60 per sheet (10 across by 6 down, turned sideways)").count()) === 1, "turned: 60 per sheet");
+check((await page.getByText("4 more a sheet").count()) === 1, "the choice says how many more");
 // A bigger rectangle fits more, upright; the setting is remembered on the device.
 await page.getByLabel("Cut area width (in)").fill("7.44");
 await page.getByLabel("Cut area height (in)").fill("9.94");
@@ -52,7 +56,7 @@ await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByText("75 per sheet").count()) === 1, "the cut area is remembered");
 await page.getByLabel("Cut area width (in)").fill("6.77");
 await page.getByLabel("Cut area height (in)").fill("9.27");
-check((await page.getByText("60 per sheet").count()) === 1, "back to 60");
+check((await page.getByText("60 per sheet").count()) === 1, "back to 60, still turned after the reload");
 const preview = page.locator("img[data-preview]");
 check((await preview.getAttribute("src")).startsWith("data:image/svg+xml"), "a preview of the sheet is drawn");
 await page.screenshot({ path: `${shots}/st1-cricut.png`, fullPage: true });

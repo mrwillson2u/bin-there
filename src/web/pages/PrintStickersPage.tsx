@@ -71,6 +71,8 @@ export function PrintStickersPage() {
   // measured 6.77 × 9.27 in inside the marks on a Maker with Letter paper.
   const [cutW, setCutW] = useStored<string>("stickers.cutWidth", "6.77");
   const [cutH, setCutH] = useStored<string>("stickers.cutHeight", "9.27");
+  // Upright as Colin has always cut them, or turned a quarter turn when that fits more (the same sticker once peeled).
+  const [turn, setTurn] = useStored<"upright" | "more">("stickers.turn", "upright");
   const [sheets, setSheets] = useState("1");
   const [skip, setSkip] = useState("0");
   const [outlines, setOutlines] = useState(false);
@@ -80,8 +82,9 @@ export function PrintStickersPage() {
 
   const base = getTemplate(templateName);
   const cutArea: [number, number] = [Math.max(2, Number(cutW) || 6.77) * PT_PER_INCH, Math.max(2, Number(cutH) || 9.27) * PT_PER_INCH];
-  const template = output === "cricut" ? printThenCut(base, { area: cutArea }) : base;
+  const template = output === "cricut" ? printThenCut(base, { area: cutArea, sideways: turn === "more" ? "auto" : false }) : base;
   const sideways = output === "cricut" && isSideways(template, base);
+  const moreIfTurned = output === "cricut" ? slotsOf(printThenCut(base, { area: cutArea, sideways: "auto" })).length - slotsOf(printThenCut(base, { area: cutArea, sideways: false })).length : 0;
   const perSheet = slotsOf(template).length;
   const sheetCount = Math.min(20, Math.max(1, Number(sheets) || 1));
   const skipCount = output === "sheet" ? Math.min(perSheet - 1, Math.max(0, Number(skip) || 0)) : 0;
@@ -93,13 +96,13 @@ export function PrintStickersPage() {
   const preview = useMemo(
     () => pageSvg(layoutSheet(template, sample.slice(0, perSheet - skipCount), style, { skip: skipCount, background: output === "cricut", outlines: output === "sheet" && outlines })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, sample, skipCount, title, subtitle, titleColor, subtitleColor, output, outlines, cutW, cutH],
+    [template, sample, skipCount, title, subtitle, titleColor, subtitleColor, output, outlines, cutW, cutH, turn],
   );
   const previewUrl = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(preview)}`, [preview]);
 
   useEffect(() => {
     setDone(null);
-  }, [templateName, output, sheets, skip, title, subtitle, titleColor, subtitleColor, outlines, cutW, cutH]);
+  }, [templateName, output, sheets, skip, title, subtitle, titleColor, subtitleColor, outlines, cutW, cutH, turn]);
 
   const make = async () => {
     setBusy(true);
@@ -182,9 +185,17 @@ export function PrintStickersPage() {
                   <a href="https://help.cricut.com/hc/en-us/articles/360009429814-How-large-can-I-Print-Then-Cut" target="_blank" rel="noreferrer" className="text-accent">
                     How large can I Print Then Cut
                   </a>{" "}
-                  gives 7.44 × 9.94 in, but that's the notched outline, and Design Space measures an uploaded image's whole rectangle.) The stickers are turned
-                  sideways when that fits more of them; peeled off, it makes no difference.
+                  gives 7.44 × 9.94 in, but that's the notched outline, and Design Space measures an uploaded image's whole rectangle.)
                 </p>
+                <div className="flex gap-2" role="group" aria-label="Sticker direction">
+                  <Choice on={turn === "upright"} onClick={() => setTurn("upright")} label="Upright" hint="As always" />
+                  <Choice
+                    on={turn === "more"}
+                    onClick={() => setTurn("more")}
+                    label="Turn them if more fit"
+                    hint={moreIfTurned > 0 ? `${moreIfTurned} more a sheet, turned a quarter turn; the same sticker once peeled` : "No more would fit turned"}
+                  />
+                </div>
               </>
             )}
           </Card>
