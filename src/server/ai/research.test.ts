@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelLinks, researchItem, type Deps, type ResearchInput } from "./research";
+import { labelLinks, partNumberCandidates, researchItem, type Deps, type ResearchInput } from "./research";
 
 // The pipeline with a fake model, fake search and fake pages (DEC-048): what it asks, what it
 // keeps, what it throws away.
@@ -320,6 +320,53 @@ describe("researchItem", () => {
     expect(r.notes).toEqual(["The model's answer was cut short; these are the suggestions it finished. Look again for the rest."]);
     // The model is asked to name its sources by page number, and can't write anything longer.
     expect(f.prompts[1]!.content).toContain("--- Page 1: Mouser: DC Power Connectors (the owner's page for this exact part)");
+  });
+
+  it("looks a number read off the part up at Mouser and Digi-Key before any web search, exact match only, as 'likely' (DEC-053)", async () => {
+    const f = fakes({
+      look: { markings: ["KYCON", "KPPX-4P", "2021-6-18", "303"], description: "a silver plug", likelyPart: "DC power plug", queries: ["KPPX-4P"] },
+      extract: { identified: "Kycon KPPX-4P plug", suggestions: [{ field: "price", value: "3.66", source: "page 1", confidence: "high" }, { field: "name", value: "Kycon KPPX-4P DC power plug", source: "page 1", confidence: "high" }], notes: [] },
+    });
+    const asked: string[] = [];
+    f.deps.shops = {
+      Mouser: async (link) => {
+        asked.push(`Mouser:${link.makerPn}`);
+        return link.makerPn === "KPPX-4P" ? { title: "Mouser: DC Power Connectors", url: "https://www.mouser.com/ProductDetail/Kycon/KPPX-4P?qs=x", text: "Mouser part number: 806-KPPX-4P\nPrice (USD): $3.66 each\n" + "x".repeat(100), productNumber: "806-KPPX-4P" } : null;
+      },
+      "Digi-Key": async (link) => {
+        asked.push(`Digi-Key:${link.makerPn}`);
+        return null;
+      },
+    };
+    const r = await researchItem({ ...input, name: "Plug?" }, f.deps);
+    // Only the number-like markings are tried, longest first, Mouser then Digi-Key, stopping at the find.
+    expect(asked).toEqual(["Mouser:KPPX-4P"]);
+    expect(f.searched).toEqual([]);
+    expect(r.sources).toEqual([{ title: "Mouser: DC Power Connectors", url: "https://www.mouser.com/ProductDetail/Kycon/KPPX-4P?qs=x" }]);
+    expect(r.suggestions.map((s) => [s.field, s.value, s.confidence])).toEqual([
+      ["supplier", "Mouser", "medium"],
+      ["supplierPn", "806-KPPX-4P", "medium"],
+      ["url", "https://www.mouser.com/ProductDetail/Kycon/KPPX-4P?qs=x", "medium"],
+      ["price", "3.66", "high"],
+      ["name", "Kycon KPPX-4P DC power plug", "high"],
+    ]);
+    expect(r.notes).toContain("Found at Mouser by the number read off the part, KPPX-4P. Check it's the right one.");
+    // Nothing found at either shop: the web search runs as before.
+    const g = fakes({ look: { markings: ["LM2596S"], description: "", likelyPart: "x", queries: ["LM2596 module"] }, extract: { identified: "x", suggestions: [], notes: [] } });
+    g.deps.shops = { Mouser: async () => null, "Digi-Key": async () => null };
+    await researchItem(input, g.deps);
+    expect(g.searched.length).toBeGreaterThan(0);
+  });
+
+  it("picks what could be a part number out of the markings", () => {
+    expect(partNumberCandidates(["NooPixel Diffused", "5mm LED x5", "http://adafru.it/1938", "P1938", "C2483-003", "2021-6-18", "1528-1938-ND", "KYCON KPPX-4P", "303"])).toEqual([
+      "1528-1938-ND",
+      "C2483-003",
+      "KPPX-4P",
+      "P1938",
+    ]);
+    expect(partNumberCandidates(["LM2596S-ADJ/NOPB", "IN+ IN- OUT+ OUT-"])).toEqual(["LM2596S-ADJ/NOPB"]);
+    expect(partNumberCandidates(["just words here"])).toEqual([]);
   });
 
   it("reads product links off labels", () => {

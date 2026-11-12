@@ -73,9 +73,13 @@ describe("mouserReader", () => {
     expect(page!.text).toContain("Mouser part number: 485-1938");
     expect(page!.text).toContain("Price (USD): $4.95 each\n");
     expect(page!.text).toContain("Illumination Color: RGB");
-    await read({ shop: "Mouser", productNumber: null, makerPn: "1938", url: "https://www.mouser.com/ProductDetail/Adafruit/1938" });
+    const byMaker = await read({ shop: "Mouser", productNumber: null, makerPn: "1938", url: "https://www.mouser.com/ProductDetail/Adafruit/1938" });
     expect(asked[1]!.url).toBe("https://api.mouser.com/api/v1/search/keyword?apiKey=KEY");
-    expect(asked[1]!.body).toEqual({ SearchByKeywordRequest: { keyword: "1938", records: 3, startingRecord: 0 } });
+    expect(asked[1]!.body).toEqual({ SearchByKeywordRequest: { keyword: "1938", records: 10, startingRecord: 0 } });
+    expect(byMaker!.productNumber).toBe("485-1938");
+    // Mouser's own number works as a keyword too; a near miss (a keyword that matches no number exactly) is no page.
+    expect((await read({ shop: "Mouser", productNumber: null, makerPn: "485-1938", url: "" }))!.productNumber).toBe("485-1938");
+    expect(await read({ shop: "Mouser", productNumber: null, makerPn: "193", url: "" })).toBeNull();
   });
   it("says why when Mouser refuses, and gives null when nothing matches", async () => {
     const refused = mouserReader("BAD", (async () => new Response(JSON.stringify({ Errors: [{ Message: "Invalid unique identifier." }], SearchResults: null }))) as typeof fetch);

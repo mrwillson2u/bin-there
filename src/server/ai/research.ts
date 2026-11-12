@@ -98,7 +98,7 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
   // is the number in that address, whatever else the label says). A link to one of the known
   // shops also settles the supplier and its product number.
   const labelled = labelLinks(look.markings);
-  const direct: { title: string; url: string; link: ShopLink | null; why: string }[] = [];
+  const direct: { title: string; url: string; link: ShopLink | null; why: string; sure?: boolean }[] = [];
   const addDirect = (url: string | null, why: string, known?: ShopLink | null) => {
     const u = (url ?? "").trim();
     if (!/^https?:\/\/\S+$/.test(u) || direct.some((d) => d.url === u)) return;
@@ -127,6 +127,35 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
     }
   }
   log(`read (${elapsed()}): ${direct.length} direct links, ${pages.length} read`);
+
+  // SHOPS (DEC-053): nothing read yet, but something that looks like a part number was printed on
+  // the part. Mouser's and Digi-Key's own search, through their APIs, is far surer than a web
+  // search: only an exact match on the maker's (or the shop's) number counts, and the first found
+  // is the page. Longest number first, since a short one matches more loosely.
+  if (pages.length === 0 && deps.shops) {
+    const numbers = partNumberCandidates(look.markings);
+    const readers = (["Mouser", "Digi-Key"] as Shop[]).filter((s) => deps.shops![s]);
+    let tried = 0;
+    outer: for (const number of numbers) {
+      for (const shop of readers) {
+        tried++;
+        try {
+          const page = await deps.shops[shop]!({ shop, productNumber: null, makerPn: number, url: "" });
+          if (page && page.text.length > 40) {
+            const url = page.url;
+            direct.push({ title: page.title, url, link: { shop, productNumber: page.productNumber ?? null, makerPn: number, url }, why: "the number read off the part", sure: false });
+            pages.push({ title: page.title, url, text: page.text, own: false, productNumber: page.productNumber ?? null, productUrl: url });
+            notes.push(`Found at ${shop} by the number read off the part, ${number}. Check it's the right one.`);
+            log(`shops (${elapsed()}): ${number} found at ${shop} after ${tried} lookups`);
+            break outer;
+          }
+        } catch (e) {
+          log(`shops: ${shop} failed for ${number}: ${(e as Error).message}`);
+        }
+      }
+    }
+    if (pages.length === 0 && numbers.length > 0) log(`shops (${elapsed()}): nothing for ${numbers.join(", ")} after ${tried} lookups`);
+  }
 
   // SEARCH, only when nothing direct could be read: a few queries (stopping once there's enough
   // to read, so the engines aren't hammered), then up to 4 pages, suppliers and makers first.
@@ -244,7 +273,7 @@ export async function researchItem(input: ResearchInput, deps: Deps): Promise<Re
       if (!labels.has(s.field)) continue;
       seen.add(s.field);
       if (sameAsNow(s.field, s.value)) continue;
-      suggestions.push({ field: s.field, label: labels.get(s.field)!, value: s.value, source: settled.why === "printed on the part" ? "photo" : settled.url, confidence: "high" });
+      suggestions.push({ field: s.field, label: labels.get(s.field)!, value: s.value, source: settled.why === "printed on the part" ? "photo" : settled.url, confidence: settled.sure === false ? "medium" : "high" });
     }
   }
   for (const s of extracted.suggestions ?? []) {
@@ -346,6 +375,28 @@ export function labelLinks(markings: string[]): { supplier: string; productNumbe
     if (spark) out.push({ supplier: "SparkFun", productNumber: spark[1]!, url: `https://www.sparkfun.com/products/${spark[1]}` });
   }
   return out.filter((l, i) => out.findIndex((o) => o.url === l.url) === i);
+}
+
+/**
+ * What on the part could be a maker's or a shop's part number: a token with letters and digits
+ * (or a dashed all-digit number such as a Digi-Key one), four characters or more, that isn't a
+ * date, a web address or plain words. Longest first; at most four.
+ */
+export function partNumberCandidates(markings: string[]): string[] {
+  const out = new Set<string>();
+  for (const m of markings) {
+    for (const raw of m.split(/[\s,;:|()]+/)) {
+      const token = raw.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "");
+      if (token.length < 4 || token.length > 32) continue;
+      if (/[./]/.test(token) && /\.[a-z]{2,}(\/|$)/i.test(token)) continue; // a web address
+      if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(token) || /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(token)) continue; // a date
+      const letters = /[A-Za-z]/.test(token);
+      const digits = /\d/.test(token);
+      if (letters && digits) out.add(token);
+      else if (digits && /-/.test(token) && token.length >= 6) out.add(token); // 1528-1938-ND style, or 806-KPPX-4P without letters? no: with dashes and digits only
+    }
+  }
+  return [...out].sort((a, b) => b.length - a.length).slice(0, 4);
 }
 
 function describeKnown(input: ResearchInput): string {

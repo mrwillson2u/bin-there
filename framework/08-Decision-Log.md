@@ -1445,6 +1445,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** `src/shared/labels.ts` is the port: templates, the Cricut re-grid, codes, and one layout that turns a page into plain rectangles and text in page coordinates, which the SVG (preview, PNG) and the PDF both draw without any transforms of their own; its tests pin the template numbers and that every label's drawing stays inside its label, turned or not. Two new dependencies, `qrcode` and `pdf-lib`. The browser check makes both files and scans the PNG's codes back with the app's own decoder. **Design Space accepted the 5.875 × 9.075 in image with no warning (Colin, 2026-11-11)**, after three refusals on the way (above). Not yet: reprinting a particular sticker (the script's `--ids-file`); and the cut itself on the Maker 3 is Colin's to report.
 
+### DEC-053: AI data fill, round two: part numbers read off the part go to the shops, quick naming for plain things, the datasheet read
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-11 |
+| **Status** | Accepted (Colin, Q91); in progress |
+| **Deciders** | Colin |
+| **Category** | Product / Architecture |
+
+**Context:** With everything shipped, Colin held the AI back from the live app: a pasted link works well, but the feature "could use a little more" to be worth hosting the model. He asked for ideas; the weak leg all along has been the web search (SearXNG's engines refusing, and the model guessing which hit is the part), and the photo step reads printed numbers well but had nowhere sure to send them. Five ideas were laid out; Colin chose three to build now, then a bigger model to try, then capture-time reading later.
+
+**Decision:** Three steps, in order. **(1) A number read off the part is looked up at the shops.** After the photo step, and only when no page was read from a link or the record, anything on the part that looks like a part number (letters and digits together, or a dashed all-digit number; not a date or a web address; longest first, at most four) is tried at Mouser's and then Digi-Key's own search through their APIs. Only an exact match on the maker's number or the shop's own counts (Mouser's reader no longer settles for its first result either), the first find is the page, and it settles supplier, number and link as "likely" rather than "sure", with a note saying which number it was found by. Only if that finds nothing does the web search run. **(2) Quick naming for plain things**: a photo-only pass, no reading and no search, offering a name and category as "likely" for the things with nothing to look up (a hammer, zip ties), run over the whole Needs details list with a suggestion per row to accept with a tap. **(3) The datasheet**: when a shop page names one, its first pages are read too, for the category's fields (voltage, package) the shop page often lacks. Then, as experiments: the 12B model for the photo step (the 4B one called a power plug a relay), and later reading the label at capture time.
+
+**Consequences:** The two shop APIs become the search engine for most of what Colin owns, and the flaky web search is the fallback only. Step 1 is tested with fakes (which numbers are tried, in what order, that nothing is searched when one is found, that a near miss is no page).
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1501,6 +1516,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-050 | Two folders on the server, production and development; no folder per branch | Process | Accepted | 2026-11-07 |
 | DEC-051 | The details form in two columns when it has the room; the desktop audit (Quick capture and the bin's page still to do) | UX | Accepted | 2026-11-10 |
 | DEC-052 | Print stickers from the app: die-cut sheets as PDF, Cricut Print Then Cut as PNG; codes still not recorded until scanned | Product / UX | Accepted | 2026-11-11 |
+| DEC-053 | AI data fill, round two: part numbers read off the part go to the shops, quick naming for plain things, the datasheet read | Product / Architecture | In progress | 2026-11-11 |
 
 ---
 

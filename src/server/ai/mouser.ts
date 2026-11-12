@@ -26,7 +26,7 @@ export function mouserReader(apiKey: string, fetchImpl: typeof fetch = fetch): S
     const endpoint = byNumber ? "partnumber" : "keyword";
     const body = byNumber
       ? { SearchByPartRequest: { mouserPartNumber: lookFor, partSearchOptions: "" } }
-      : { SearchByKeywordRequest: { keyword: lookFor, records: 3, startingRecord: 0 } };
+      : { SearchByKeywordRequest: { keyword: lookFor, records: 10, startingRecord: 0 } };
     try {
       const res = await fetchImpl(`https://api.mouser.com/api/v1/search/${endpoint}?apiKey=${encodeURIComponent(apiKey)}`, {
         method: "POST",
@@ -38,8 +38,12 @@ export function mouserReader(apiKey: string, fetchImpl: typeof fetch = fetch): S
       const data = (await res.json()) as MouserAnswer;
       if (data.Errors?.length) throw new Error(`Mouser said: ${data.Errors.map((e) => e.Message).join(", ")}`);
       const parts = data.SearchResults?.Parts ?? [];
-      // A keyword search can match several; the one whose maker number is exactly what was asked for wins.
-      const part = parts.find((p) => (p.ManufacturerPartNumber ?? "").toLowerCase() === lookFor.toLowerCase()) ?? parts[0];
+      // A keyword search can match several; only one whose maker number (or Mouser number) is exactly
+      // what was asked for counts. A near miss is someone else's part, which is worse than none.
+      const want = lookFor.toLowerCase();
+      const part = byNumber
+        ? parts[0]
+        : parts.find((p) => (p.ManufacturerPartNumber ?? "").toLowerCase() === want || (p.MouserPartNumber ?? "").toLowerCase() === want);
       if (!part) return null;
       return mouserPage(part, link.url);
     } catch (e) {
