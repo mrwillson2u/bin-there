@@ -68,7 +68,7 @@ const pngPath = `${shots}/${png.suggestedFilename()}`;
 await png.saveAs(pngPath);
 const pngBytes = readFileSync(pngPath);
 const dims = { w: pngBytes.readUInt32BE(16), h: pngBytes.readUInt32BE(20), colour: pngBytes[25] };
-check(dims.w === 4464 && dims.h === 5562 && dims.colour === 6, `the PNG is 4464 × 5562 px (the 7.44 × 9.27 in band at 600 dpi) with an alpha channel: ${JSON.stringify(dims)}`);
+check(dims.w === 4351 && dims.h === 5450 && dims.colour === 6, `the PNG is 4351 × 5450 px (the stickers' own 7.252 × 9.084 in at 600 dpi, no clear edge) with an alpha channel: ${JSON.stringify(dims)}`);
 const found = await readBarcodes(new Blob([pngBytes]), { formats: ["QRCode"], maxNumberOfSymbols: 255 });
 const codes = found.map((r) => r.text);
 check(codes.length === 70 && codes.every((c) => CODE.test(c)) && new Set(codes).size === codes.length, `the PNG's codes scan: ${codes.length} found, all 12-character codes, all different`);
@@ -77,12 +77,15 @@ const { PNG } = await import("pngjs").catch(() => ({ PNG: null }));
 if (PNG) {
   const img = PNG.sync.read(pngBytes);
   const alpha = (x, y) => img.data[(y * img.width + x) * 4 + 3];
-  check(alpha(2, 2) === 0 && alpha(img.width - 3, img.height - 3) === 0 && alpha(Math.round(img.width / 2), 2) === 0, "the edges are clear");
+  // No clear border: a label starts at the very corner; the gap between columns is clear.
+  // Five columns of 825 px (1.375 in at 600 dpi): the first gap starts at 825.
+  const gapX = 825 + Math.round((img.width - 5 * 825) / 8);
+  check(alpha(60, 60) !== 0 && alpha(gapX, 60) === 0, `a label sits at the corner (inside its rounded corner) and the gap beside it is clear: ${alpha(60, 60)}, ${alpha(gapX, 60)}`);
 }
 const scan = await api("GET", `/scan/${codes[0]}`);
 check(scan.kind === "unassigned", "a printed code isn't on anything yet: " + scan.kind);
 await page.locator("[data-done]").waitFor();
-check((await page.getByText("W 7.44 in × H 9.27 in").count()) === 1, "the size to type into Design Space is the band");
+check((await page.getByText("W 7.252 in").count()) === 1 && (await page.getByText("H 9.084 in").count()) === 1, "the size to type into Design Space is the stickers' own, to the thousandth");
 await page.screenshot({ path: `${shots}/st2-cricut-done.png`, fullPage: true });
 
 // The die-cut sheet PDF: two sheets, ten skipped, Letter pages.

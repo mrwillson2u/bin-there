@@ -48,19 +48,22 @@ describe("templates", () => {
     expect(isSideways(c, base)).toBe(false);
     expect([c.columns, c.rows]).toEqual([5, 14]);
     expect(slotsOf(c)).toHaveLength(70);
-    expect(c.pageSize).toEqual([7.44 * 72, 9.27 * 72]);
     expect(c.description).not.toContain("turned sideways");
-    // The gap is spread evenly up to 0.125 in (five columns only fit with 0.094 in between), and the grid is centred.
+    // The gap is spread evenly up to 0.125 in (five columns only fit with 0.094 in between).
     expect(c.gap[0]).toBeCloseTo((7.44 * 72 - 5 * 99) / 6);
     expect(c.gap[1]).toBeCloseTo((9.27 * 72 - 14 * 40.5) / 15);
-    expect(c.origin[0]).toBeCloseTo(c.gap[0]);
-    expect(c.origin[1]).toBeCloseTo(c.gap[1]);
+    // The image is just the labels (Design Space trims a clear border before measuring): 7.252 × 9.084 in, inside the band.
+    expect(c.origin).toEqual([0, 0]);
+    expect(c.pageSize[0] / 72).toBeCloseTo(7.252, 3);
+    expect(c.pageSize[1] / 72).toBeCloseTo(9.084, 3);
+    expect(c.pageSize[0]).toBeLessThan(7.44 * 72);
+    expect(c.pageSize[1]).toBeLessThan(9.27 * 72);
     const [w, h] = c.labelSize;
     for (const s of slotsOf(c)) {
-      expect(s.x).toBeGreaterThanOrEqual(0);
-      expect(s.y).toBeGreaterThanOrEqual(0);
-      expect(s.x + w).toBeLessThanOrEqual(7.44 * 72 + 0.01);
-      expect(s.y + h).toBeLessThanOrEqual(9.27 * 72 + 0.01);
+      expect(s.x).toBeGreaterThanOrEqual(-0.01);
+      expect(s.y).toBeGreaterThanOrEqual(-0.01);
+      expect(s.x + w).toBeLessThanOrEqual(c.pageSize[0] + 0.01);
+      expect(s.y + h).toBeLessThanOrEqual(c.pageSize[1] + 0.01);
     }
     expect(c.name).toBe("SL588-cricut");
     // The narrower 6.77 in middle: upright four of fourteen (56), turned ten of six (60), so turned when allowed.
@@ -169,11 +172,10 @@ describe("layout", () => {
   it("writes the page as SVG sized in inches, with white label backgrounds for the Cricut", () => {
     const c = printThenCut(getTemplate("SL588"), { area: [6.75 * 72, 9.25 * 72], sideways: false });
     const svg = pageSvg(layoutSheet(c, ["EddY9xhVRwAg"], DEFAULT_STYLE, { background: true }));
-    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" version="1.1" width="6.75in" height="9.25in" viewBox="0 0 486 666">/);
-    // Four columns a full 0.125 in apart, centred: (486 − 4·99 − 3·9) / 2 = 31.5 from the left; fourteen rows: (666 − 14·40.5) / 15 = 6.6 from the top.
-    expect(c.origin[0]).toBeCloseTo(31.5);
-    expect(c.origin[1]).toBeCloseTo(6.6);
-    expect(svg).toContain('<rect x="31.5" y="6.6" width="99" height="40.5" rx="4.5" ry="4.5" fill="#ffffff"/>');
+    // Four columns a full 0.125 in apart (4·99 + 3·9 = 423 pt), fourteen rows 6.6 pt apart (14·40.5 + 13·6.6 = 652.8 pt): the image is just that.
+    expect(c.gap).toEqual([9, 6.6]);
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" version="1.1" width="5.875in" height="9.067in" viewBox="0 0 423 652.8">/);
+    expect(svg).toContain('<rect x="0" y="0" width="99" height="40.5" rx="4.5" ry="4.5" fill="#ffffff"/>');
     expect(svg).toContain('font-weight="bold"');
     expect(svg).toContain(">EddY9xhVRwAg</text>");
     expect(pageSvg(layoutSheet(getTemplate("SL588"), ["a&b"], { ...DEFAULT_STYLE, title: "<Tools>" }))).toContain("&lt;Tools&gt;");

@@ -187,12 +187,16 @@ export function printThenCut(base: LabelTemplate, opts: CutOptions = {}): LabelT
     const bottom = sy + h > area[1] - notch[1];
     return (left || right) && (top || bottom);
   };
+  // The image is just the labels, no clear border: Design Space trims a transparent border off an
+  // upload before it measures it, so an image with one comes out a different shape from the size
+  // on the screen. The labels keep their spacing; where the image sits in the cut area is Design
+  // Space's business.
   const slots: Slot[] = [];
   for (let c = 0; c < x.n; c++) {
     for (let r = 0; r < y.n; r++) {
       const sx = x.start + c * (w + x.gap);
       const sy = y.start + r * (h + y.gap);
-      if (!touchesNotch(sx, sy)) slots.push({ x: sx, y: sy, rotation: 0 });
+      if (!touchesNotch(sx, sy)) slots.push({ x: sx - x.start, y: sy - y.start, rotation: 0 });
     }
   }
   return {
@@ -201,9 +205,9 @@ export function printThenCut(base: LabelTemplate, opts: CutOptions = {}): LabelT
     description: `${base.description}, Cricut Print Then Cut${pick === turned ? ", turned sideways" : ""}`,
     columns: x.n,
     rows: y.n,
-    origin: [x.start, y.start],
+    origin: [0, 0],
     gap: [x.gap, y.gap],
-    pageSize: [area[0], area[1]],
+    pageSize: [x.n * w + (x.n - 1) * x.gap, y.n * h + (y.n - 1) * y.gap],
     fixedSlots: slots,
   };
 }

@@ -40,6 +40,8 @@ function useStored<T extends string>(key: string, initial: T): [T, (v: T) => voi
 }
 
 const inches = (pt: number) => (Math.round((pt / PT_PER_INCH) * 100) / 100).toString();
+/** To the thousandth, as Design Space's size boxes take it. */
+const inches3 = (pt: number) => (pt / PT_PER_INCH).toFixed(3);
 
 function download(name: string, data: Blob | Uint8Array, type: string) {
   const blob = data instanceof Blob ? data : new Blob([data as BlobPart], { type });
@@ -262,11 +264,10 @@ export function PrintStickersPage() {
                     transparent). Choose Print Then Cut image.
                   </li>
                   <li>
-                    With the image selected, set its size to{" "}
-                    <strong className="font-mono text-text">
-                      W {inches(done.template.pageSize[0])} in × H {inches(done.template.pageSize[1])} in
-                    </strong>
-                    . Design Space doesn't always size uploads right.
+                    With the image selected and the ratio locked, set its width to{" "}
+                    <strong className="font-mono text-text">W {inches3(done.template.pageSize[0])} in</strong>; the height comes out{" "}
+                    <strong className="font-mono text-text">H {inches3(done.template.pageSize[1])} in</strong>. That's the stickers' own size, with no
+                    clear edge, because Design Space trims any clear edge before it measures an upload.
                   </li>
                   <li>Make It, print at 100% with no scaling, load the sheet on the mat top-left, and cut.</li>
                 </ol>
@@ -285,7 +286,7 @@ export function PrintStickersPage() {
           </div>
           <p className="text-[13px] text-muted">
             {output === "cricut"
-              ? `${inches(template.pageSize[0])} × ${inches(template.pageSize[1])} in, the whole cut rectangle, white labels on a transparent background${sideways ? ", turned sideways to fit more" : ""}.`
+              ? `${inches3(template.pageSize[0])} × ${inches3(template.pageSize[1])} in of stickers (no clear edge), fitting the ${inches(cutArea[0])} × ${inches(cutArea[1])} in cut area, white labels on a transparent background${sideways ? ", turned sideways to fit more" : ""}.`
               : `${inches(template.pageSize[0])} × ${inches(template.pageSize[1])} in paper.`}{" "}
             Scanning a printed sticker opens the <Link to="/scan/x" className="text-accent" onClick={(e) => e.preventDefault()}>new sticker</Link> choice: a part or a bin.
           </p>
