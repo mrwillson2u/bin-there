@@ -21,9 +21,10 @@ services:
     environment:
       TZ: ${TZ:-UTC}
       AI_URL: http://ollama:11434
-      # gemma3:12b since 2026-11-12 (DEC-053): better than 4b on the photo step, about twice the time;
-      # needs ~8 GB of the card, so nothing else big (neutts) can share it.
-      AI_MODEL: ${AI_MODEL:-gemma3:12b}
+      # gemma3:4b: it reads printed part numbers as well as the 12b does, and the shops supply the
+      # details; the 12b (pulled, 8 GB of the card) is a judgement-call improvement that would mean
+      # the card to itself (DEC-053). AI_MODEL=gemma3:12b in .env switches.
+      AI_MODEL: ${AI_MODEL:-gemma3:4b}
       SEARCH_URL: ${SEARCH_URL:-http://host.docker.internal:8989}
       MOUSER_API_KEY: ${MOUSER_API_KEY:-}
       DIGIKEY_CLIENT_ID: ${DIGIKEY_CLIENT_ID:-}
