@@ -1,3 +1,14 @@
+# The live app (DEC-050: ~/bin-there-prod on ubuntubot, only ever `main`). Since DEC-054 it also
+# runs the AI data fill: one Ollama container on the GPU, shared with the dev instance (which
+# reaches it through the host port), the models in a named volume, the web search going to the
+# SearXNG already on the host, and the shop API keys read from the `.env` beside this file:
+#   BACKUP_PATH=…               a folder on the second drive
+#   TZ=…
+#   MOUSER_API_KEY=…            from mouser.com/api-hub (Search API)
+#   DIGIKEY_CLIENT_ID=…         from developer.digikey.com (a production app with Product Information V4)
+#   DIGIKEY_CLIENT_SECRET=…
+#   docker compose up -d --build
+#   docker exec bin-there-ollama ollama pull gemma4:e4b    # once, or whatever AI_MODEL is
 services:
   bin-there:
     build: .
@@ -12,7 +23,53 @@ services:
       BACKUP_HOUR: "3"
       BACKUP_KEEP: "14"
       TZ: ${TZ:-UTC}
+      # The AI data fill (DEC-048, DEC-049, DEC-053, DEC-054). Leave AI_URL unset to run without it.
+      AI_URL: ${AI_URL:-http://ollama:11434}
+      # gemma4:e4b: the best reader of printed numbers and the least inventive of five tried (DEC-053).
+      AI_MODEL: ${AI_MODEL:-gemma4:e4b}
+      SEARCH_URL: ${SEARCH_URL:-http://host.docker.internal:8989}
+      MOUSER_API_KEY: ${MOUSER_API_KEY:-}
+      DIGIKEY_CLIENT_ID: ${DIGIKEY_CLIENT_ID:-}
+      DIGIKEY_CLIENT_SECRET: ${DIGIKEY_CLIENT_SECRET:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/data
       # Point BACKUP_PATH at a folder on the second drive, e.g. in a .env file next to this one.
       - ${BACKUP_PATH:-/mnt/backup/bin-there}:/backup
+    depends_on:
+      - ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bin-there-ollama
+    restart: unless-stopped
+    # At boot Docker starts this before the card's driver is up, and Ollama then runs on the CPU
+    # all day (ten times slower; `ollama ps` says "100% CPU"). So: wait for the card, up to two
+    # minutes, before serving (DEC-049 found the first case, DEC-053 the boot one).
+    entrypoint: ["sh", "-c", "n=0; until nvidia-smi >/dev/null 2>&1 || [ $$n -ge 60 ]; do n=$$((n+1)); sleep 2; done; exec ollama serve"]
+    ports:
+      # The dev instance uses this same Ollama through the host (compose.dev.yaml).
+      - "127.0.0.1:11435:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    # The card's device files, named as well as reserved below. Without them the container loses
+    # the card whenever systemd reloads (package updates do it) and Ollama quietly drops to the
+    # CPU, ten times slower: "Failed to initialize NVML" from nvidia-smi inside it (DEC-049).
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+      - /dev/nvidia-modeset:/dev/nvidia-modeset
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+volumes:
+  ollama-models:
+    # The volume the models were pulled into (DEC-048); kept so nothing downloads again.
+    name: bin-there-ai_ollama-models
+    external: true

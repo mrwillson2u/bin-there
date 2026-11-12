@@ -1462,6 +1462,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **The bake-off (2026-11-12, `scripts/ai-bakeoff.mjs`: the quick look over all 27 dev parts with photos, five models, scored by me against the photos).** Reading the key number off the five labelled parts (the "MAN3620A 314 E" displays, RadioShack "276-0145", "adafru.it/1112", the NeoPixel bag's "adafru.it/1938", the IDC bag's "IDS-34-P"): **Gemma 4 e4b 5 of 5**, Gemma 3 4B 3 (it reads "adafru.it/11112" and "IPS-34-P"), Gemma 3 12B 3 (the same two slips), Qwen3-VL 8B 2 (blank on nine parts, 36 s a part: it runs out of room thinking), MiniCPM-V 1 (garbles numbers: "MAN362", "DS-34-P", "adafru.it/112"). Inventing things on unmarked parts, the fault Colin most wants gone: Gemma 3 4B the worst ("ATMEGA328P ICs" for a bag of male headers, "JST-XH 1.5mm" for female headers, "2.1mm DC barrel jack" for a 9V battery snap, "WS-100"), Gemma 3 12B next ("3M 4000 Series terminal block", "28-pin DIP socket", a "Power relay 10A 250V" for the Kycon plug kit), MiniCPM-V once but badly ("1000V 1A Ceramic Capacitors" for LED clips), **Gemma 4 e4b almost never**: with nothing printed it says "Multi-pin header connector", "Plastic connector sockets", "2-pin red and black cable with connector", though it isn't always right either ("Foam blocks" for the displays sitting in pink foam, "3-pin wire connector" for a bare LED). Time a part once loaded: Gemma 3 4B 3.7 s, Gemma 3 12B 7.3, MiniCPM-V 8.9, Gemma 4 e4b 8 to 10, Qwen3-VL 8B 36; loading Gemma 4 after idle takes about 40 s (Ollama drops a model after five minutes unused). The card: Gemma 4 e4b takes about 5.5 GB loaded, the 4B about 4, the 12B 8. **Verdict:** Gemma 4 e4b is the honest one and the best reader, at about two and a half times the 4B's time and 1.5 GB more of the card. The prompt now also says to name only what's printed or plainly visible ("a plain right name beats a specific wrong one"), with a guard behind it that cuts any part-number-like token from a photo-only name that isn't in the markings; the bake-off ran with that in place for every model. Still to do: reading the label at capture time.
 
+### DEC-054: The AI data fill runs beside the live app, on one model container shared with the dev instance
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q96) |
+| **Deciders** | Colin |
+| **Category** | Architecture / Process |
+
+**Context:** After the second round of AI work (DEC-053) and the five-model bake-off, Colin chose Gemma 4 e4b and asked for the AI on the live app "so I can test it for a while". Until now the model container was part of the dev compose project and the live compose file set no `AI_URL`, so the live app ran the AI code switched off.
+
+**Decision:** The Ollama container moves to the **production compose file** (`compose.yaml`): it's the always-on side, so the model is always there. The live app reaches it as `ollama` on the compose network; the **dev instance uses the same container** through its host port (`host.docker.internal:11435`), so the card holds one copy of the model and the models volume (`bin-there-ai_ollama-models`, external) is pulled into once. The dev compose file no longer defines an Ollama service. Both instances default to `gemma4:e4b`; `AI_MODEL` in either `.env` overrides. The production `.env` carries the shop keys (the Digi-Key pair from the production app, copied line for line from the dev `.env` without being read); `SEARCH_URL` points at the SearXNG on the host as before. Leaving `AI_URL` empty in the production `.env` turns the AI off there again without touching the file.
+
+**Consequences:** The dev instance's AI depends on the live stack being up, which it always is; rebuilding the live app restarts its container but not Ollama (only a compose change to the `ollama` service does that). `neutts` stays stopped (Colin's choice, DEC-053): Gemma 4 e4b takes about 5.5 GB of the card while loaded and is dropped five minutes after use. One `docker compose up -d --build` in `~/bin-there-prod` brings both containers up; `DEPLOY.md` says so.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1519,6 +1534,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-051 | The details form in two columns when it has the room; the desktop audit (Quick capture and the bin's page still to do) | UX | Accepted | 2026-11-10 |
 | DEC-052 | Print stickers from the app: die-cut sheets as PDF, Cricut Print Then Cut as PNG; codes still not recorded until scanned | Product / UX | Accepted | 2026-11-11 |
 | DEC-053 | AI data fill, round two: part numbers read off the part go to the shops, quick naming for plain things, the datasheet read | Product / Architecture | Accepted | 2026-11-11 |
+| DEC-054 | The AI data fill runs beside the live app, on one model container shared with the dev instance | Architecture / Process | Accepted | 2026-11-12 |
 
 ---
 

@@ -16,7 +16,8 @@ On `ubuntubot` (check `hostname` and `pwd` before running anything), `~/bin-ther
 only ever `main`, the `bin-there` Docker container runs from it and its `./data` is the live database
 and photos; it is only ever touched to deploy (DEC-050). `~/bin-there` is development: one checkout
 where branches are switched freely (usually `dev`), with the dev instance (`compose.dev.yaml`: container
-`bin-there-dev` on :3001 plus the AI's Ollama container, throwaway data; DEC-040). Never make a third
+`bin-there-dev` on :3001, throwaway data; DEC-040). The AI's Ollama container (`bin-there-ollama`) belongs to
+the production compose file and serves both instances (DEC-054). Never make a third
 folder for a branch. On ubuntubot, do not run `npm run dev`, `npm start`, or tests that write to
 `./data`; `node_modules` is deliberately absent there (the image installs its own); run checks on a
 copy with its own `DATA_DIR`. Take a backup before any redeploy of the live app (see `AGENTS.md`).
@@ -46,7 +47,7 @@ PORT=3011 DATA_DIR=/tmp/bt-test npm start
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`
 (default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`, and on the
-for the AI data fill (set on the dev instance only; the live app runs without them, so the AI button doesn't show there) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`; `gemma3:12b` is pulled on the dev Ollama for comparison, DEC-053), `SEARCH_URL` (SearXNG),
+for the AI data fill (on both instances since DEC-054) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (the code's default `gemma3:4b`; both compose files set `gemma4:e4b`, DEC-053), `SEARCH_URL` (SearXNG),
 `MOUSER_API_KEY`, `DIGIKEY_CLIENT_ID` + `DIGIKEY_CLIENT_SECRET` (shop APIs, DEC-049).
 
 After a schema change, run `npm run db:generate` and check the migration against an old-shaped
@@ -82,7 +83,7 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.
-  - `ai/` (DEC-048; shipped 2026-11-11, but switched on only where `AI_URL` is set, i.e. the dev instance): `research.ts` is the data-fill pipeline (look at photos → read the part's
+  - `ai/` (DEC-048; on both instances since DEC-054, off wherever `AI_URL` is unset): `research.ts` is the data-fill pipeline (look at photos → read the part's
     own page → search only if that fails → extract), taking `chat`, `search`, `fetchPage`, `shops` and
     `readPhoto` as arguments so tests use fakes; `ollama.ts` and `search.ts` are the real ones (Ollama chat
     with a JSON schema, SearXNG + page text). `shops.ts` knows the six shops' links and page addresses

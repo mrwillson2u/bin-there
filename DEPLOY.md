@@ -15,6 +15,9 @@ One Docker container on the Ubuntu server, reached over HTTPS through Tailscale 
    mkdir -p ~/bin-there-backups
    echo "BACKUP_PATH=$HOME/bin-there-backups" >> .env
    echo "TZ=$(cat /etc/timezone)" >> .env
+   # The AI data fill (DEC-054): the shop keys too (MOUSER_API_KEY, DIGIKEY_CLIENT_ID, DIGIKEY_CLIENT_SECRET),
+   # and after the first `up`: docker exec bin-there-ollama ollama pull gemma4:e4b
+   # To run without the AI: AI_URL= (empty) in .env.
    ```
 
 ## Moving from the Mac (one time)
@@ -52,16 +55,15 @@ weak signal (stock data always comes fresh from the server).
 Two folders on the server, nothing else: `~/bin-there-prod` is production (above) and
 `~/bin-there` is development. The development folder is one checkout where branches are
 switched freely (`dev`, an experiment branch, whatever is being worked on); the dev instance
-runs from it beside the live app, on port 3001, against a throwaway copy of the live data, with
-the AI data fill's model container (DEC-048) and the shop API keys from its `.env`. Visual
-changes go here first; `main` only moves when the full checks pass.
+runs from it beside the live app, on port 3001, against a throwaway copy of the live data, using
+the live stack's model container for the AI data fill (DEC-054) and the shop API keys from its
+own `.env`. Visual changes go here first; `main` only moves when the full checks pass.
 
 ```bash
 git clone --branch dev git@github.com:mrwillson2u/bin-there.git ~/bin-there
 cd ~/bin-there
 echo "TZ=$(cat /etc/timezone)" > .env               # plus MOUSER_API_KEY=… and the Digi-Key pair, see compose.dev.yaml
 scripts/dev-data-refresh.sh                       # copies the newest backup in, builds, starts
-docker exec bin-there-ollama ollama pull gemma3:4b
 sudo tailscale serve --bg --https=8444 3001       # one time; then https://ubuntubot.<tailnet>.ts.net:8444
 ```
 
