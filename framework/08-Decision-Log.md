@@ -1507,6 +1507,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** The AI prompts and the forms read field labels from the category, so they follow the changes with no work. Not done: a field's type (every field is text, as before) and sub-categories (the table has a parent column from the start, unused).
 
+### DEC-057: Bulk editing of checked parts from Inventory and Search
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q101) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Colin wanted to check a handful of parts on Inventory or Search and change them together: a run of captures that all belong in one category, a box's worth carried somewhere else, a set that should count by level, or a batch to delete. Deleting a category (DEC-056) also needs a way to move its parts out first.
+
+**Decision:** A **Select** button on Inventory (list and tiles) and on Search turns every row or tile into a checkbox (the pin and the − / + go away while selecting, since a button can't sit inside a button). A bar at the bottom, over the phone's nav bar, shows how many are checked, offers "All N shown", and four actions: **Category** (the type-to-find picker, with none allowed), **Move** (scan a place or pick from the list; everything each part has goes there, Q101: every count collapses into the one place, units at home go there, a checked-out unit keeps its outing but comes back there, and the place becomes the part's one home unless it's a project kit; a part with nothing recorded anywhere is put there, not counted; a part already there is left alone), **Counting** (exact count or plenty / low / out, converting the stock as the form does), and **Delete** (a confirmation in the bar; the same soft delete as the part page). The server does each part on its own (`POST /api/items/bulk`), in its own transaction with its own activity entry, so one part that can't take the change doesn't stop the rest, and Undo is per part from its page or Activity; the answer says how many took it and which didn't, and the toast repeats that. Selecting ends after an action.
+
+**Consequences:** `bulk.ts` on the server, `moveEverything` in `stock.ts` (one event with every stock row, unit and home before, so Undo puts it all back; a unit's home is now part of what Undo restores). `BulkBar.tsx` on the web, used by both screens; `ItemList` and the Inventory rows and tiles take a `select`. Not done: a bar-level Undo (the toast's Undo takes one event; a bulk undo would be a new kind of event) and bulk editing from a place's page.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1567,6 +1582,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-054 | The AI data fill runs beside the live app, on one model container shared with the dev instance | Architecture / Process | Accepted | 2026-11-12 |
 | DEC-055 | Counting chosen at capture (an exact count of 1 unless changed); parts queued for the AI at capture, the answer kept for review | UX / Architecture | Accepted | 2026-11-12 |
 | DEC-056 | Categories and their fields are editable on a Categories screen | UX / Data | Accepted | 2026-11-12 |
+| DEC-057 | Bulk editing of checked parts from Inventory and Search | UX | Accepted | 2026-11-12 |
 
 ---
 

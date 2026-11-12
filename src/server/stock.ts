@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { events, itemHomes, items, locations, stock, units, type UndoData } from "./db/schema";
 import { ApiError } from "./errors";
@@ -144,6 +144,63 @@ export function moveStock(db: Db, input: MoveStock): number {
           { itemId, locationId: from, row: fromRow },
           { itemId, locationId: to, row: toRow },
         ],
+        homes,
+      },
+    });
+  });
+}
+
+/**
+ * Move everything a part has to one place (bulk editing, DEC-057): every count collapses into
+ * the one place, units at home go there, a checked-out unit keeps its outing but comes back
+ * there, and the place becomes the part's one home (unless it's a project kit, DEC-019). A part
+ * with nothing recorded anywhere is put there, not counted. One event, so Undo puts it all
+ * back. Returns null when it's all there already.
+ */
+export function moveEverything(db: Db, itemId: number, to: number): number | null {
+  const item = requireItem(db, itemId);
+  requireLocation(db, to);
+  const rows = db.select().from(stock).where(eq(stock.itemId, itemId)).all();
+  const unitRows = db.select().from(units).where(and(eq(units.itemId, itemId), inArray(units.status, ["home", "checked_out"]))).all();
+  const homes = homesOf(db, itemId);
+  const toKit = isProject(db, to);
+  const fromRows = rows.filter((r) => r.locationId !== to);
+  const toRow = rows.find((r) => r.locationId === to) ?? null;
+  const unitsToMove = unitRows.filter((u) => (u.status === "home" ? u.locationId !== to : u.homeLocationId !== to));
+  const settled = fromRows.length === 0 && unitsToMove.length === 0 && (toKit || (homes.length === 1 && homes[0] === to)) && (rows.length > 0 || unitRows.length > 0);
+  if (settled) return null;
+
+  const exact = item.tracking === "exact";
+  const counted = rows.some((r) => (exact ? r.qty !== null : r.level !== null));
+  const qty = exact ? (counted ? rows.reduce((n, r) => n + (r.qty ?? 0), 0) : null) : null;
+  const order = ["out", "low", "plenty"] as const;
+  const level = !exact && counted ? (order.find((l) => rows.some((r) => r.level === l)) ?? null) : null;
+  const lastCountedAt = rows.map((r) => r.lastCountedAt).filter((d): d is string => !!d).sort().at(-1) ?? null;
+
+  return db.transaction(() => {
+    for (const r of fromRows) db.delete(stock).where(whereRow(itemId, r.locationId)).run();
+    if (toRow) db.update(stock).set({ qty, level, changesSinceCount: fromRows.length > 0 ? toRow.changesSinceCount + 1 : toRow.changesSinceCount }).where(whereRow(itemId, to)).run();
+    else db.insert(stock).values({ itemId, locationId: to, qty, level, ...(lastCountedAt ? { lastCountedAt } : {}) }).run();
+    for (const u of unitsToMove) {
+      db.update(units)
+        .set({ ...(u.status === "home" ? { locationId: to } : {}), homeLocationId: to, updatedAt: now })
+        .where(eq(units.id, u.id))
+        .run();
+    }
+    if (!toKit) {
+      db.delete(itemHomes).where(eq(itemHomes.itemId, itemId)).run();
+      db.insert(itemHomes).values({ itemId, locationId: to }).run();
+    }
+    const fromIds = [...new Set([...fromRows.map((r) => r.locationId), ...unitsToMove.map((u) => (u.status === "home" ? u.locationId : u.homeLocationId)).filter((l): l is number => l !== null)])];
+    return record(db, {
+      type: "move",
+      itemId,
+      fromLocationId: fromIds.length === 1 ? fromIds[0]! : null,
+      toLocationId: to,
+      delta: exact && fromRows.length > 0 ? fromRows.reduce((n, r) => n + (r.qty ?? 0), 0) + unitsToMove.filter((u) => u.status === "home").length || null : null,
+      undoData: {
+        stock: [...fromRows.map((r) => ({ itemId, locationId: r.locationId, row: r })), { itemId, locationId: to, row: toRow }],
+        units: unitsToMove.map((u) => ({ id: u.id, locationId: u.locationId, homeLocationId: u.homeLocationId })),
         homes,
       },
     });

@@ -5,7 +5,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
 import { ftsQuery } from "./items";
-import type { Category, EventView, Inventory, ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../shared/api";
+import type { BulkResult, Category, EventView, Inventory, ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
 
@@ -257,6 +257,70 @@ describe("units", () => {
     expect(moved.item.places.map((p) => [p.path.at(-1)?.name, p.units])).toEqual([["Shelf", 1], ["Desk", 1]]);
     const undone = await ok<ItemDetail>("POST", `/events/${moved.eventId}/undo`);
     expect(undone.places.map((p) => p.units)).toEqual([2]);
+  });
+});
+
+describe("bulk editing (DEC-057)", () => {
+  it("applies one change to each checked part, reporting the ones that couldn't take it", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const fasteners = cats.find((c) => c.name === "Fasteners")!;
+    const a = await item({ name: "M3 screw" });
+    const b = await item({ name: "M4 screw" });
+    const r = await ok<BulkResult>("POST", "/items/bulk", { ids: [a.id, b.id, 9999], action: { type: "category", categoryId: fasteners.id } });
+    expect(r.done).toBe(2);
+    expect(r.failed).toEqual([{ id: 9999, name: null, message: "No item 9999" }]);
+    expect((await ok<ItemDetail>("GET", `/items/${a.id}`)).categoryName).toBe("Fasteners");
+    // The way of counting, converting the stock; and delete.
+    const shelf = await bin("Shelf");
+    await adjust({ itemId: a.id, locationId: shelf.id, delta: 5 });
+    await ok<BulkResult>("POST", "/items/bulk", { ids: [a.id], action: { type: "tracking", tracking: "level" } });
+    expect((await ok<ItemDetail>("GET", `/items/${a.id}`)).places[0]).toMatchObject({ qty: null, level: "plenty" });
+    const gone = await ok<BulkResult>("POST", "/items/bulk", { ids: [a.id, b.id], action: { type: "delete" } });
+    expect(gone.done).toBe(2);
+    expect((await call("GET", `/items/${a.id}`)).status).toBe(404);
+  });
+
+  it("moves everything a part has to one place, with one undoable entry per part", async () => {
+    const [here, there, desk, tote] = [await bin("Here"), await bin("There"), await bin("Desk"), await bin("Tote")];
+    // A counted part in two bins.
+    const screws = await item({ name: "Screws", locationId: here.id, qty: 10 });
+    await ok("POST", "/stock/recount", { itemId: screws.id, locationId: there.id, qty: 5 });
+    // A stickered part: one unit at home, one checked out to the desk.
+    const psu = await item({ name: "PSU", kind: "returnable", code: "PSU00000001", locationId: here.id });
+    const second = await ok<StockResult>("POST", "/units", { itemId: psu.id, code: "PSU00000002", locationId: here.id });
+    const outId = second.item.unitList[1]!.id;
+    await ok("POST", `/units/${outId}/checkout`, { toLocationId: desk.id });
+    // A part with no place at all.
+    const loose = await item({ name: "Loose" });
+
+    const r = await ok<BulkResult>("POST", "/items/bulk", { ids: [screws.id, psu.id, loose.id], action: { type: "move", locationId: tote.id } });
+    expect(r).toEqual({ done: 3, failed: [] });
+    const s = await ok<ItemDetail>("GET", `/items/${screws.id}`);
+    expect(s.places.map((p) => [p.path.at(-1)?.name, p.qty, p.isHome])).toEqual([["Tote", 15, true]]);
+    const u = await ok<ItemDetail>("GET", `/items/${psu.id}`);
+    expect(u.unitList.map((x) => [x.locationId, x.homeLocationId, !!x.out])).toEqual([[tote.id, tote.id, false], [desk.id, tote.id, true]]);
+    expect(u.places.find((p) => p.locationId === tote.id)).toMatchObject({ units: 1, isHome: true });
+    const l = await ok<ItemDetail>("GET", `/items/${loose.id}`);
+    expect(l.places.map((p) => [p.path.at(-1)?.name, p.qty])).toEqual([["Tote", null]]);
+    // Checking the outing in brings the unit back to its new home.
+    const back = await ok<StockResult>("POST", `/units/${outId}/checkin`, {});
+    expect(back.item.unitList.map((x) => x.locationId)).toEqual([tote.id, tote.id]);
+
+    // Already there: nothing recorded, no error.
+    const again = await ok<BulkResult>("POST", "/items/bulk", { ids: [screws.id], action: { type: "move", locationId: tote.id } });
+    expect(again.done).toBe(1);
+    expect((await ok<ItemDetail>("GET", `/items/${screws.id}`)).history.filter((e) => e.type === "move")).toHaveLength(1);
+
+    // Undo puts the screws back in both bins with their counts and their home.
+    const moveEvent = s.history.find((e) => e.type === "move")!;
+    expect(moveEvent).toMatchObject({ delta: 15, to: "Garage › Tote", canUndo: true });
+    const undone = await ok<ItemDetail>("POST", `/events/${moveEvent.id}/undo`);
+    expect(undone.places.map((p) => [p.path.at(-1)?.name, p.qty, p.isHome]).sort()).toEqual([["Here", 10, true], ["There", 5, false]]);
+    // And the units' places and homes (the check-in came after the move, so undo it first).
+    const uHist = (await ok<ItemDetail>("GET", `/items/${psu.id}`)).history;
+    await ok("POST", `/events/${uHist.find((e) => e.type === "check_in")!.id}/undo`);
+    const uUndone = await ok<ItemDetail>("POST", `/events/${uHist.find((e) => e.type === "move")!.id}/undo`);
+    expect(uUndone.unitList.map((x) => [x.locationId, x.homeLocationId])).toEqual([[here.id, here.id], [desk.id, here.id]]);
   });
 });
 

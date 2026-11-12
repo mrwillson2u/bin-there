@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
 import type { ItemSummary } from "../../shared/api";
 import { api } from "../api";
+import { BulkBar, SelectButton, useSelection } from "../components/BulkBar";
 import { ItemList } from "../components/ItemList";
 import { inputClass } from "../components/ui";
 
@@ -12,6 +13,7 @@ export function SearchPage() {
   const [params, setParams] = useSearchParams();
   const [text, setText] = useState(params.get("q") ?? "");
   const [q, setQ] = useState(text);
+  const sel = useSelection();
 
   // Search as you type, without a request per keystroke.
   useEffect(() => {
@@ -59,10 +61,14 @@ export function SearchPage() {
         <p className="px-1 py-6 text-center text-muted">Type a name, category, supplier or note. Every word must match.</p>
       ) : (
         <>
-          {isFetching && <span className="self-end text-[13px] text-muted">Searching…</span>}
-          {data && <ItemList items={data} empty={`Nothing matches “${q}”.`} />}
+          <div className="flex items-center justify-end gap-3 text-[13px] text-muted">
+            {isFetching && <span>Searching…</span>}
+            {data && data.length > 0 && <SelectButton on={sel.on} onClick={() => (sel.on ? sel.stop() : sel.start())} />}
+          </div>
+          {data && <ItemList items={data} empty={`Nothing matches “${q}”.`} select={sel.selection} />}
         </>
       )}
+      {sel.on && <BulkBar ids={sel.ids} shown={data ?? []} onSelectAll={() => sel.setAll((data ?? []).map((i) => i.id))} onClose={sel.stop} />}
     </div>
   );
 }

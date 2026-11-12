@@ -15,7 +15,8 @@ import {
   type Stats,
 } from "../../shared/api";
 import { api } from "../api";
-import { ItemTotal } from "../components/ItemList";
+import { BulkBar, CheckBox, SelectButton, useSelection, type Selection } from "../components/BulkBar";
+import { ItemTotal, RowLink } from "../components/ItemList";
 import { StockControl } from "../components/StockControl";
 import { useToast } from "../components/Toast";
 import { Badge, Card, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
@@ -52,6 +53,7 @@ export function InventoryPage() {
   const [params, setParams] = useSearchParams();
   const [text, setText] = useState(params.get("q") ?? "");
   const [view, setView] = useState<View>(readView);
+  const sel = useSelection();
   const pickView = (v: View) => {
     localStorage.setItem(VIEW_KEY, v);
     setView(v);
@@ -231,7 +233,7 @@ export function InventoryPage() {
       {status && <StatusNote filter={status.key} />}
 
       <div className="flex items-center gap-2 text-[13px] text-muted">
-        <span className="flex-1" aria-live="polite">
+        <span className="flex-1 whitespace-nowrap" aria-live="polite">
           {inv.data && (filtering ? `${total} found` : `${total} item${total === 1 ? "" : "s"}`)}
         </span>
         <label className="flex items-center gap-1">
@@ -246,6 +248,7 @@ export function InventoryPage() {
           <ViewButton on={view === "list"} onClick={() => pickView("list")} label="List view" icon={<List size={18} />} />
           <ViewButton on={view === "tiles"} onClick={() => pickView("tiles")} label="Tile view" icon={<LayoutGrid size={18} />} />
         </div>
+        {total > 0 && <SelectButton on={sel.on} onClick={() => (sel.on ? sel.stop() : sel.start())} />}
       </div>
 
       {!inv.data ? (
@@ -262,10 +265,11 @@ export function InventoryPage() {
           )}
         </Card>
       ) : view === "list" ? (
-        <ListView pinned={pinned} items={rest} />
+        <ListView pinned={pinned} items={rest} select={sel.selection} />
       ) : (
-        <TileView pinned={pinned} items={rest} />
+        <TileView pinned={pinned} items={rest} select={sel.selection} />
       )}
+      {sel.on && <BulkBar ids={sel.ids} shown={[...pinned, ...rest]} onSelectAll={() => sel.setAll([...pinned, ...rest].map((i) => i.id))} onClose={sel.stop} />}
 
       <div ref={end} />
       {hasNextPage && (
@@ -373,7 +377,7 @@ const catCol = "hidden w-40 shrink-0 truncate text-[13px] text-muted lg:block";
 const whereCol = "hidden min-w-0 flex-[2] lg:block";
 const countCol = "flex shrink-0 justify-end lg:w-40";
 
-function ListView({ pinned, items }: { pinned: ItemSummary[]; items: ItemSummary[] }) {
+function ListView({ pinned, items, select }: { pinned: ItemSummary[]; items: ItemSummary[]; select?: Selection }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="hidden items-center gap-3 px-3 text-xs font-semibold uppercase tracking-wide text-muted lg:flex" aria-hidden>
@@ -385,27 +389,32 @@ function ListView({ pinned, items }: { pinned: ItemSummary[]; items: ItemSummary
         <span className="w-11 shrink-0" />
       </div>
       <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
-        {pinned.map((i) => (
-          <PinnedRow key={i.id} item={i} />
-        ))}
+        {pinned.map((i) => (select ? <Row key={i.id} item={i} select={select} /> : <PinnedRow key={i.id} item={i} />))}
         {items.map((i) => (
-          <li key={i.id} className="flex items-center pr-1 active:bg-surface-2 lg:hover:bg-surface-2">
-            <Link to={`/items/${i.id}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-3">
-              <Thumb url={i.thumbUrl} />
-              <RowText item={i} />
-              <span className={catCol}>{i.categoryName ?? ""}</span>
-              <span className={whereCol}>
-                <Places item={i} max={2} />
-              </span>
-              <span className={countCol}>
-                <ItemTotal item={i} />
-              </span>
-            </Link>
-            <PinToggle item={i} pinned={false} />
-          </li>
+          <Row key={i.id} item={i} select={select} />
         ))}
       </ul>
     </div>
+  );
+}
+
+function Row({ item: i, select }: { item: ItemSummary; select?: Selection }) {
+  return (
+    <li className="flex items-center pr-1 active:bg-surface-2 lg:hover:bg-surface-2">
+      <RowLink item={i} select={select} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-2.5 pl-3">
+        {select && <CheckBox checked={select.has(i.id)} />}
+        <Thumb url={i.thumbUrl} />
+        <RowText item={i} />
+        <span className={catCol}>{i.categoryName ?? ""}</span>
+        <span className={whereCol}>
+          <Places item={i} max={2} />
+        </span>
+        <span className={countCol}>
+          <ItemTotal item={i} />
+        </span>
+      </RowLink>
+      {!select && <PinToggle item={i} pinned={false} />}
+    </li>
   );
 }
 
@@ -500,25 +509,25 @@ function PinnedRow({ item }: { item: ItemSummary }) {
   );
 }
 
-function TileView({ pinned, items }: { pinned: ItemSummary[]; items: ItemSummary[] }) {
+function TileView({ pinned, items, select }: { pinned: ItemSummary[]; items: ItemSummary[]; select?: Selection }) {
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {pinned.map((i) => (
-        <Tile key={i.id} item={i} pinned />
+        <Tile key={i.id} item={i} pinned select={select} />
       ))}
       {items.map((i) => (
-        <Tile key={i.id} item={i} />
+        <Tile key={i.id} item={i} select={select} />
       ))}
     </ul>
   );
 }
 
-function Tile({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
+function Tile({ item: i, pinned, select }: { item: ItemSummary; pinned?: boolean; select?: Selection }) {
   const place = mainPlace(i) ?? i.places[0];
   const where = place ? (place.path.at(-1)?.name ?? "") + (place.out ? " (out)" : "") + (i.places.length > 1 ? ` +${i.places.length - 1}` : "") : "No location";
   return (
     <li className="relative">
-      <Link to={`/items/${i.id}`} className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface active:bg-surface-2 lg:hover:bg-surface-2">
+      <RowLink item={i} select={select} className={`flex h-full w-full flex-col overflow-hidden rounded-2xl border bg-surface active:bg-surface-2 lg:hover:bg-surface-2 ${select?.has(i.id) ? "border-accent" : "border-border"}`}>
         <span className="relative block aspect-square bg-surface-2">
           {i.thumbUrl ? (
             <img src={i.thumbUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -542,9 +551,9 @@ function Tile({ item: i, pinned }: { item: ItemSummary; pinned?: boolean }) {
           </span>
           {i.categoryName && <span className="truncate text-xs text-muted">{i.categoryName}</span>}
         </span>
-      </Link>
-      <span className="absolute left-2 top-2">
-        <PinToggle item={i} pinned={!!pinned} onPhoto />
+      </RowLink>
+      <span className="pointer-events-none absolute left-2 top-2 [&>*]:pointer-events-auto">
+        {select ? <CheckBox checked={select.has(i.id)} onPhoto /> : <PinToggle item={i} pinned={!!pinned} onPhoto />}
       </span>
     </li>
   );

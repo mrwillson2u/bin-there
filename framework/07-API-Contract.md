@@ -73,6 +73,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | PATCH | `/api/items/:id` | Edit details, any subset of fields; includes `lowThreshold` (null = no warning). Afterwards the part needs details unless it has a name and a category (DEC-007, DEC-037); sending `needsDetails: true` keeps it on the list anyway. Switching `tracking` converts the stock |
 | PUT | `/api/items/:id/homes` | Set designated home location(s) |
 | DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
+| POST | `/api/items/bulk` | Bulk editing (DEC-057): `{ ids, action }` with `action` one of `{ type: "category", categoryId }` (null clears), `{ type: "move", locationId }` (everything each part has goes there, one undoable entry per part), `{ type: "tracking", tracking }`, `{ type: "delete" }`. Each part on its own; `{ done, failed: [{ id, name, message }] }` back |
 | POST | `/api/items/:id/photos` | Upload multipart `photo` + `thumb`, already resized on the phone (DEC-006) |
 | PUT | `/api/photos/:id/crop` | Multipart `crop` (JSON `{ x, y, size }`, fractions of the original) + `thumb` (the square cut on the phone). Stores the crop, saves the thumbnail under a new name (names are cached forever) and deletes the old one; the original is untouched. Returns the item (DEC-030) |
 | PUT | `/api/photos/:id/main` | Make this the item's main photo, the one shown in lists, tiles and the bin pane. Returns the item; its `photos` come main first (DEC-031) |

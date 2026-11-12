@@ -357,6 +357,21 @@ export const createCategorySchema = z.object({
   fields: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
 });
 
+/** Bulk editing (DEC-057): one change applied to every checked part, each on its own, so one failure doesn't stop the rest. */
+export const bulkItemsSchema = z.object({
+  ids: z.array(id).min(1).max(500),
+  action: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("category"), categoryId: id.nullable() }),
+    /** Everything the part has (every count, every unit at home) goes to this place; checked-out units come back there. */
+    z.object({ type: z.literal("move"), locationId: id }),
+    z.object({ type: z.literal("tracking"), tracking: z.enum(trackingModes) }),
+    z.object({ type: z.literal("delete") }),
+  ]),
+});
+export type BulkItems = z.infer<typeof bulkItemsSchema>;
+export type BulkAction = BulkItems["action"];
+export type BulkResult = { done: number; failed: { id: number; name: string | null; message: string }[] };
+
 /** Editing a category (DEC-056): a field with a key is renamed or moved, one without is new; fields left out are removed. */
 export const updateCategorySchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),

@@ -50,6 +50,7 @@ import {
 } from "./items";
 import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock } from "./stock";
 import { listEvents, undoEvent } from "./events";
+import { bulkItems } from "./bulk";
 import { putBack } from "./putback";
 import { listProjects, returnFromProject } from "./projects";
 import { listPins, setPinned } from "./pins";
@@ -64,6 +65,7 @@ import { digikeyReader } from "./ai/digikey";
 import {
   adjustSchema,
   assignCodeSchema,
+  bulkItemsSchema,
   placeBinSchema,
   returnProjectSchema,
   codeSchema,
@@ -231,6 +233,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.get("/items/needs-details", (c) => c.json(listNeedsDetails(db)));
   api.get("/review", (c) => c.json(listStale(db)));
   api.get("/items/:id", (c) => c.json(getItem(db, intParam(c.req.param("id")))));
+  api.post("/items/bulk", async (c) => c.json(bulkItems(db, parseBody(bulkItemsSchema, await c.req.json()))));
 
   // AI data fill (DEC-048): look the part up and suggest details. Writes nothing; the screen
   // offers the suggestions and the accepted ones come back through PATCH with `aiFields`.

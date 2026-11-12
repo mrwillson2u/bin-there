@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import { CheckBox, type Selection } from "./BulkBar";
 import { levelLabels, type ItemSummary, type LocationItem, type StockLevel } from "../../shared/api";
 import { Badge, itemName, PlacePath, Thumb } from "./ui";
 import { outText } from "./TakeOut";
@@ -27,13 +29,34 @@ export function ItemTotal({ item: i, small }: { item: ItemSummary; small?: boole
   return i.places.length > 0 ? <Badge tone="warn">not counted</Badge> : null;
 }
 
-export function ItemList({ items, empty }: { items: ItemSummary[]; empty: string }) {
+/**
+ * A row opens the part, or, while selecting (bulk editing, DEC-057), is a checkbox for it.
+ * Buttons can't sit inside a button, so a selecting row shows no controls of its own.
+ */
+export function RowLink({ item, select, className, children }: { item: ItemSummary; select?: Selection; className: string; children: ReactNode }) {
+  if (!select) {
+    return (
+      <Link to={`/items/${item.id}`} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  const checked = select.has(item.id);
+  return (
+    <button type="button" role="checkbox" aria-checked={checked} aria-label={itemName(item.name)} onClick={() => select.toggle(item.id)} className={`${className} text-left ${checked ? "bg-accent/10" : ""}`}>
+      {children}
+    </button>
+  );
+}
+
+export function ItemList({ items, empty, select }: { items: ItemSummary[]; empty: string; select?: Selection }) {
   if (items.length === 0) return <p className="px-1 py-6 text-center text-muted">{empty}</p>;
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
       {items.map((i) => (
         <li key={i.id}>
-          <Link to={`/items/${i.id}`} className="flex min-h-16 items-center gap-3 px-3 py-2.5 active:bg-surface-2">
+          <RowLink item={i} select={select} className="flex min-h-16 w-full items-center gap-3 px-3 py-2.5 active:bg-surface-2">
+            {select && <CheckBox checked={select.has(i.id)} />}
             <Thumb url={i.thumbUrl} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
@@ -62,8 +85,8 @@ export function ItemList({ items, empty }: { items: ItemSummary[]; empty: string
               {i.places.length > 3 && <span className="block text-[13px] text-muted">+{i.places.length - 3} more places</span>}
             </span>
             <ItemTotal item={i} />
-            <ChevronRight size={18} className="shrink-0 text-muted" />
-          </Link>
+            {!select && <ChevronRight size={18} className="shrink-0 text-muted" />}
+          </RowLink>
         </li>
       ))}
     </ul>

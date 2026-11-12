@@ -176,6 +176,8 @@ export type UndoData = {
   units?: {
     id: number;
     locationId: number | null;
+    /** Its home before, when the event moved that too (a bulk move, DEC-057). */
+    homeLocationId?: number | null;
     /** Check-out state, for check-out/check-in events. */
     out?: { status: (typeof UNIT_STATUSES)[number]; checkedOutAt: string | null; checkedOutNote: string | null };
   }[];
