@@ -95,6 +95,12 @@ await page.getByLabel("Sheets").fill("2");
 await page.getByLabel("Skip used labels").fill("10");
 check((await page.getByText("150 stickers").count()) === 1, "two sheets less ten skipped is 150");
 await page.getByLabel("Title", { exact: true }).fill("Workshop");
+// The title colour, picked or typed, goes into the drawing and is remembered.
+await page.getByLabel("Title colour (hex)", { exact: true }).fill("#aa0000");
+check((await page.locator("img[data-preview]").getAttribute("src")).includes(encodeURIComponent('fill="#aa0000"')), "the title colour is drawn");
+await page.reload();
+await page.getByRole("heading", { name: "Print stickers" }).waitFor();
+check((await page.getByLabel("Title colour (hex)", { exact: true }).inputValue()) === "#aa0000", "the title colour is remembered");
 dl = page.waitForEvent("download");
 await page.getByRole("button", { name: "Make the PDF" }).click();
 const pdf = await dl;

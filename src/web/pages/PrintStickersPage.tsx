@@ -63,6 +63,8 @@ export function PrintStickersPage() {
   const [output, setOutput] = useStored<Output>("stickers.output", "cricut");
   const [title, setTitle] = useStored<string>("stickers.title", DEFAULT_STYLE.title);
   const [subtitle, setSubtitle] = useStored<string>("stickers.subtitle", DEFAULT_STYLE.subtitle);
+  const [titleColor, setTitleColor] = useStored<string>("stickers.titleColor", DEFAULT_STYLE.titleColor);
+  const [subtitleColor, setSubtitleColor] = useStored<string>("stickers.subtitleColor", DEFAULT_STYLE.subtitleColor);
   // The Print Then Cut area for the machine and paper, from Cricut's help page "How large can I
   // Print Then Cut" (Maker on Letter: 7.44 in across, 9.94 in tall), and the corner each sensor
   // mark takes out of it (not stated; Colin measured the rectangle inside the marks at 6.77 × 9.27 in,
@@ -87,20 +89,20 @@ export function PrintStickersPage() {
   const sheetCount = Math.min(20, Math.max(1, Number(sheets) || 1));
   const skipCount = output === "sheet" ? Math.min(perSheet - 1, Math.max(0, Number(skip) || 0)) : 0;
   const total = capacity(template, sheetCount, skipCount);
-  const style = { ...DEFAULT_STYLE, title, subtitle };
+  const style = { ...DEFAULT_STYLE, title, subtitle, titleColor, subtitleColor };
 
   // The preview is the first sheet with sample codes; the real codes are drawn fresh on Make.
   const sample = useMemo(() => randomCodes(perSheet), [perSheet]);
   const preview = useMemo(
     () => pageSvg(layoutSheet(template, sample.slice(0, perSheet - skipCount), style, { skip: skipCount, background: output === "cricut", outlines: output === "sheet" && outlines })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, sample, skipCount, title, subtitle, output, outlines, cutW, cutH, notchW, notchH],
+    [template, sample, skipCount, title, subtitle, titleColor, subtitleColor, output, outlines, cutW, cutH, notchW, notchH],
   );
   const previewUrl = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(preview)}`, [preview]);
 
   useEffect(() => {
     setDone(null);
-  }, [templateName, output, sheets, skip, title, subtitle, outlines, cutW, cutH, notchW, notchH]);
+  }, [templateName, output, sheets, skip, title, subtitle, titleColor, subtitleColor, outlines, cutW, cutH, notchW, notchH]);
 
   const make = async () => {
     setBusy(true);
@@ -207,6 +209,8 @@ export function PrintStickersPage() {
               <Field label="Subtitle">
                 <input value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className={inputClass} placeholder="None" />
               </Field>
+              <ColourPick value={titleColor} onChange={setTitleColor} label="Title colour" />
+              <ColourPick value={subtitleColor} onChange={setSubtitleColor} label="Subtitle colour" />
             </div>
             <p className="text-[13px] text-muted">The code is printed under them, so a sticker can be typed in if it ever won't scan.</p>
           </Card>
@@ -283,6 +287,27 @@ export function PrintStickersPage() {
             Scanning a printed sticker opens the <Link to="/scan/x" className="text-accent" onClick={(e) => e.preventDefault()}>new sticker</Link> choice: a part or a bin.
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** A colour swatch that opens the device's picker, with the hex beside it for typing or pasting. */
+function ColourPick({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  const hex = /^#[0-9a-f]{6}$/i.test(value) ? value : "#000000";
+  // Not a <label> around both boxes: each has its own name, so the right one is read out and found.
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[13px] text-muted">{label}</span>
+      <div className="flex items-center gap-2">
+      <input type="color" value={hex} onChange={(e) => onChange(e.target.value)} aria-label={label} className="h-11 w-14 cursor-pointer rounded-xl border border-border bg-surface-2 p-1" />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value.trim())}
+        aria-label={`${label} (hex)`}
+        className={`${inputClass} min-w-0 flex-1 font-mono`}
+        placeholder="#336699"
+      />
       </div>
     </div>
   );
