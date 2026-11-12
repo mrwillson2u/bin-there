@@ -65,11 +65,12 @@ export function PrintStickersPage() {
   const [subtitle, setSubtitle] = useStored<string>("stickers.subtitle", DEFAULT_STYLE.subtitle);
   // The Print Then Cut area for the machine and paper, from Cricut's help page "How large can I
   // Print Then Cut" (Maker on Letter: 7.44 in across, 9.94 in tall), and the corner each sensor
-  // mark takes out of it (not stated; 0.35 in is what the old safe 6.75 × 9.25 in rectangle leaves).
+  // mark takes out of it (not stated; Colin measured the rectangle inside the marks at 6.77 × 9.27 in,
+  // which leaves 0.335 in at each side).
   const [cutW, setCutW] = useStored<string>("stickers.cutWidth", "7.44");
   const [cutH, setCutH] = useStored<string>("stickers.cutHeight", "9.94");
-  const [notchW, setNotchW] = useStored<string>("stickers.notchWidth", "0.35");
-  const [notchH, setNotchH] = useStored<string>("stickers.notchHeight", "0.35");
+  const [notchW, setNotchW] = useStored<string>("stickers.notchWidth", "0.335");
+  const [notchH, setNotchH] = useStored<string>("stickers.notchHeight", "0.335");
   const [sheets, setSheets] = useState("1");
   const [skip, setSkip] = useState("0");
   const [outlines, setOutlines] = useState(false);
@@ -190,8 +191,8 @@ export function PrintStickersPage() {
                     How large can I Print Then Cut
                   </a>{" "}
                   (a Maker on Letter: 7.44 × 9.94 in). Its corners are reserved for the sensor marks, so any sticker that would touch a corner notch is left
-                  out. Cricut doesn't say how big the notches are: 0.35 in is a guess from the old safe size. If Design Space still says the image is too big,
-                  make the notches bigger; if the corners cut fine, try smaller.
+                  out. Cricut doesn't say how big the notches are; 0.335 in is what's left around the 6.77 × 9.27 in rectangle measured inside the marks. If
+                  Design Space says the image is too big, make the notches bigger.
                 </p>
               </>
             )}

@@ -16,11 +16,11 @@ export const LETTER_LANDSCAPE: [number, number] = [792, 612];
 /**
  * Cricut's Print Then Cut area for a Maker on Letter paper (help.cricut.com, "How large can I
  * Print Then Cut", 2026): 7.44 in across, 9.94 in tall, with the corners reserved for the sensor
- * marks. The notch isn't given; 0.35 in is what's left when the old safe 6.75 × 9.25 in rectangle
- * is centred in it. Both are settings on the screen, so Colin can match what Design Space shows.
+ * marks. The notch isn't given, but Colin measured the plain rectangle inside the marks at
+ * 6.77 × 9.27 in, which leaves 0.335 in at each side, top and bottom. Both are settings on the screen.
  */
 export const PRINT_THEN_CUT_AREA: [number, number] = [7.44 * PT_PER_INCH, 9.94 * PT_PER_INCH];
-export const PRINT_THEN_CUT_NOTCH: [number, number] = [0.35 * PT_PER_INCH, 0.35 * PT_PER_INCH];
+export const PRINT_THEN_CUT_NOTCH: [number, number] = [0.335 * PT_PER_INCH, 0.335 * PT_PER_INCH];
 
 export type CutOptions = {
   /** The whole Print Then Cut area; the image is this size, so it sits exactly over it. */

@@ -51,11 +51,14 @@ describe("templates", () => {
     // Centred: the same room on each side.
     expect(c.origin[0]).toBeCloseTo(c.gap[0]);
     expect(c.origin[1]).toBeCloseTo(c.gap[1]);
-    // 75 places, the four corners under the 0.35 in sensor notches left out.
+    // 75 places, the four corners under the sensor notches left out (0.335 in: the 6.77 × 9.27 in rectangle Colin measured inside the marks).
     expect(slotsOf(c)).toHaveLength(71);
     const [w, h] = c.labelSize;
+    const [nw, nh] = [0.335 * 72, 0.335 * 72];
+    expect((7.44 * 72 - 2 * nw) / 72).toBeCloseTo(6.77);
+    expect((9.94 * 72 - 2 * nh) / 72).toBeCloseTo(9.27);
     for (const s of slotsOf(c)) {
-      const inCorner = (s.x < 0.35 * 72 || s.x + w > 7.44 * 72 - 0.35 * 72) && (s.y < 0.35 * 72 || s.y + h > 9.94 * 72 - 0.35 * 72);
+      const inCorner = (s.x < nw || s.x + w > 7.44 * 72 - nw) && (s.y < nh || s.y + h > 9.94 * 72 - nh);
       expect(inCorner).toBe(false);
       expect(s.x).toBeGreaterThanOrEqual(0);
       expect(s.x + w).toBeLessThanOrEqual(7.44 * 72 + 0.01);
