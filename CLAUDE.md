@@ -46,7 +46,7 @@ PORT=3011 DATA_DIR=/tmp/bt-test npm start
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`
 (default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`, and on the
-for the AI data fill (set on the dev instance only; the live app runs without them, so the AI button doesn't show there) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b`), `SEARCH_URL` (SearXNG),
+for the AI data fill (set on the dev instance only; the live app runs without them, so the AI button doesn't show there) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (default `gemma3:4b` in the code, `gemma3:12b` in `compose.dev.yaml` since DEC-053), `SEARCH_URL` (SearXNG),
 `MOUSER_API_KEY`, `DIGIKEY_CLIENT_ID` + `DIGIKEY_CLIENT_SECRET` (shop APIs, DEC-049).
 
 After a schema change, run `npm run db:generate` and check the migration against an old-shaped
