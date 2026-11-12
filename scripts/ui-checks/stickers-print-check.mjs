@@ -101,6 +101,9 @@ check((await page.locator("img[data-preview]").getAttribute("src")).includes(enc
 await page.reload();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByLabel("Title colour (hex)", { exact: true }).inputValue()) === "#aa0000", "the title colour is remembered");
+// Sheets and skip aren't remembered (they're per print), so they're set again after the reload.
+await page.getByLabel("Sheets").fill("2");
+await page.getByLabel("Skip used labels").fill("10");
 dl = page.waitForEvent("download");
 await page.getByRole("button", { name: "Make the PDF" }).click();
 const pdf = await dl;
