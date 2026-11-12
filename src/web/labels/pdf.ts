@@ -4,29 +4,24 @@
 // built-in Symbol font when that has it (the arrow, Greek, maths) and left out otherwise.
 
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont } from "pdf-lib";
-import { ARROW_LIFT, textRuns, type Page } from "../../shared/labels";
+import type { Page } from "../../shared/labels";
 
 function colour(hex: string) {
   const n = parseInt(hex.replace("#", ""), 16);
   return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
 }
 
-type Run = { text: string; font: PDFFont; scale: number };
+type Run = { text: string; font: PDFFont };
 
-/**
- * The text as runs, each in the first font that can draw it (a character no font has is left
- * out), the arrow on its own at its smaller scale.
- */
+/** The text as runs, each in the first font that can draw it; a character no font has is left out. */
 function runs(text: string, fonts: PDFFont[], sets: Set<number>[]): Run[] {
   const out: Run[] = [];
-  for (const part of textRuns(text)) {
-    for (const ch of part.text) {
-      const i = sets.findIndex((s) => s.has(ch.codePointAt(0)!));
-      if (i < 0) continue;
-      const last = out[out.length - 1];
-      if (last && last.font === fonts[i] && last.scale === part.scale) last.text += ch;
-      else out.push({ text: ch, font: fonts[i]!, scale: part.scale });
-    }
+  for (const ch of text) {
+    const i = sets.findIndex((s) => s.has(ch.codePointAt(0)!));
+    if (i < 0) continue;
+    const last = out[out.length - 1];
+    if (last && last.font === fonts[i]) last.text += ch;
+    else out.push({ text: ch, font: fonts[i]! });
   }
   return out;
 }
@@ -58,19 +53,17 @@ export async function pagesToPdf(pages: Page[]): Promise<Uint8Array> {
       } else {
         const parts = s.bold ? runs(s.text, [bold, symbol], [boldSet, symbolSet]) : runs(s.text, [regular, symbol], [regularSet, symbolSet]);
         if (parts.length === 0) continue;
-        const widths = parts.map((r) => r.font.widthOfTextAtSize(r.text, s.size * r.scale));
+        const widths = parts.map((r) => r.font.widthOfTextAtSize(r.text, s.size));
         const total = widths.reduce((a, b) => a + b, 0);
         // The layout's anchor is in the text's own direction; a middle anchor backs up half the
-        // width along it, each run starts where the one before ended, and a scaled run (the
-        // arrow) is lifted across the direction to stay centred.
+        // width along it, and each run starts where the one before ended.
         const rad = (s.rotation * Math.PI) / 180;
         const [dx, dy] = [Math.cos(rad), Math.sin(rad)];
         let along = s.anchor === "middle" ? -total / 2 : 0;
         parts.forEach((r, i) => {
-          const lift = r.scale === 1 ? 0 : ARROW_LIFT * s.size;
-          const x = s.x + along * dx + lift * dy;
-          const y = s.y + along * dy - lift * dx;
-          p.drawText(r.text, { x, y: H - y, size: s.size * r.scale, font: r.font, color: colour(s.color), rotate: degrees(-s.rotation) });
+          const x = s.x + along * dx;
+          const y = s.y + along * dy;
+          p.drawText(r.text, { x, y: H - y, size: s.size, font: r.font, color: colour(s.color), rotate: degrees(-s.rotation) });
           along += widths[i]!;
         });
       }
