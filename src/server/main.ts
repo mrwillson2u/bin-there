@@ -26,19 +26,20 @@ else console.log("backups disabled: set BACKUP_DIR to enable");
 scheduleHousekeeping(db, photoDir, msUntilHour, (Number(process.env.BACKUP_HOUR ?? 3) + 1) % 24);
 
 // AI data fill (DEC-048): off unless AI_URL points at an Ollama server. SEARCH_URL is a SearXNG.
-// MOUSER_API_KEY and DIGIKEY_CLIENT_ID + DIGIKEY_CLIENT_SECRET let those two shops be read (DEC-049).
+// SEARCH_ENGINES picks its engines (DEC-066). MOUSER_API_KEY and DIGIKEY_CLIENT_ID + DIGIKEY_CLIENT_SECRET let those two shops be read (DEC-049).
 const ai: AiConfig | undefined = process.env.AI_URL
   ? {
       url: process.env.AI_URL,
       model: process.env.AI_MODEL ?? "gemma3:4b",
       searchUrl: process.env.SEARCH_URL || null,
+      searchEngines: process.env.SEARCH_ENGINES || null,
       mouserKey: process.env.MOUSER_API_KEY || null,
       digikey: process.env.DIGIKEY_CLIENT_ID && process.env.DIGIKEY_CLIENT_SECRET ? { clientId: process.env.DIGIKEY_CLIENT_ID, clientSecret: process.env.DIGIKEY_CLIENT_SECRET } : null,
     }
   : undefined;
 console.log(
   ai
-    ? `AI data fill on: ${ai.model} at ${ai.url}, search ${ai.searchUrl ?? "off"}, Mouser API ${ai.mouserKey ? "on" : "off"}, Digi-Key API ${ai.digikey ? "on" : "off"}`
+    ? `AI data fill on: ${ai.model} at ${ai.url}, search ${ai.searchUrl ?? "off"}${ai.searchEngines ? ` (${ai.searchEngines})` : ""}, Mouser API ${ai.mouserKey ? "on" : "off"}, Digi-Key API ${ai.digikey ? "on" : "off"}`
     : "AI data fill off: set AI_URL to enable",
 );
 

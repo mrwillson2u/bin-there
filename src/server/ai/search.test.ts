@@ -22,6 +22,16 @@ describe("searxng", () => {
     expect(hits[0]).toEqual({ title: "A", url: "https://a", snippet: "aa" });
     expect(hits[1]).toEqual({ title: "T0", url: "https://t0", snippet: "" });
   });
+
+  it("names the engines to ask when given (DEC-066)", async () => {
+    let asked = "";
+    const search = searxng("http://searx.local:8080", (async (u: URL | string) => {
+      asked = String(u);
+      return new Response(JSON.stringify({ results: [] }));
+    }) as typeof fetch, "yandex,brave");
+    await search("LM2596");
+    expect(asked).toBe("http://searx.local:8080/search?q=LM2596&format=json&language=en&engines=yandex%2Cbrave");
+  });
 });
 
 describe("pageFetcher", () => {

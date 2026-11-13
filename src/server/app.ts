@@ -6,7 +6,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { eq } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { items, locations, units } from "./db/schema";
+import { items, locations, units, type FieldDef } from "./db/schema";
 import { ApiError, errorResponse, parseBody } from "./errors";
 import {
   archiveLocation,
@@ -26,6 +26,7 @@ import {
 import {
   addPhoto,
   archiveItem,
+  categoryNames,
   categoryUsage,
   categoryValues,
   countNeedsDetails,
@@ -115,10 +116,17 @@ export type AiConfig = {
   url: string;
   model: string;
   searchUrl: string | null;
+  /** The search engines to ask (SEARCH_ENGINES, DEC-066); unset, the search service's own. */
+  searchEngines?: string | null;
   mouserKey?: string | null;
   digikey?: { clientId: string; clientSecret: string } | null;
   fetch?: typeof fetch;
 };
+
+/** A category's fields as the AI gets them: per-unit ones (DEC-062) are each unit's own state, not something a page can tell. */
+function aiFieldList(defs: FieldDef[]): { key: string; label: string; options?: string[] }[] {
+  return defs.filter((d) => !d.perUnit).map((d) => ({ key: d.key, label: d.label, ...(d.type === "choice" && d.options?.length ? { options: d.options } : {}) }));
+}
 
 /** 404 for a part that isn't there, without building its whole detail. */
 function requireItemExists(db: Db, id: number) {
@@ -249,7 +257,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const f = ai.fetch ?? fetch;
     return {
       chat: ollamaChat(ai.url, model, f),
-      search: ai.searchUrl ? searxng(ai.searchUrl, f) : async () => [],
+      search: ai.searchUrl ? searxng(ai.searchUrl, f, ai.searchEngines) : async () => [],
       fetchPage: pageFetcher(f),
       readPdf: pdfReader(f),
       shops: {
@@ -264,20 +272,24 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const ai = opts.ai;
     if (!ai) throw new ApiError(400, "VALIDATION", "AI isn't set up on this server (AI_URL)");
     const item = getItem(db, itemId);
+    const cats = listCategories(db);
     return researchItem(
       {
         name: now.name || item.name,
         url: now.url !== undefined ? now.url || null : item.url,
         categoryName: item.categoryName,
-        // Per-unit fields (DEC-062) are each unit's own state, not something a page can tell.
-        fields: item.fieldDefs.filter((d) => !d.perUnit).map((d) => ({ key: d.key, label: d.label, ...(d.type === "choice" && d.options?.length ? { options: d.options } : {}) })),
+        fields: aiFieldList(item.fieldDefs),
         attributes: item.attributes,
         supplier: now.supplier !== undefined ? now.supplier || null : item.supplier,
         supplierPn: now.supplierPn !== undefined ? now.supplierPn || null : item.supplierPn,
         notes: item.notes,
         // Photo URLs are /api/photos/<file>; the file sits in the photo folder.
         photos: item.photos.map((p) => p.url.slice(p.url.lastIndexOf("/") + 1)),
-        categories: listCategories(db).map((cat) => cat.name),
+        categories: cats.map((cat) => cat.name),
+        // A part with no category gets the fields of the one the photo puts it in (DEC-064), and
+        // the owner's names show the AI how things are named here (DEC-065).
+        fieldsByCategory: Object.fromEntries(cats.map((cat) => [cat.name, aiFieldList(cat.fieldDefs)])),
+        namesByCategory: categoryNames(db, item.id),
       },
       {
         ...aiDeps(ai, now.model || ai.model, (line) => console.log(`[ai] item ${item.id}: ${line}`)),

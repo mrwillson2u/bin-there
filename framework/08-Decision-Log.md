@@ -1612,6 +1612,51 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** Retired units stay in the table as before (history keeps pointing at them). Not done: removing from the checked-out list or the bin sheet. Checked in the J8 story of `stories-walk.mjs` and the API tests. Shipped to the live app on 2026-11-12 with DEC-061 to DEC-063 (backup `2026-11-12_214745`, `main` at 979023d, migration 0020 applied on the live database).
 
+### DEC-064: The AI fills the fields of the category it picks, in the same run
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, Q115) |
+| **Deciders** | Colin |
+| **Category** | Product / AI |
+
+**Context:** Colin captured three LiPo batteries with no category and the AI look-up queued. The model read 2000 mAh, 3.7 V and the rest off each label and picked Batteries, but filled none of the Batteries fields (Voltage, Capacity): the look-up only asked for the fields of the part's own category, and a part with none has none. One answer put the ratings in a note instead.
+
+**Decision:** When a part has no category and the photo step picks one, the rest of that same look-up fills that category's fields (per-unit ones left out, DEC-062): the extract step is told the category and asked for its fields, not for a category. The photo's category leads the suggestions, and the extract can't name a different one, so the field values always belong to the category suggested with them. On Fill in details the AI's guess under the row shows those values after the name and category, and Use saves them with the name and category in one change, each marked as the AI's with its source; only fields still empty are filled. The form's suggestions list already applies them.
+
+**Consequences:** Quick naming (DEC-053) is still the photo alone and fills no fields. A part captured with no photo still gets a category guessed from its name and no fields. Checked in the pipeline tests and in `ai-check.mjs` (a part queued with no category: its category leads, its field is shown under the row, Use saves it).
+
+### DEC-065: Names follow one rule and the owner's own names
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, Q115) |
+| **Deciders** | Colin |
+| **Category** | Product / AI |
+
+**Context:** The three batteries came back as "Rechargeable Lipo Battery", "Lithium-ion battery pack" and "Lithium Rechargeable Battery": three different products of one kind, named three ways, each copied from a phrase on its label. Colin asked whether naming could be consolidated, through written guidelines or by looking at the names already used.
+
+**Decision:** The model names a part by a rule given in both prompts: the kind of thing first, then the values that tell it apart from others of its kind (voltage, capacity, size, length, pins, count), then a brand or model only when printed and it matters; never a slogan or label copy, never a sentence. Like "LiPo battery 3.7 V 1200 mAh" and "Socket cap screw M3 × 10". With it go the owner's own names: up to 12 from the part's category (or the category the photo picked), most recently changed first, or up to 3 from each category when none is known yet. Those outrank the rule's examples: write the name the way they are written, the same way for the same kind of thing with only the values changed, and the very same name for the very same part. Parts still needing details and archived parts aren't used as examples.
+
+**Consequences:** The convention is whatever Colin's own names in a category are; the rule only decides while a category has none. Renaming the parts already in a category changes how the next ones are named. A part already named isn't renamed by the AI unless its name is missing, vague or wrong, as before. Not done: telling Colin when a new part looks like one he already has. Checked in the pipeline tests and the names query's own test.
+
+### DEC-066: Finding pages again: search engines that answer, off-topic hits dropped, part numbers read by the model
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, Q115) |
+| **Deciders** | Colin |
+| **Category** | Architecture / AI |
+
+**Context:** Every look-up on the live app since at least 2026-11-11 ran on the photo alone: SearXNG's four default engines block ubuntubot (DuckDuckGo and Startpage a CAPTCHA, Brave too many requests, Google access denied). Colin asked why Mouser and Digi-Key didn't help: their APIs answered, with no match, because the numbers printed on these batteries (LP103450, PL 103750) are cell size codes many makers print, not anyone's part number; and "PL 103750", printed with a space, was never tried at all. Tried from the server, Yandex answered eight part searches out of eight with shop and datasheet pages; Bing answered part numbers with film and adult sites, which is how it treats a caller it takes for a bot; Yahoo, Qwant, Mojeek, Presearch, Ask and Seznam failed.
+
+**Decision:** The app names the engines it asks (`SEARCH_ENGINES`, both compose files `yandex,brave,duckduckgo`; SearXNG lets a request use engines its settings leave off, so its shared settings are untouched): Yandex, with Brave and DuckDuckGo kept for when they recover; never Bing. A hit that shares no word with its query is dropped before any page is read. The photo step now also lists the markings that are part numbers, spaces taken out, and the shops try those first (only ones actually printed), then the rule-of-thumb ones, five numbers at most.
+
+**Consequences:** Yandex may start blocking too; the look-up's notes say so when the search fails, and the list is one line in the compose files. Generic cells and other no-name parts have no maker's number for Mouser or Digi-Key to match, so the web search is the path for them. Checked in the pipeline and search tests, and against the live search service.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1679,6 +1724,9 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-061 | No instant read at capture; the queued look-up is the one path, with the model kept loaded | UX / Architecture | Accepted | 2026-11-12 |
 | DEC-062 | Per-unit fields: a category field each stickered unit holds for itself | Product / Data | Accepted | 2026-11-12 |
 | DEC-063 | A stickered unit can be removed from its part, undoably | Product | Accepted | 2026-11-12 |
+| DEC-064 | The AI fills the fields of the category it picks, in the same run | Product / AI | Accepted | 2026-11-13 |
+| DEC-065 | Names follow one rule and the owner's own names | Product / AI | Accepted | 2026-11-13 |
+| DEC-066 | Finding pages again: search engines that answer, off-topic hits dropped, part numbers read by the model | Architecture / AI | Accepted | 2026-11-13 |
 
 ---
 

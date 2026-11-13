@@ -1,10 +1,11 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { sql } from "drizzle-orm";
 import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
-import { ftsQuery } from "./items";
+import { categoryNames, ftsQuery } from "./items";
 import type { BulkResult, Category, EventView, Inventory, ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
@@ -636,5 +637,29 @@ describe("inventory", () => {
     const order = async (qs: string) => (await ok<Inventory>("GET", `/inventory?${qs}`)).items.map((i) => i.name);
     expect(await order("q=m3")).toEqual(["M3 screw", "Washer for M3 bolts"]);
     expect(await order("q=m3&sort=added")).toEqual(["Washer for M3 bolts", "M3 screw"]);
+  });
+});
+
+describe("categoryNames (DEC-065)", () => {
+  it("lists each category's part names, newest change first, leaving out unfinished, archived and the part itself", async () => {
+    const db = openDb(":memory:");
+    const own = createApi(db, { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")) });
+    const send = async <T>(method: string, path: string, body?: unknown) => {
+      const res = await own.request(path, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+      expect(res.status, path).toBeLessThan(300);
+      return (await res.json()) as T;
+    };
+    const cats = await send<Category[]>("GET", "/categories");
+    const mods = cats.find((c) => c.name === "Modules & boards")!;
+    const a = await send<ItemDetail>("POST", "/items", { name: "Relay board 4-channel", categoryId: mods.id });
+    const b = await send<ItemDetail>("POST", "/items", { name: "Step-down converter MP1584", categoryId: mods.id });
+    await send<ItemDetail>("POST", "/items", { name: "No category yet" });
+    const gone = await send<ItemDetail>("POST", "/items", { name: "Old board", categoryId: mods.id });
+    await send("DELETE", `/items/${gone.id}`);
+    await send<ItemDetail>("POST", "/items", { name: "Relay board 4-channel", categoryId: mods.id });
+    db.run(sql`UPDATE items SET updated_at = '2020-01-01' WHERE id = ${a.id}`);
+    expect(categoryNames(db, -1)).toEqual({ "Modules & boards": ["Relay board 4-channel", "Step-down converter MP1584"] });
+    expect(categoryNames(db, b.id)).toEqual({ "Modules & boards": ["Relay board 4-channel"] });
+    expect(categoryNames(db, -1, 1)).toEqual({ "Modules & boards": ["Relay board 4-channel"] });
   });
 });

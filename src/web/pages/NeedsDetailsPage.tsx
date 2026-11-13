@@ -179,16 +179,33 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
     if (c) patch.mutate(categoryBody(c));
   };
 
-  // The AI's stored guess (DEC-055): its name and category, used in one save; the rest of the
-  // answer stays on the part for the More details popup.
-  const guess = item.aiResult && item.needsDetails ? { name: item.aiResult.suggestions.find((s) => s.field === "name")?.value, category: item.aiResult.suggestions.find((s) => s.field === "category")?.value } : null;
+  // The AI's stored guess (DEC-055): its name, category and that category's field values (DEC-064),
+  // used in one save; the rest of the answer stays on the part for the More details popup.
+  const guessed = (field: string) => item.aiResult?.suggestions.find((s) => s.field === field)?.value;
+  const guessCategory = guessed("category") ? categories.find((x) => x.name === guessed("category")) : undefined;
+  // Only the fields of the category the part ends up in, and only ones still empty: a value typed here stays.
+  const fieldKeys = new Set(((guessCategory ?? categories.find((x) => x.id === item.categoryId))?.fieldDefs ?? []).filter((f) => !f.perUnit).map((f) => f.key));
+  const guess =
+    item.aiResult && item.needsDetails
+      ? {
+          name: guessed("name"),
+          category: guessed("category"),
+          fields: item.aiResult.suggestions.filter((s) => s.field.startsWith("attributes.") && fieldKeys.has(s.field.slice(11)) && !item.attributes[s.field.slice(11)]),
+        }
+      : null;
   const useGuess = () => {
     if (!guess) return;
-    const c = guess.category ? categories.find((x) => x.name === guess.category) : undefined;
+    const c = guessCategory;
     const body: UpdateItem = c && c.id !== item.categoryId ? categoryBody(c) : {};
     if (guess.name && guess.name !== item.name) {
       body.name = guess.name;
       setName(guess.name);
+    }
+    if (guess.fields.length > 0) {
+      // Each value marked as the AI's, with where it came from (DEC-048).
+      const at = new Date().toISOString();
+      body.attributes = { ...item.attributes, ...Object.fromEntries(guess.fields.map((s) => [s.field.slice(11), s.value])) };
+      body.aiFields = { ...item.aiFields, ...Object.fromEntries(guess.fields.map((s) => [s.field, { source: s.source, at }])) };
     }
     if (Object.keys(body).length > 0) patch.mutate(body);
   };
@@ -279,13 +296,20 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
           )}
         </div>
       ) : guess ? (
-        <div data-ai-guess className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:order-last lg:col-start-2 lg:col-span-3">
+        <div data-ai-guess className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:order-last lg:col-start-2 lg:col-span-3">
           <Sparkles size={16} className="shrink-0 text-accent" />
-          {guess.name || guess.category ? (
+          {/* The words wrap; the dismiss button stays at the right. */}
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+          {guess.name || guess.category || guess.fields.length > 0 ? (
             <>
               <span className="text-muted">AI thinks:</span>
               {guess.name && <strong>{guess.name}</strong>}
               {guess.category && <span className="text-muted">· {guess.category}</span>}
+              {guess.fields.map((s) => (
+                <span key={s.field} className="text-muted">
+                  · {s.label} <span className="text-text">{s.value}</span>
+                </span>
+              ))}
               <Button type="button" variant="ghost" onClick={useGuess} aria-label={`Use the AI's guess for ${itemName(item.name)}`}>
                 Use
               </Button>
@@ -293,7 +317,8 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
           ) : (
             <span className="text-muted">The AI couldn't tell what it is{item.aiResult!.suggestions.length > 0 ? ", but has other details in More details" : ""}.</span>
           )}
-          <button type="button" onClick={() => dismiss.mutate()} aria-label={`Dismiss the AI's guess for ${itemName(item.name)}`} className="ml-auto flex h-9 w-9 items-center justify-center text-muted">
+          </span>
+          <button type="button" onClick={() => dismiss.mutate()} aria-label={`Dismiss the AI's guess for ${itemName(item.name)}`} className="flex h-9 w-9 shrink-0 items-center justify-center text-muted">
             <X size={16} />
           </button>
         </div>

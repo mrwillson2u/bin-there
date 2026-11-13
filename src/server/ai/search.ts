@@ -8,12 +8,17 @@ export type FetchPage = (url: string) => Promise<string | null>;
 /** The text of a PDF's first pages (a datasheet), or null when it can't be fetched or isn't a PDF. */
 export type ReadPdf = (url: string) => Promise<string | null>;
 
-export function searxng(url: string, fetchImpl: typeof fetch = fetch): Search {
+/**
+ * `engines` (SEARCH_ENGINES, DEC-066) names the engines to ask, comma-separated, instead of the
+ * service's own defaults: SearXNG lets a request use an engine its settings leave off.
+ */
+export function searxng(url: string, fetchImpl: typeof fetch = fetch, engines?: string | null): Search {
   return async (query) => {
     const u = new URL("/search", url);
     u.searchParams.set("q", query);
     u.searchParams.set("format", "json");
     u.searchParams.set("language", "en");
+    if (engines) u.searchParams.set("engines", engines);
     const res = await fetchImpl(u, { signal: AbortSignal.timeout(20_000) });
     if (!res.ok) throw new Error(`Search failed (${res.status} from SearXNG)`);
     const data = (await res.json()) as { results?: { title?: string; url?: string; content?: string }[]; unresponsive_engines?: [string, string][] };

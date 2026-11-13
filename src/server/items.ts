@@ -630,6 +630,27 @@ export function deletePhoto(db: Db, photoId: number): { item: ItemDetail; files:
 
 // ── Categories ───────────────────────────────────────────────────────────────
 
+/**
+ * The names of the parts in each category, most recently changed first, up to `per` each (DEC-065):
+ * how the owner names things, for the AI. Parts still needing details, archived ones and `exceptId` are left out.
+ */
+export function categoryNames(db: Db, exceptId: number, per = 12): Record<string, string[]> {
+  const rows = db
+    .select({ name: items.name, category: categories.name })
+    .from(items)
+    .innerJoin(categories, eq(categories.id, items.categoryId))
+    .where(and(eq(items.archived, false), eq(items.needsDetails, false), ne(items.id, exceptId)))
+    .orderBy(desc(items.updatedAt), desc(items.id))
+    .all();
+  const out: Record<string, string[]> = {};
+  for (const r of rows) {
+    const list = (out[r.category] ??= []);
+    const name = r.name.trim();
+    if (name && list.length < per && !list.includes(name)) list.push(name);
+  }
+  return out;
+}
+
 export function listCategories(db: Db): Category[] {
   return db.select().from(categories).where(isNull(categories.parentId)).orderBy(asc(categories.name)).all().map(toCategory);
 }

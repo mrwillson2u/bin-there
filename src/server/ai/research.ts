@@ -46,6 +46,13 @@ export type ResearchInput = {
   photos: string[];
   /** Every category, so one can be suggested for a part without one. */
   categories: string[];
+  /**
+   * Every category's fields (per-unit ones left out, DEC-062), by category name: a part with no
+   * category gets the fields of the one the photo puts it in, filled in the same run (DEC-064).
+   */
+  fieldsByCategory?: Record<string, { key: string; label: string; options?: string[] }[]>;
+  /** The names of parts already in each category, most recently changed first: the owner's way of naming (DEC-065). */
+  namesByCategory?: Record<string, string[]>;
 };
 
 /** The photo step's answer; `category` is one of the inventory's own when the part has none yet. */
@@ -53,16 +60,17 @@ const lookSchema = (categories: string[] | null) => ({
   type: "object",
   properties: {
     markings: { type: "array", items: { type: "string" } },
+    partNumbers: { type: "array", items: { type: "string" } },
     description: { type: "string" },
     likelyPart: { type: "string" },
     name: { type: "string" },
     ...(categories ? { category: { type: "string", enum: categories } } : {}),
     queries: { type: "array", items: { type: "string" } },
   },
-  required: ["markings", "description", "likelyPart", "name", ...(categories ? ["category"] : []), "queries"],
+  required: ["markings", "partNumbers", "description", "likelyPart", "name", ...(categories ? ["category"] : []), "queries"],
 });
 
-type Look = { markings: string[]; description: string; likelyPart: string; name?: string; category?: string; queries: string[] };
+type Look = { markings: string[]; partNumbers?: string[]; description: string; likelyPart: string; name?: string; category?: string; queries: string[] };
 
 export type ResearchOptions = {
   /** Quick naming (DEC-053): the photo alone, no reading or searching; a likely name and category. */
@@ -92,16 +100,26 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     const lookPrompt = [
       "You identify parts and components in a garage or electronics workshop inventory. These are photo(s) of one part, and you know nothing else about it.",
       "`markings`: every piece of text actually printed on the part, its label or its bag, exactly as written, one string each (model numbers, values, web addresses, brand names you can see). Only text you can see. If nothing is printed, leave it empty. Never list a brand, a type or a part number you merely recognise or expect: that is not a marking.",
+      "`partNumbers`: the markings that are a model or part number, the maker's or seller's number to order it by, written without spaces inside it (\"PL 103750\" is PL103750). Not a rating, size, count, date, batch or lot code, standard (ISO 9001) or brand name. Empty if there is none.",
       "`description`: one sentence saying what you see (what kind of part, how many pins or leads, colour, size clues).",
       "`likelyPart`: what it most likely is: a specific product if a marking names one, otherwise just the kind of part.",
-      "`name`: a short, clear name for it as its owner would write it on a label: the kind of thing and what matters (e.g. \"Claw hammer\", \"2.1 mm DC barrel jack\", \"M3 × 10 socket cap screws\", \"2-pin JST cable\", \"Bench power supply\"). Only as specific as what you can actually see: a brand, series, model or part number goes in only when it's printed and in `markings`; otherwise name just the kind of thing, with what's plainly visible (pins, colour, size). A plain right name beats a specific wrong one. Never a sentence.",
+      `\`name\`: a short, clear name for it. ${NAMING} Only as specific as what you can actually see: a brand, series, model or part number goes in only when it's printed and in \`markings\`; otherwise name the kind of thing with what's printed or plainly visible (ratings, pins, colour, size). A plain right name beats a specific wrong one.`,
+      ...nonEmpty(namesGuide(input.namesByCategory, input.categoryName)),
       ...(wantCategory ? [`\`category\`: the one of these it belongs in: ${input.categories.join(" | ")}`] : []),
       "`queries`: 2 or 3 web searches that would find its supplier or datasheet page, built from the markings and what you see: the most specific first. Don't put a part number in a query unless it's in the markings.",
     ].join("\n");
     const lookRaw = await deps.chat({ messages: [{ role: "user", content: lookPrompt, images }], schema: lookSchema(wantCategory ? input.categories : null) });
     look = parseJson<Look>(lookRaw, look);
     look.markings = (look.markings ?? []).filter((m) => typeof m === "string" && m.trim()).map((m) => m.trim());
+    // A part number the model saw counts only if it is printed: spaces out, and found in the markings.
+    look.partNumbers = (look.partNumbers ?? [])
+      .filter((n) => typeof n === "string")
+      .map((n) => n.replace(/\s+/g, ""))
+      .filter((n) => n.length >= 4 && n.length <= 32 && /\d/.test(n) && look.markings.some((m) => squash(m).includes(squash(n))));
   }
+  // The category the photo put a part with none in (DEC-064): its fields are filled in this same run.
+  const pickedCategory = wantCategory && images.length > 0 && input.categories.includes(String(look.category ?? "")) ? String(look.category) : null;
+  const fields = input.categoryName ? input.fields : pickedCategory ? (input.fieldsByCategory?.[pickedCategory] ?? []) : [];
   // What's on record searches too: a known part number first, the name last.
   look.queries = uniq([...(input.supplierPn ? [input.supplierPn] : []), ...(look.queries ?? []), input.name].filter((q) => q && q.trim().length > 1)).slice(0, 3);
   log(`look (${elapsed()}): ${look.likelyPart} | markings ${look.markings.length} | queries ${look.queries.join(" / ")}`);
@@ -160,7 +178,8 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   // is the page. Longest number first, since a short one matches more loosely.
   if (pages.length === 0 && deps.shops) {
     // A number on record (typed on the form, DEC-061) goes first, then the printed ones.
-    const numbers = uniq([...(input.supplierPn ? [input.supplierPn] : []), ...partNumberCandidates(look.markings)]);
+    // Then the numbers the model saw printed (DEC-064), then the ones the pattern picks out.
+    const numbers = uniqBy([...(input.supplierPn ? [input.supplierPn] : []), ...(look.partNumbers ?? []), ...partNumberCandidates(look.markings)], squash).slice(0, 5);
     const readers = (["Mouser", "Digi-Key"] as Shop[]).filter((s) => deps.shops![s]);
     let tried = 0;
     outer: for (const number of numbers) {
@@ -187,7 +206,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   // DATASHEET (DEC-053): a shop page names one, and the category has fields to fill (voltage,
   // package…) that the shop page often lacks. Its first pages are read as one more page.
   const sheet = pages.find((p) => p.datasheetUrl);
-  if (sheet?.datasheetUrl && input.fields.length > 0 && deps.readPdf) {
+  if (sheet?.datasheetUrl && fields.length > 0 && deps.readPdf) {
     const text = await deps.readPdf(sheet.datasheetUrl).catch(() => null);
     if (text) {
       pages.push({ title: "Datasheet (first pages)", url: sheet.datasheetUrl, text, own: false, datasheet: true });
@@ -202,7 +221,11 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     for (const q of look.queries) {
       if (hits.length >= 6) break;
       try {
-        for (const h of await deps.search(q)) if (!hits.some((x) => x.url === h.url)) hits.push(h);
+        const found = await deps.search(q);
+        // An engine that takes the app for a bot can answer with junk (DEC-066): a hit sharing no word with its query goes.
+        const kept = found.filter((h) => onTopic(h, q));
+        if (kept.length < found.length) log(`search: dropped ${found.length - kept.length} off-topic hits for "${q}"`);
+        for (const h of kept) if (!hits.some((x) => x.url === h.url)) hits.push(h);
       } catch (e) {
         log(`search failed for "${q}": ${(e as Error).message}`);
         problems.push((e as Error).message);
@@ -221,8 +244,8 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   // EXTRACT: fill the fields from the pages (and the markings), each with its source.
   const fieldList: { key: string; label: string; options?: string[] }[] = [
     { key: "name", label: "Name" },
-    ...(input.categoryName ? [] : [{ key: "category", label: "Category" }]),
-    ...input.fields.map((f) => ({ key: `attributes.${f.key}`, label: f.label, options: f.options })),
+    ...(input.categoryName || pickedCategory ? [] : [{ key: "category", label: "Category" }]),
+    ...fields.map((f) => ({ key: `attributes.${f.key}`, label: f.label, options: f.options })),
     { key: "supplier", label: "Supplier" },
     { key: "supplierPn", label: "Supplier part #" },
     { key: "price", label: "Price (USD, number only)" },
@@ -258,15 +281,18 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     "A page marked 'the owner's page for this exact part' is the shop page the owner saved or ordered from: what it says about the part is certain (high), and its price and specifications are this part's.",
     "A page marked 'the part's datasheet' is the maker's own document for it: its ratings and specifications fill the fields (high); it has no price.",
     "An Amazon page lists other products first (sponsored, 'consider these alternative items', 'customers also bought'); this part's own price is the one by its own title, and if that isn't shown, suggest no price.",
-    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the address (the URL line) of the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name as the owner would say it, only if the current name is missing, vague or wrong; when a page names the part, the name comes from the page's description, not from what the photo looked like. With no page, only as specific as the markings: no brand, series, model or number that isn't printed on the part. A plain right name beats a specific wrong one.",
+    "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the address (the URL line) of the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name, only if the current name is missing, vague or wrong; what it is and its values come from a page's description when a page names the part, not from what the photo looked like. With no page, only as specific as the markings: no brand, series, model or number that isn't printed on the part. A plain right name beats a specific wrong one.",
+    `Naming: ${NAMING}`,
+    ...nonEmpty(namesGuide(input.namesByCategory, input.categoryName ?? pickedCategory)),
     "`supplierPn` is the number to order it by: for Adafruit or SparkFun that is the product number in the adafru.it or sparkfun.com link, not a lot or date code.",
-    ...(input.categoryName ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
+    ...(input.categoryName || pickedCategory ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
     "Put anything the owner should know in `notes` (an unreadable value, two likely matches, a field that needs a meter reading), in plain words, one short sentence each, no greeting and no name.",
     "",
     "Fields to fill (use these keys exactly): " + fieldList.map((f) => `${f.key} = ${f.label}${f.options?.length ? ` (exactly one of: ${f.options.join(" | ")}; leave it out if none fits)` : ""}`).join("; "),
     "",
     "Known so far:",
     known,
+    ...(pickedCategory ? [`Category, from the photos: ${pickedCategory}. Fill its fields from the markings and pages.`] : []),
     images.length > 0
       ? `What the photos showed: ${look.description}. Likely part from the photos alone: ${look.likelyPart}. Text read off the part: ${look.markings.join(" | ") || "none printed"}.`
       : "There is no photo.",
@@ -286,6 +312,11 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   const choices = new Map(fieldList.filter((f) => f.options?.length).map((f) => [f.key, f.options!]));
   const seen = new Set<string>();
   const suggestions: Suggestion[] = [];
+  // The category the photo picked (DEC-064) leads: the field suggestions below are its fields.
+  if (pickedCategory) {
+    seen.add("category");
+    suggestions.push({ field: "category", label: "Category", value: pickedCategory, source: "photo", confidence: "high" });
+  }
   const printed = (value: string) => look.markings.some((m) => squash(m).includes(squash(value)) && squash(value).length >= 3);
   // What's on record already isn't a suggestion.
   const current: Record<string, string> = {
@@ -537,5 +568,46 @@ function parseJson<T>(raw: string, fallback: T): T {
 }
 
 const uniq = (xs: string[]) => [...new Set(xs.map((x) => x.trim()))];
+/** First of each by `key`: "LP103450" and "lp-103450" are one number. */
+const uniqBy = (xs: string[], key: (x: string) => string) => {
+  const seen = new Set<string>();
+  return xs.map((x) => x.trim()).filter((x) => x && !seen.has(key(x)) && seen.add(key(x)));
+};
+const nonEmpty = (s: string) => (s ? [s] : []);
+
+/**
+ * The naming rule (DEC-065): the kind of thing first, then what tells it apart, so the names of
+ * one kind group together and read alike. The owner's own names, when there are any, outrank it.
+ */
+export const NAMING = `Name it the way the owner's labels read: the kind of thing first, then the values that tell it apart from others of its kind (voltage, capacity, size, length, pins, count), then a brand or model only when it is printed and matters. Like "LiPo battery 3.7 V 1200 mAh", "Socket cap screw M3 × 10", "JST PH 2.0 cable 2-pin", "Stepper driver A4988", "Claw hammer". Never a slogan or a line of label copy ("Rechargeable Lipo Battery", "Please use according to specification"), never a sentence.`;
+
+/** The owner's names (DEC-065): the category's own, or a few from each when it isn't known yet. */
+export function namesGuide(names: Record<string, string[]> | undefined, category: string | null): string {
+  if (!names) return "";
+  if (category) {
+    const list = (names[category] ?? []).slice(0, 12);
+    if (list.length === 0) return "";
+    return `The owner's names for parts already in ${category}: ${list.map((n) => `"${n}"`).join(", ")}. Write the name the way these are written (word order, units, abbreviations), which outranks the examples above. If this is the same kind of thing as one of them, name it the same way and change only the values that differ; if it is the very same part, use that name exactly.`;
+  }
+  const lines = Object.entries(names)
+    .filter(([, l]) => l.length > 0)
+    .map(([c, l]) => `${c}: ${l.slice(0, 3).map((n) => `"${n}"`).join(", ")}`);
+  return lines.length ? `Some of the owner's names, by category: ${lines.join("; ")}. Write the name the way these are written, which outranks the examples above; if it is the very same part as one of them, use that name exactly.` : "";
+}
+
+/** Words too common to tie a hit to its query. */
+const COMMON = new Set(["the", "and", "for", "with", "from", "datasheet", "supplier", "buy", "price", "pdf", "part", "parts"]);
+
+/**
+ * A search hit is on topic when its title, snippet or address shares a word with the query
+ * (DEC-066). Bing, taking the app for a bot, has answered part numbers with film and adult sites.
+ */
+export function onTopic(hit: Hit, query: string): boolean {
+  const words = (query.toLowerCase().match(/[a-z0-9]+(?:[.\-][a-z0-9]+)*/g) ?? []).filter((w) => w.length >= 3 && !COMMON.has(w));
+  if (words.length === 0) return true;
+  const text = `${hit.title} ${hit.snippet} ${hit.url}`.toLowerCase();
+  const flat = squash(text);
+  return words.some((w) => text.includes(w) || (squash(w).length >= 3 && flat.includes(squash(w))));
+}
 
 export type { ChatMessage, ResearchResult, Suggestion };

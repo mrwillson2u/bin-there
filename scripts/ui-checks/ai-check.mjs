@@ -215,12 +215,19 @@ await page.goto(`${base}/needs-details`);
 await page.locator("[data-ai-guess]").first().waitFor({ timeout: 10000 });
 const queuedRow = page.getByRole("listitem", { name: "Queued part" });
 check((await queuedRow.locator("[data-ai-guess]").textContent()).includes("AI thinks:"), "Fill in details shows the stored guess under the row with no model call");
-// A category picked now keeps the count chosen at capture (DEC-055).
-await queuedRow.getByRole("combobox", { name: /Category for Queued part/ }).fill("Modules");
-await page.keyboard.press("Enter");
-await page.waitForTimeout(500);
-const afterCat = await api("GET", `/items/${queuedItem.id}`);
-check(afterCat.categoryId === modules.id && afterCat.tracking === "exact" && afterCat.places[0]?.qty === 3, "a category picked later keeps the count chosen at capture");
+// DEC-064: captured with no category, so the photo's category leads the answer and its fields were filled in the same run.
+check(stored.aiResult.suggestions[0]?.field === "category" && stored.aiResult.suggestions[0]?.value === "Modules & boards" && stored.aiResult.suggestions.some((s) => s.field === `attributes.${voltageKey}`), "with no category, the photo's category leads and its fields are filled in the same run (DEC-064)");
+const stripText = await queuedRow.locator("[data-ai-guess]").textContent();
+check(stripText.includes("Voltage") && stripText.includes("4–40 V in, 1.25–37 V out"), "the guess under the row shows the field values too: " + stripText);
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.screenshot({ path: `${shots}/ai-5b-fields.png`, fullPage: true });
+await page.setViewportSize({ width: 390, height: 844 });
+// Use: name, category and the field value in one save, and the count chosen at capture stays (DEC-055).
+await queuedRow.getByRole("button", { name: /^Use the AI's guess/ }).click();
+let afterCat = await api("GET", `/items/${queuedItem.id}`);
+for (let i = 0; i < 30 && afterCat.categoryId !== modules.id; i++) { await page.waitForTimeout(100); afterCat = await api("GET", `/items/${queuedItem.id}`); }
+check(afterCat.categoryId === modules.id && afterCat.tracking === "exact" && afterCat.places[0]?.qty === 3, "a category taken later keeps the count chosen at capture");
+check(afterCat.attributes[voltageKey] === "4–40 V in, 1.25–37 V out" && !!afterCat.aiFields[`attributes.${voltageKey}`]?.source, "and Use filled the category's field, marked as the AI's");
 // The form shows the stored answer straight away.
 await page.goto(`${base}/items/${queuedItem.id}/edit`);
 await page.locator("[data-ai-result]").waitFor({ timeout: 10000 });

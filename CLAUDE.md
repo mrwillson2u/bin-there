@@ -47,7 +47,7 @@ PORT=3011 DATA_DIR=/tmp/bt-test npm start
 
 Server env vars: `PORT`, `DATA_DIR` (holds `app.db` and `photos/`), `MIGRATIONS_DIR`
 (default `drizzle`), `BACKUP_DIR` (backups off unless set), `BACKUP_HOUR`, `BACKUP_KEEP`, and on the
-for the AI data fill (on both instances since DEC-054) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (the code's default `gemma3:4b`; both compose files set `gemma4:e4b`, DEC-053), `SEARCH_URL` (SearXNG),
+for the AI data fill (on both instances since DEC-054) `AI_URL` (Ollama; AI data fill off unless set), `AI_MODEL` (the code's default `gemma3:4b`; both compose files set `gemma4:e4b`, DEC-053), `SEARCH_URL` (SearXNG), `SEARCH_ENGINES` (the engines it's asked for, DEC-066),
 `MOUSER_API_KEY`, `DIGIKEY_CLIENT_ID` + `DIGIKEY_CLIENT_SECRET` (shop APIs, DEC-049).
 
 After a schema change, run `npm run db:generate` and check the migration against an old-shaped
@@ -95,8 +95,8 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
     read off the part is tried at both before any web search, `mode: "quick"` is the photo alone for a likely name and category
     (the Needs details list runs it row by row), and a datasheet a shop page names is read with pdf.js (`pdfReader` in `search.ts`). `ollamaWarm`
     loads the model at server start and every request carries `keep_alive: -1` so it stays loaded (DEC-061); a part
-    number on record is tried at the shops before the printed ones. On only when
-    `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`, the shop keys). The AI never writes: `POST /items/:id/research`
+    number on record is tried at the shops before the printed ones. A part with no category gets the fields of the category the photo picks in the same run (`fieldsByCategory`, DEC-064), and both prompts carry the naming rule and the owner's names (`namesByCategory` from `categoryNames` in `items.ts`, DEC-065); search hits sharing no word with their query are dropped (`onTopic`, DEC-066). On only when
+    `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`, `SEARCH_ENGINES`, the shop keys). The AI never writes: `POST /items/:id/research`
     returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time). `queue.ts` (DEC-055) is the in-process queue: parts queued at capture are
     looked up one at a time in the background, the answer stored on the item (`ai_result`), the job state on it too (`ai_job`),
     the change version bumped so screens refresh; `POST/DELETE /items/:id/research/queue`, `DELETE /items/:id/research`.

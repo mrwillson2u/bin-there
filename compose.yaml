@@ -28,6 +28,9 @@ services:
       # gemma4:e4b: the best reader of printed numbers and the least inventive of five tried (DEC-053).
       AI_MODEL: ${AI_MODEL:-gemma4:e4b}
       SEARCH_URL: ${SEARCH_URL:-http://host.docker.internal:8989}
+      # The engines to ask (DEC-066): Google, DuckDuckGo, Startpage and Brave block this server and
+      # Bing answers it with junk; Yandex answers. The blocked ones stay listed for when they recover.
+      SEARCH_ENGINES: ${SEARCH_ENGINES:-yandex,brave,duckduckgo}
       MOUSER_API_KEY: ${MOUSER_API_KEY:-}
       DIGIKEY_CLIENT_ID: ${DIGIKEY_CLIENT_ID:-}
       DIGIKEY_CLIENT_SECRET: ${DIGIKEY_CLIENT_SECRET:-}

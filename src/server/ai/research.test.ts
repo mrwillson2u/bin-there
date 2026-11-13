@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelLinks, partNumberCandidates, researchItem, withoutUnprintedNumbers, type Deps, type ResearchInput } from "./research";
+import { labelLinks, namesGuide, onTopic, partNumberCandidates, researchItem, withoutUnprintedNumbers, type Deps, type ResearchInput } from "./research";
 
 // The pipeline with a fake model, fake search and fake pages (DEC-048): what it asks, what it
 // keeps, what it throws away.
@@ -17,7 +17,7 @@ const input: ResearchInput = {
   categories: ["Modules & boards", "Electronic components"],
 };
 
-function fakes(answers: { look: object; extract: object }, hits = [{ title: "LM2596 module", url: "https://www.example-supplier.com/lm2596", snippet: "3A step-down" }]) {
+function fakes(answers: { look: object; extract: object }, hits = [{ title: "LM2596 module", url: "https://www.example-supplier.com/lm2596", snippet: "3A step-down buck converter" }]) {
   const prompts: { content: string; images?: string[] }[] = [];
   const searched: string[] = [];
   const fetched: string[] = [];
@@ -375,6 +375,94 @@ describe("researchItem", () => {
     expect(asked).toEqual(["IDS-34-P"]);
     expect(r.notes).toContain("Found at Mouser by the part number on record, IDS-34-P.");
     expect(f.searched).toEqual([]);
+  });
+
+  it("a part with no category: the photo's category leads and its fields are filled in the same run (DEC-064)", async () => {
+    const f = fakes(
+      {
+        look: { markings: ["MakerHawk", "2200mAh", "3.7V", "8.14Wh"], partNumbers: [], description: "A flat silver pouch cell", likelyPart: "LiPo battery", name: "LiPo battery 3.7 V 2200 mAh", category: "Batteries", queries: ["MakerHawk 2200mAh 3.7V"] },
+        extract: {
+          identified: "MakerHawk 3.7 V 2200 mAh LiPo",
+          suggestions: [
+            { field: "category", value: "Modules & boards", source: "photo", confidence: "high" },
+            { field: "attributes.voltage", value: "3.7 V", source: "photo", confidence: "high" },
+            { field: "attributes.capacity", value: "2200 mAh", source: "photo", confidence: "high" },
+            { field: "attributes.Voltage", value: "5 V", source: "photo", confidence: "high" },
+          ],
+          notes: [],
+        },
+      },
+      [],
+    );
+    const r = await researchItem(
+      {
+        ...input,
+        name: "",
+        categoryName: null,
+        fields: [],
+        attributes: {},
+        categories: ["Batteries", "Modules & boards"],
+        fieldsByCategory: { Batteries: [{ key: "voltage", label: "Voltage" }, { key: "capacity", label: "Capacity" }], "Modules & boards": [{ key: "Voltage", label: "Voltage" }] },
+      },
+      f.deps,
+    );
+    // The extract was asked for the Batteries fields, not for a category.
+    expect(f.prompts[1]!.content).toContain("attributes.voltage = Voltage; attributes.capacity = Capacity");
+    expect(f.prompts[1]!.content).toContain("Category, from the photos: Batteries.");
+    expect(f.prompts[1]!.content).not.toContain("`category` must be one of");
+    // The photo's category leads; the extract's other category and the other category's field are dropped.
+    expect(r.suggestions.map((s) => [s.field, s.value])).toEqual([
+      ["category", "Batteries"],
+      ["attributes.voltage", "3.7 V"],
+      ["attributes.capacity", "2200 mAh"],
+    ]);
+    expect(r.suggestions[1]!.label).toBe("Voltage");
+  });
+
+  it("names: the rule, and the owner's names for the category, or a few from each when there's none yet (DEC-065)", async () => {
+    const names = { "Modules & boards": ["Step-down converter MP1584", "Relay board 4-channel"], Batteries: ["LiPo battery 3.7 V 500 mAh"] };
+    const f = fakes({
+      look: { markings: [], description: "", likelyPart: "x", queries: ["q"] },
+      extract: { identified: "x", suggestions: [], notes: [] },
+    });
+    await researchItem({ ...input, namesByCategory: names }, f.deps);
+    for (const p of [f.prompts[0]!.content, f.prompts[1]!.content]) {
+      expect(p).toContain("the kind of thing first");
+      expect(p).toContain(`The owner's names for parts already in Modules & boards: "Step-down converter MP1584", "Relay board 4-channel".`);
+      expect(p).not.toContain("LiPo battery 3.7 V 500 mAh");
+    }
+    // No category yet: the photo step sees a few names from each category.
+    expect(namesGuide(names, null)).toContain(`Modules & boards: "Step-down converter MP1584", "Relay board 4-channel"; Batteries: "LiPo battery 3.7 V 500 mAh"`);
+    expect(namesGuide(names, "Tools")).toBe("");
+    expect(namesGuide(undefined, null)).toBe("");
+  });
+
+  it("tries the part numbers the model saw at the shops, spaces taken out, only when printed (DEC-064)", async () => {
+    const f = fakes({
+      look: { markings: ["PL 103750", "3.7V 2000mAh", "+ 2020 04 21"], partNumbers: ["PL 103750", "XYZ-9999"], description: "a pouch cell", likelyPart: "LiPo battery", queries: ["PL 103750 battery"] },
+      extract: { identified: "x", suggestions: [], notes: [] },
+    }, []);
+    const asked: string[] = [];
+    f.deps.shops = { Mouser: async (link) => { asked.push(link.makerPn ?? ""); return null; } };
+    await researchItem({ ...input, supplierPn: null }, f.deps);
+    // The pattern alone splits "PL 103750" into nothing it would try; the model's reading joins it. XYZ-9999 isn't printed.
+    expect(partNumberCandidates(["PL 103750", "3.7V 2000mAh"])).toEqual([]);
+    expect(asked).toEqual(["PL103750"]);
+  });
+
+  it("drops search hits that share no word with their query (DEC-066)", async () => {
+    expect(onTopic({ title: "'xxxx' Search - XNXX.COM", url: "https://www.xnxx.com/search/xxxx", snippet: "" }, "LP103450 3.7V LiPo Battery datasheet")).toBe(false);
+    expect(onTopic({ title: "Tár (2022) - IMDb", url: "https://www.imdb.com/title/tt14444726/", snippet: "" }, "MakerHawk 2200mAh 3.7V Lithium Rechargeable Battery")).toBe(false);
+    expect(onTopic({ title: "103450 LiPo", url: "https://www.lipobattery.us/product/lp103450-3-7v-1800mah-6-66wh/", snippet: "" }, "LP103450 3.7V LiPo Battery datasheet")).toBe(true);
+    expect(onTopic({ title: "Amazon.com", url: "https://www.amazon.com/MakerHawk-Rechargeable-Protection/dp/B0D3LQYX", snippet: "" }, "MakerHawk 2200mAh 3.7V")).toBe(true);
+    // A query of nothing but common words can't be checked, so nothing is dropped.
+    expect(onTopic({ title: "Anything", url: "https://x.example", snippet: "" }, "datasheet pdf")).toBe(true);
+    const f = fakes(
+      { look: { markings: [], description: "", likelyPart: "x", queries: ["LM2596 buck module"] }, extract: { identified: "x", suggestions: [], notes: [] } },
+      [{ title: "Hot videos", url: "https://junk.example/videos", snippet: "" }, { title: "LM2596 module", url: "https://www.example-supplier.com/lm2596", snippet: "3A step-down" }],
+    );
+    await researchItem(input, f.deps);
+    expect(f.fetched).toEqual(["https://www.example-supplier.com/lm2596"]);
   });
 
   it("picks what could be a part number out of the markings", () => {
