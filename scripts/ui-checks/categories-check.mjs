@@ -41,7 +41,8 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 page.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
 
 await page.goto(`${base}/locations`);
-await page.getByRole("link", { name: "Categories" }).click();
+// Reached from the sidebar on a computer (DEC-070).
+await page.locator("nav").getByRole("link", { name: "Categories" }).click();
 await page.getByRole("heading", { name: "Categories" }).waitFor();
 check((await page.locator("[data-category]").count()) === cats.length, `every category is listed: ${cats.length}`);
 const wireCard = page.locator('[data-category="Wire & connectors"]');
@@ -88,11 +89,36 @@ const offered = await page.locator(`datalist[id="${listId}"] option`).evaluateAl
 check(offered.join() === "20 AWG,22 AWG", "the gauge box offers the values already used: " + offered.join(", "));
 check((await page.getByRole("link", { name: "Manage categories and their fields" }).count()) === 1, "the form links to the Categories screen");
 
+// A part's own field named like a category field becomes it when the field is added (DEC-069).
+await api("PATCH", `/items/${plug.id}`, { attributes: { [gauge.key]: "20 AWG", "Pin count": "2" } });
+await page.goto(`${base}/categories`);
+await wireCard.getByLabel("New field for Wire & connectors").fill("Pin count");
+await wireCard.getByLabel("New field for Wire & connectors").press("Enter");
+await wireCard.getByLabel("Field 3 of Wire & connectors").waitFor();
+await page.waitForTimeout(400);
+{
+  const pinKey = (await api("GET", "/categories")).find((c) => c.id === wire.id).fieldDefs.find((f) => f.label === "Pin count").key;
+  const attrs = (await api("GET", `/items/${plug.id}`)).attributes;
+  check(attrs[pinKey] === "2" && !("Pin count" in attrs), "adding Pin count to the category picks up the value the part held as its own field: " + JSON.stringify(attrs));
+  await wireCard.getByRole("button", { name: "Remove Pin count from Wire & connectors" }).click();
+  await wireCard.getByRole("button", { name: "Remove anyway" }).click();
+  await wireCard.getByLabel("Field 3 of Wire & connectors").waitFor({ state: "detached" });
+  await api("PATCH", `/items/${plug.id}`, { attributes: { [gauge.key]: "20 AWG" } });
+}
+
 // A choice field (DEC-059): Type becomes a Choice with options; the part's form offers them in a drop-down.
 await page.goto(`${base}/categories`);
 await wireCard.getByRole("radio", { name: "Choice" }).nth(1).click();
 const opts = wireCard.getByRole("textbox", { name: "Options for Type" });
 await opts.waitFor();
+// The options box sits right under its field's name, lined up with it (Colin, 2026-11-13).
+{
+  const nameBox = await wireCard.getByRole("textbox", { name: /^Field 2 of / }).boundingBox();
+  const optBox = await opts.boundingBox();
+  const kindBox = await wireCard.getByRole("radiogroup", { name: "Kind of Type" }).boundingBox();
+  check(optBox.y > nameBox.y && optBox.y < kindBox.y && Math.abs(optBox.x - nameBox.x) < 8, "the options box is right under the field's name, above the Text / Choice switch");
+}
+await page.screenshot({ path: `${shots}/cat-2b-options-under-name.png` });
 await opts.fill("DC barrel, USB-C, JST");
 await opts.press("Enter");
 await page.waitForTimeout(400);

@@ -163,9 +163,10 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold uppercase tracking-wide text-muted">Fields</span>
         {fields.length === 0 && <p className="text-sm text-muted">No fields yet. A field is a detail every part of this kind has, like Voltage or Thread.</p>}
-        <ul className="flex flex-col gap-1.5">
+        {/* Each field in its own outline, so its name, options and switches read as one (Colin, 2026-11-13). */}
+        <ul className="flex flex-col gap-2">
           {fields.map((f, i) => (
-            <li key={f.key} className="flex flex-col gap-1">
+            <li key={f.key} className="flex flex-col gap-1.5 rounded-xl border border-border/70 p-2" data-field={f.label}>
               <div className="flex items-center gap-1">
                 <input
                   value={f.label}
@@ -191,6 +192,20 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
                   <X size={16} />
                 </button>
               </div>
+              {/* A choice field's options sit right under its name, so it's plain which field they belong to. */}
+              {f.type === "choice" && (
+                <input
+                  value={options[f.key] ?? ""}
+                  onChange={(e) => setOptions((o) => ({ ...o, [f.key]: e.target.value }))}
+                  onBlur={() => saveOptions(f.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                  className={`${inputClass} min-h-9 text-sm`}
+                  placeholder={`Options for ${f.label}, separated by commas: Li-ion, LiPo, NiMH`}
+                  aria-label={`Options for ${f.label}`}
+                />
+              )}
               <div className="flex flex-wrap items-center gap-2 pl-1">
                 <div className="flex overflow-hidden rounded-lg border border-border text-[13px]" role="radiogroup" aria-label={`Kind of ${f.label}`}>
                   {fieldTypes.map((t) => (
@@ -199,19 +214,6 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
                     </button>
                   ))}
                 </div>
-                {f.type === "choice" && (
-                  <input
-                    value={options[f.key] ?? ""}
-                    onChange={(e) => setOptions((o) => ({ ...o, [f.key]: e.target.value }))}
-                    onBlur={() => saveOptions(f.key)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                    }}
-                    className={`${inputClass} min-h-9 min-w-0 flex-1 text-sm`}
-                    placeholder="Options, separated by commas: Li-ion, LiPo, NiMH"
-                    aria-label={`Options for ${f.label}`}
-                  />
-                )}
                 {/* Each stickered unit holds its own value (DEC-062): a battery's charge level, a tool's calibration date. */}
                 <label className="flex min-h-8 items-center gap-1.5 text-[13px] text-muted">
                   <input type="checkbox" checked={perUnitTapped[f.key] ?? !!f.perUnit} onChange={(e) => setPerUnit(f.key, e.target.checked)} className="h-4 w-4" aria-label={`Each stickered one has its own ${f.label}`} />

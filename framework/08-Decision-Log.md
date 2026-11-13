@@ -1703,6 +1703,40 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** The scanning setting (DEC-044) still decides whether the camera button shows; it no longer adds any words. New screens follow the same rule. Checked in `stickers-check.mjs` (no "trigger" anywhere on the screen in scanner-only mode) and the Move and bin-sheet checks. Shipped to the live app on 2026-11-13 with the Move sheet's follow-up (backup `2026-11-13_123654`, `main` at 967c89f).
 
+### DEC-069: A part's own fields named like its category's become them; the category editor groups each field
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin's bug report) |
+| **Deciders** | Colin |
+| **Category** | Data / UX |
+
+**Context:** Colin reported that changing a category's fields didn't reach the parts already in it, even after switching a part's category away and back. The live data showed why: before the Bearings category had fields, he gave his Linear bearing its own fields on its form ("Other fields": OD 15mm, ID 8mm, Width 24mm). Then he added ID, OD and Length to the category. A field's key is made from its name in lower case ("id"), and nothing matched "ID" to "id", so the part's values stayed as its own fields and the category's fields stayed empty; he retyped 8 and 15 into them. The part's page also listed every stored value under its raw name, so it showed both. Separately, the editor's box for a choice field's options sat on the line with the Text / Choice switch and the per-unit checkbox, between fields, so it wasn't plain which field it belonged to (his Bearings "Length" field has the options Rotary and Linear).
+
+**Decision:**
+- **A part's own field named like a category field is that field.** Names match on their letters and digits alone ("ID", "id", "I.D." are one; "Thread pitch" matches "thread_pitch"). It's applied when a category's fields are saved (to every part in it), whenever a part is saved (with the category it ends up in, so moving a part into a category lines it up), and once at each server start for what's already stored.
+- **When both hold a value:** if they say the same thing ("8" and "8mm", the same number; "15 mm" and "15mm") they merge, keeping the fuller one; if they differ, both stay, nothing lost. Per-unit fields (DEC-062) live on the units and are left alone; a part's own field never takes another category field's key.
+- **The part's page** lists the category's fields first, in the category's order, then the part's own, as its form does.
+- **The category editor:** a choice field's options box sits right under the field's name, above its Text / Choice switch; each field has its own light outline, so its name, options and switches read as one.
+
+**Consequences:** Colin's Linear bearing becomes ID 8mm, OD 15mm, with Width 24mm still its own field, at the first start after the ship. Matching ignores spelling beyond letters and digits, so "OD" and "Outer diameter" stay separate. Checked in the API tests (his values exactly; the merge rule; the start-up pass) and `categories-check.mjs` (adding Pin count picks up a part's own Pin count; the options box under its name).
+
+### DEC-070: Categories and Print stickers in the sidebar, not at the bottom of Locations
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted for the computer; the phone's way there is Q119 |
+| **Deciders** | Colin |
+| **Category** | UX / Navigation |
+
+**Context:** Colin asked why Categories and Print stickers were reached from the bottom of the Locations page, along with a Settings link he doesn't need there. They were put there when built (DEC-052, DEC-056) because the phone's bottom bar was full and the bottom of Locations (the old home page) reached both phone and computer without redesigning navigation; on the phone that block is also the only way to Settings. Convenience, not a reason.
+
+**Decision:** On a computer, the sidebar has Categories (after Inventory, since it describes parts) and Print stickers (after Locations, since stickers go on places), and the Locations page no longer carries those links or Settings. On a phone the links stay at the bottom of Locations until Colin picks the phone's way there: a More tab in the bar, or a menu button at the top of each screen (Q119, drawn for him).
+
+**Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry) and `categories-check.mjs`.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1775,6 +1809,8 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-066 | Finding pages again: search engines that answer, off-topic hits dropped, part numbers read by the model | Architecture / AI | Accepted | 2026-11-13 |
 | DEC-067 | One Move sheet: it asks what's moving, then where, and says what it will do; each part shows its ID | UX | Accepted | 2026-11-13 |
 | DEC-068 | The app never tells you how to work a scanner | UX / Wording | Accepted | 2026-11-13 |
+| DEC-069 | A part's own fields named like its category's become them; the category editor groups each field | Data / UX | Accepted | 2026-11-13 |
+| DEC-070 | Categories and Print stickers in the sidebar, not at the bottom of Locations | UX / Navigation | Accepted (computer) | 2026-11-13 |
 
 ---
 

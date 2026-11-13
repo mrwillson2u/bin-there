@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Archive, Boxes, History, ScanLine, Search, Settings, Warehouse } from "lucide-react";
+import { Archive, Boxes, History, QrCode, ScanLine, Search, Settings, Tags, Warehouse } from "lucide-react";
 import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
@@ -137,8 +137,11 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
       {/* Desktop / Pi screen: sidebar. The hardware scanner works on any screen. */}
       <nav className="fixed inset-y-0 left-0 hidden w-56 flex-col gap-1 border-r border-border bg-surface px-3 py-5 lg:flex">
         <div className="mb-4 px-3 text-lg font-semibold">Bin→There</div>
+        {/* Categories by the parts they describe, Print stickers by the places they go on (DEC-070). */}
         <SideItem to="/" icon={<Boxes size={20} />} label="Inventory" />
+        <SideItem to="/categories" icon={<Tags size={20} />} label="Categories" />
         <SideItem to="/locations" end={false} icon={<Warehouse size={20} />} label="Locations" />
+        <SideItem to="/stickers/print" icon={<QrCode size={20} />} label="Print stickers" />
         <SideItem to="/search" icon={<Search size={20} />} label="Search" />
         <SideItem to="/putback" icon={<Archive size={20} />} label="Put-back" />
         <SideItem to="/activity" icon={<History size={20} />} label="Activity" />

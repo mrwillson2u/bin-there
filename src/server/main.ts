@@ -7,6 +7,7 @@ import { openDb } from "./db/client";
 import { createApi, type AiConfig } from "./app";
 import { msUntilHour, scheduleBackups, type BackupConfig } from "./backup";
 import { scheduleHousekeeping } from "./housekeeping";
+import { adoptAllFields } from "./items";
 import { ollamaWarm } from "./ai/ollama";
 
 const dataDir = process.env.DATA_DIR ?? "./data";
@@ -14,6 +15,10 @@ const port = Number(process.env.PORT ?? 3000);
 mkdirSync(dataDir, { recursive: true });
 
 const db = openDb(join(dataDir, "app.db"), process.env.MIGRATIONS_DIR ?? "drizzle");
+// Parts' own fields named like their category's become them (DEC-069): the ones filled in before
+// the category had the field. Saving a category or a part does the same from then on.
+const adopted = adoptAllFields(db);
+if (adopted > 0) console.log(`Matched ${adopted} ${adopted === 1 ? "part's" : "parts'"} own fields to their category's`);
 
 const photoDir = join(dataDir, "photos");
 // Nightly backups to a second drive (F8). Off unless BACKUP_DIR is set.

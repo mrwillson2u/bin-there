@@ -37,9 +37,10 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, acceptDownloads: true });
 page.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
 
-// Reached from Locations.
+// Reached from the sidebar on a computer (DEC-070), not from the bottom of Locations.
 await page.goto(`${base}/locations`);
-await page.getByRole("link", { name: "Print stickers" }).click();
+check((await page.locator("main").getByRole("link", { name: /Print stickers|Categories|Settings/ }).count()) === 0, "on a computer the Locations page carries no Print stickers, Categories or Settings links");
+await page.locator("nav").getByRole("link", { name: "Print stickers" }).click();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByRole("button", { name: /Sticker vinyl, Cricut/ }).getAttribute("aria-pressed")) === "true", "the Cricut vinyl is the first choice");
 check((await page.getByText("56 per sheet (4 across by 14 down)").count()) === 1, "SL588 upright in Design Space's 6.76 × 9.26 in box: 56 per sheet");

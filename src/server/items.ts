@@ -525,11 +525,17 @@ export function updateItem(db: Db, id: number, input: UpdateItem): ItemDetail {
   // A part comes off the Needs details list once it has a name and a category (DEC-007, Q47).
   const name = input.name ?? before.name;
   const categoryId = input.categoryId !== undefined ? input.categoryId : before.categoryId;
+  // Its own fields named like its category's become them (DEC-069), on any save, so a part moved
+  // into a category, or filled in before the category had the field, lines up.
+  const fieldDefs = categoryId ? (db.select({ f: categories.fieldDefs }).from(categories).where(eq(categories.id, categoryId)).get()?.f ?? []) : [];
+  const given = attributes ? Object.fromEntries(Object.entries(attributes).filter(([, v]) => v !== "")) : before.attributes;
+  const adopted = adoptFields(given, fieldDefs);
+  const writeAttributes = !!attributes || !sameAttributes(adopted, before.attributes);
   db.transaction(() => {
     db.update(items)
       .set({
         ...rest,
-        ...(attributes ? { attributes: Object.fromEntries(Object.entries(attributes).filter(([, v]) => v !== "")) } : {}),
+        ...(writeAttributes ? { attributes: adopted } : {}),
         needsDetails: needsDetails ?? !(name && categoryId),
         updatedAt: sql`(datetime('now'))`,
       })
@@ -661,6 +667,71 @@ function toCategory(c: typeof categories.$inferSelect): Category {
 
 export const fieldKey = (label: string) => label.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
+/**
+ * A part's own fields that are really its category's (DEC-069): an extra field named like one of
+ * the category's ("ID" for the category's ID, "thread pitch" for Thread pitch; case, spaces and
+ * punctuation don't count) becomes that field. If both already hold a value and it's the same one
+ * ("8" and "8mm": the same number, so the fuller one is kept) they merge; if they differ, both stay
+ * and nothing is lost. Per-unit fields (DEC-062) live on the units, so they're left alone.
+ */
+export function adoptFields(attributes: Record<string, string | number>, fieldDefs: FieldDef[]): Record<string, string> {
+  const out: Record<string, string> = Object.fromEntries(Object.entries(attributes).map(([k, v]) => [k, String(v)]));
+  const keys = new Set(fieldDefs.map((f) => f.key));
+  for (const f of fieldDefs) {
+    if (f.perUnit) continue;
+    const names = new Set([bare(f.key), bare(f.label)]);
+    for (const k of Object.keys(out)) {
+      if (keys.has(k) || !names.has(bare(k))) continue;
+      const mine = (out[f.key] ?? "").trim();
+      const theirs = out[k]!.trim();
+      const kept = !mine ? theirs : sameValue(mine, theirs);
+      if (kept === null) continue;
+      out[f.key] = kept;
+      delete out[k];
+    }
+  }
+  return out;
+}
+
+/** A field's name with only its letters and digits, lower case: "O.D.", "od" and "OD " are one name. */
+const bare = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** The fuller of two values that say the same thing ("8" and "8mm", "15 mm" and "15mm"), or null. */
+function sameValue(a: string, b: string): string | null {
+  const flat = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+  if (flat(a) === flat(b)) return a.length >= b.length ? a : b;
+  const lead = (s: string) => s.match(/^\d+(\.\d+)?/)?.[0];
+  if (/^\d+(\.\d+)?$/.test(a) && lead(b) === a) return b;
+  if (/^\d+(\.\d+)?$/.test(b) && lead(a) === b) return a;
+  return null;
+}
+
+const sameAttributes = (a: Record<string, unknown>, b: Record<string, unknown>) =>
+  Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => String(b[k] ?? "\u0000") === String(v));
+
+/**
+ * Bring every part's own fields into its category's (DEC-069), as a category save does: run at
+ * start, so parts filled in before their category had the field pick it up. Returns how many changed.
+ */
+export function adoptAllFields(db: Db): number {
+  let changed = 0;
+  const cats = db.select({ id: categories.id, fieldDefs: categories.fieldDefs }).from(categories).all();
+  for (const c of cats) changed += adoptCategoryFields(db, c.id, c.fieldDefs);
+  return changed;
+}
+
+function adoptCategoryFields(db: Db, categoryId: number, fieldDefs: FieldDef[]): number {
+  let changed = 0;
+  for (const row of db.select({ id: items.id, attributes: items.attributes }).from(items).where(eq(items.categoryId, categoryId)).all()) {
+    const next = adoptFields(row.attributes, fieldDefs);
+    if (sameAttributes(next, row.attributes)) continue;
+    db.update(items).set({ attributes: next }).where(eq(items.id, row.id)).run();
+    indexItem(db, row.id);
+    changed++;
+  }
+  return changed;
+}
+
 export function createCategory(
   db: Db,
   input: { name: string; defaultKind?: "consumable" | "returnable"; defaultTracking?: "exact" | "level"; fields?: string[] },
@@ -716,6 +787,8 @@ export function updateCategory(db: Db, id: number, input: UpdateCategory): Categ
     changes.fieldDefs = next;
   }
   if (Object.keys(changes).length > 0) db.update(categories).set(changes).where(eq(categories.id, id)).run();
+  // A new or renamed field picks up the values parts already hold under that name (DEC-069).
+  if (changes.fieldDefs) adoptCategoryFields(db, id, changes.fieldDefs);
   if (changes.fieldDefs || changes.name) {
     for (const row of db.select({ id: items.id }).from(items).where(eq(items.categoryId, id)).all()) indexItem(db, row.id);
   }

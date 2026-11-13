@@ -390,8 +390,11 @@ function Details({ item }: { item: ItemDetail }) {
       </span>
     );
   };
+  // The category's fields first, in its order, then the part's own (DEC-069), as on the form.
+  const own = Object.keys(item.attributes).filter((k) => !labels.has(k));
+  const ordered = [...item.fieldDefs.map((f) => f.key).filter((k) => item.attributes[k]), ...own];
   const rows: [string, React.ReactNode][] = [
-    ...Object.entries(item.attributes).map(([k, v]) => [labels.get(k) ?? k, mark(`attributes.${k}`, v)] as [string, React.ReactNode]),
+    ...ordered.map((k) => [labels.get(k) ?? k, mark(`attributes.${k}`, item.attributes[k])] as [string, React.ReactNode]),
     ...(item.price !== null ? [["Price", mark("price", `$${item.price.toFixed(2)}`)] as [string, React.ReactNode]] : []),
     ...(item.supplier ? [["Supplier", mark("supplier", item.supplier)] as [string, React.ReactNode]] : []),
     ...(item.supplierPn ? [["Supplier part #", mark("supplierPn", <span className="font-mono">{item.supplierPn}</span>)] as [string, React.ReactNode]] : []),
@@ -404,8 +407,8 @@ function Details({ item }: { item: ItemDetail }) {
       <Card className="flex flex-col gap-2 p-4">
         {rows.length > 0 && (
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-            {rows.map(([k, v]) => (
-              <div key={k} className="contents">
+            {rows.map(([k, v], i) => (
+              <div key={`${i}-${k}`} className="contents">
                 <dt className="text-muted">{k}</dt>
                 <dd>{v}</dd>
               </div>

@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
-import { categoryNames, ftsQuery } from "./items";
+import { adoptAllFields, adoptFields, categoryNames, ftsQuery } from "./items";
 import type { BulkResult, Category, EventView, Inventory, ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
@@ -252,6 +252,59 @@ describe("categories (DEC-056)", () => {
     await ok("PATCH", `/items/${pack.id}`, { attributes: { [gauge!.key]: "20 AWG" } });
     const values = await ok<Record<string, string[]>>("GET", `/categories/${wire.id}/values`);
     expect(values).toEqual({ [gauge!.key]: ["20 AWG"] });
+  });
+
+  it("a part's own fields named like its category's become them, on a category save and a part save (DEC-069)", async () => {
+    const shelf = await bin("Shelf");
+    // Colin's Linear bearing: its own fields typed before the category had any.
+    const bearings = await ok<Category>("POST", "/categories", { name: "Bearings" });
+    const part = await item({ name: "Linear bearing", categoryId: bearings.id, locationId: shelf.id });
+    await ok<ItemDetail>("PATCH", `/items/${part.id}`, { attributes: { OD: "15mm", ID: "8mm", Width: "24mm" } });
+    // The category gets ID, OD and Length: the part's values move into them; Width stays its own.
+    const cat = await ok<Category>("PATCH", `/categories/${bearings.id}`, { fieldDefs: [{ label: "ID" }, { label: "OD" }, { label: "Length" }] });
+    expect(cat.fieldDefs.map((f) => f.key)).toEqual(["id", "od", "length"]);
+    expect((await ok<ItemDetail>("GET", `/items/${part.id}`)).attributes).toEqual({ id: "8mm", od: "15mm", Width: "24mm" });
+    // An own field typed on the form with a category field's name is saved into that field.
+    const after = await ok<ItemDetail>("PATCH", `/items/${part.id}`, { attributes: { id: "8mm", od: "15mm", Width: "24mm", length: "", "LENGTH ": "24 mm" } });
+    expect(after.attributes).toEqual({ id: "8mm", od: "15mm", Width: "24mm", length: "24 mm" });
+    // Moved into a category with a matching field, a part's own field lines up too.
+    const loose = await item({ name: "Mystery bearing", locationId: shelf.id });
+    await ok<ItemDetail>("PATCH", `/items/${loose.id}`, { attributes: { "o.d.": "22mm" } });
+    expect((await ok<ItemDetail>("PATCH", `/items/${loose.id}`, { categoryId: bearings.id })).attributes).toEqual({ od: "22mm" });
+  });
+
+  it("matching own fields to category fields: the same value merges, a different one stays, per-unit and other fields untouched (DEC-069)", () => {
+    const defs = [
+      { key: "id", label: "ID", type: "text" as const },
+      { key: "od", label: "OD", type: "text" as const },
+      { key: "charge", label: "Charge", type: "choice" as const, options: ["Full"], perUnit: true },
+      { key: "thread_pitch", label: "Thread pitch", type: "text" as const },
+    ];
+    // "8" and "8mm" are the same number: the fuller one is kept.
+    expect(adoptFields({ id: "8", ID: "8mm", od: "15 mm", OD: "15mm" }, defs)).toEqual({ id: "8mm", od: "15 mm" });
+    // Different values: both stay, nothing lost.
+    expect(adoptFields({ id: "8", ID: "10mm" }, defs)).toEqual({ id: "8", ID: "10mm" });
+    // Per-unit fields live on the units; a label-shaped name finds its key.
+    expect(adoptFields({ Charge: "Full", "Thread Pitch": "0.5" }, defs)).toEqual({ Charge: "Full", thread_pitch: "0.5" });
+    // "8.5mm" isn't "8".
+    expect(adoptFields({ id: "8", ID: "8.5mm" }, defs)).toEqual({ id: "8", ID: "8.5mm" });
+  });
+
+  it("matches the parts already there at start (DEC-069)", async () => {
+    const db = openDb(":memory:");
+    const own = createApi(db, { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")) });
+    const send = async <T>(method: string, path: string, body?: unknown) => {
+      const res = await own.request(path, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+      expect(res.status, path).toBeLessThan(300);
+      return (await res.json()) as T;
+    };
+    const mods = (await send<Category[]>("GET", "/categories")).find((c) => c.name === "Modules & boards")!;
+    const p = await send<ItemDetail>("POST", "/items", { name: "Buck module", categoryId: mods.id });
+    // Stored the old way, straight into the table, as parts saved before this were.
+    db.run(sql`UPDATE items SET attributes = '{"Voltage":"5V"}' WHERE id = ${p.id}`);
+    expect(adoptAllFields(db)).toBe(1);
+    expect((await send<ItemDetail>("GET", `/items/${p.id}`)).attributes).toEqual({ voltage: "5V" });
+    expect(adoptAllFields(db)).toBe(0);
   });
 
   it("lists the values a category's parts already hold, most used first, text fields only (DEC-060)", async () => {

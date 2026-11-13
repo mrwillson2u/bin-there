@@ -124,7 +124,8 @@ export function LocationsPage() {
         </Link>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-x-6">
+      {/* Phone only, until the phone gets its own way there (DEC-070); a computer has them in the sidebar. */}
+      <div className="flex flex-wrap justify-center gap-x-6 lg:hidden">
         <Link to="/stickers/print" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
           <QrCode size={16} /> Print stickers
         </Link>
