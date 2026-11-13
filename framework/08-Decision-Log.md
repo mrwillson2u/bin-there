@@ -1595,7 +1595,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Decision:** A category field can be marked per unit ("Each stickered one has its own" on the Categories screen; `perUnit` on the field, kept across edits like its type). Such a field is held by each stickered unit: `units.attributes` (migration 0020), by field key, set from the unit's row on the part's page (a drop-down for a choice field, a box for text, saving as it changes; `PATCH /units/:id` with the whole map, blanks dropped). It stays off the part's form, off the values-already-used list, and out of the AI's field list, since it's each unit's own state and not something a page can tell. A unit's details are a detail, not a stock change: no event, no Undo, like a part's details. Ten identical batteries are one part with ten units and one photo; the other nine stickers are added from the part's page with the scanner.
 
-**Consequences:** A per-unit field on a part with no stickered units has nowhere to show, which is right: it's for the stickered kind. Not done: a per-unit field in the bin sheet or the checked-out list; setting it right after scanning that unit's sticker (today a scan opens the part, and the unit's row is there); searching by a unit's value. Checked in `categories-check.mjs` and the API tests.
+**Consequences:** A per-unit field on a part with no stickered units has nowhere to show, which is right: it's for the stickered kind. Not done: a per-unit field in the bin sheet or the checked-out list; setting it right after scanning that unit's sticker (today a scan opens the part, and the unit's row is there); searching by a unit's value. Checked in `categories-check.mjs` and the API tests. Shipped to the live app on 2026-11-12 with DEC-061 to DEC-063 (backup `2026-11-12_214745`, `main` at 979023d, migration 0020 applied on the live database).
 
 ### DEC-063: A stickered unit can be removed from its part, undoably
 
@@ -1610,7 +1610,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Decision:** Each stickered unit's row on the part's page has a Remove (bin icon, confirmed first). It retires that unit and frees its sticker for something else; the part stays, with its other units, or with none. It's a stock change like the others: one `retire` event with the unit as it was in `undoData`, Undo on the toast while it's the part's latest change, and the unit comes back with its sticker unless that has gone on something else since (then without, as with undoing a part's delete). The activity log reads "Stickered one removed". `DELETE /api/units/:id`.
 
-**Consequences:** Retired units stay in the table as before (history keeps pointing at them). Not done: removing from the checked-out list or the bin sheet. Checked in the J8 story of `stories-walk.mjs` and the API tests.
+**Consequences:** Retired units stay in the table as before (history keeps pointing at them). Not done: removing from the checked-out list or the bin sheet. Checked in the J8 story of `stories-walk.mjs` and the API tests. Shipped to the live app on 2026-11-12 with DEC-061 to DEC-063 (backup `2026-11-12_214745`, `main` at 979023d, migration 0020 applied on the live database).
 
 ## Decision Index
 
