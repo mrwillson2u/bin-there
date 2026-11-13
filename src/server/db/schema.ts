@@ -170,6 +170,8 @@ export const EVENT_TYPES = [
   "create",
   "assign_code",
   "archive",
+  /** A stickered unit removed from its part (DEC-063): retired, its sticker freed. */
+  "retire",
   "undo",
 ] as const;
 
@@ -188,6 +190,8 @@ export type UndoData = {
   homes?: number[];
   /** For an item archive: the units as they were, so Undo can bring the item back. */
   archive?: { units: { id: number; code: string | null; status: (typeof UNIT_STATUSES)[number] }[] };
+  /** For a unit removed from its part (DEC-063): as it was, so Undo can bring it back. */
+  retire?: { id: number; code: string | null; status: (typeof UNIT_STATUSES)[number] };
 };
 
 export const events = sqliteTable("events", {

@@ -28,6 +28,8 @@ function describe(e: EventView): string {
       return `Checked back in${e.to ? ` to ${e.to}` : ""}`;
     case "assign_code":
       return "Sticker assigned";
+    case "retire":
+      return `Stickered one removed${at}`;
     case "archive":
       return e.itemId ? "Deleted" : "Location deleted";
     default:

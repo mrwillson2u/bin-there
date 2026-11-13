@@ -223,6 +223,18 @@ await story("J8", "Lend out the power supply, then check it back in", "/", async
   await snap("J8-out");
   await tap(page.getByRole("button", { name: "Check in" }));
   await toast("Checked back in");
+  // The wrong sticker scanned onto it (DEC-063): Remove on its row frees the sticker; Undo brings it back.
+  const psuItem = (await api("GET", "/inventory?q=12V%20power&limit=5")).items[0];
+  await api("POST", "/units", { itemId: psuItem.id, code: "OOPS01", locationId: psuItem.places[0]?.locationId ?? null });
+  await page.goto(`${base}/items/${psuItem.id}`);
+  page.once("dialog", (d) => d.accept());
+  await tap(page.getByRole("button", { name: "Remove OOPS01" }));
+  await toast("Stickered one removed");
+  note("the wrong sticker comes off the part and is free again; Undo is on the toast");
+  await snap("J8-removed");
+  await tap(page.getByRole("status").filter({ hasText: "Stickered one removed" }).getByRole("button", { name: "Undo" }));
+  await page.getByRole("button", { name: "Remove OOPS01" }).waitFor();
+  await api("DELETE", `/units/${(await api("GET", `/items/${psuItem.id}`)).unitList.find((u) => u.code === "OOPS01").id}`);
 });
 
 await story("J9", "Fill an empty bin from the grid (name, count, photo)", `/locations/${box1.id}`, async () => {

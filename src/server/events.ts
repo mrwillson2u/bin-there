@@ -91,10 +91,15 @@ export function undoEvent(db: Db, id: number): { itemId: number } {
         db.update(units).set({ status: u.status, code, updatedAt: sql`(datetime('now'))` }).where(eq(units.id, u.id)).run();
       }
     }
+    if (data.retire) {
+      // The freed sticker may have gone on something else since; then the unit comes back without it.
+      const code = data.retire.code && !codeTaken(db, data.retire.code) ? data.retire.code : null;
+      db.update(units).set({ status: data.retire.status, code, updatedAt: sql`(datetime('now'))` }).where(eq(units.id, data.retire.id)).run();
+    }
     const undo = db.insert(events).values({ type: "undo", itemId }).returning({ id: events.id }).get();
     db.update(events).set({ undoneBy: undo.id }).where(eq(events.id, id)).run();
   });
-  if (data.archive) indexItem(db, itemId);
+  if (data.archive || data.retire) indexItem(db, itemId);
   return { itemId };
 }
 

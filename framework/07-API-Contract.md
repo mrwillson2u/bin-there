@@ -93,6 +93,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/api/units` | Create a unit (with sticker code) for an item |
+| DELETE | `/api/units/:id` | Remove a stickered unit from its part (DEC-063): retired, its sticker freed; the part stays. `StockResult` back; undoable (the unit comes back, with its sticker unless that's gone on something else since). `409` if already removed |
 | PATCH | `/api/units/:id` | A stickered unit's own details (DEC-062): `{ attributes }`, the whole map of the category's per-unit fields' values by key, replaced; blanks dropped. Not a stock change: no event, no Undo. `ItemDetail` back (each `unitList` entry carries `attributes`) |
 | POST | `/api/units/:id/move` | `{ toLocationId }` (undoable) |
 | POST | `/api/units/:id/checkout` | `{ toLocationId?, note? }`: at least one. Undoable |

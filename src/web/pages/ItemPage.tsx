@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, Sparkles } from "lucide-react";
+import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, Sparkles, Trash2 } from "lucide-react";
 import {
   itemKindLabels,
   trackingLabels,
@@ -98,6 +98,7 @@ export function ItemPage() {
                     </Button>
                   </>
                 )}
+                <RemoveUnit unit={u} />
               </span>
             </li>
           ))}
@@ -354,6 +355,28 @@ function UnitFields({ item, unit }: { item: ItemDetail; unit: Unit }) {
         );
       })}
     </span>
+  );
+}
+
+/** Remove a stickered unit from the part (DEC-063): the wrong sticker scanned on, say. Undo on the toast. */
+function RemoveUnit({ unit }: { unit: Unit }) {
+  const handlers = useStockMutation();
+  const remove = useMutation({
+    mutationFn: () => api<StockResult>(`/units/${unit.id}`, { method: "DELETE" }),
+    ...handlers(() => "Stickered one removed; its sticker is free"),
+  });
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => {
+        if (window.confirm(`Remove this stickered one${unit.code ? ` (${unit.code})` : ""} from the part? Its sticker is freed for something else.`)) remove.mutate();
+      }}
+      disabled={remove.isPending}
+      aria-label={`Remove ${unit.code ?? `unit ${unit.id}`}`}
+      className="text-danger"
+    >
+      <Trash2 size={18} />
+    </Button>
   );
 }
 

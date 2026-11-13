@@ -245,6 +245,30 @@ export function updateUnit(db: Db, unitId: number, input: { attributes: Record<s
   return unit.itemId;
 }
 
+/**
+ * Remove a stickered unit from its part (DEC-063): the wrong sticker scanned onto it, or one
+ * thing of several gone for good. The unit is retired and its sticker freed for something else;
+ * the part stays, with its other units. Undoable while it's the part's latest change: the unit
+ * comes back, with its sticker unless that has gone on something else since.
+ */
+export function retireUnit(db: Db, unitId: number): { eventId: number; itemId: number } {
+  const unit = requireUnit(db, unitId);
+  if (unit.status === "retired") throw new ApiError(409, "CONFLICT", "It's already been removed");
+  const eventId = db.transaction(() => {
+    db.update(units).set({ status: "retired", code: null, updatedAt: now }).where(eq(units.id, unitId)).run();
+    return record(db, {
+      type: "retire",
+      itemId: unit.itemId,
+      unitId,
+      locationId: unit.locationId,
+      delta: -1,
+      undoData: { retire: { id: unitId, code: unit.code, status: unit.status } },
+    });
+  });
+  indexItem(db, unit.itemId);
+  return { eventId, itemId: unit.itemId };
+}
+
 export function moveUnit(db: Db, unitId: number, toLocationId: number): { eventId: number; itemId: number } {
   const unit = db.select().from(units).where(eq(units.id, unitId)).get();
   if (!unit) throw new ApiError(404, "NOT_FOUND", `No unit ${unitId}`);

@@ -49,7 +49,7 @@ import {
   updateCategory,
   updateItem,
 } from "./items";
-import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock, updateUnit } from "./stock";
+import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock, retireUnit, updateUnit } from "./stock";
 import { listEvents, undoEvent } from "./events";
 import { bulkItems } from "./bulk";
 import { putBack } from "./putback";
@@ -428,6 +428,11 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.post("/units/:id/checkin", async (c) => {
     const input = parseBody(checkInSchema, await c.req.json().catch(() => ({})));
     const { eventId, itemId } = checkInUnit(db, intParam(c.req.param("id")), input);
+    return c.json(result(eventId, itemId));
+  });
+  // Remove a stickered unit from its part (DEC-063): retired, sticker freed, undoable.
+  api.delete("/units/:id", (c) => {
+    const { eventId, itemId } = retireUnit(db, intParam(c.req.param("id")));
     return c.json(result(eventId, itemId));
   });
   // A unit's own details (DEC-062): the per-unit fields' values. The part comes back, like PATCH /items.

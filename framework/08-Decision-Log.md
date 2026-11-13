@@ -1597,6 +1597,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** A per-unit field on a part with no stickered units has nowhere to show, which is right: it's for the stickered kind. Not done: a per-unit field in the bin sheet or the checked-out list; setting it right after scanning that unit's sticker (today a scan opens the part, and the unit's row is there); searching by a unit's value. Checked in `categories-check.mjs` and the API tests.
 
+### DEC-063: A stickered unit can be removed from its part, undoably
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q113) |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** Colin scanned the wrong sticker onto a part (adding a stickered one from the part's page) and couldn't take it off: the only thing that retired a unit was deleting the whole part, which takes every unit with it.
+
+**Decision:** Each stickered unit's row on the part's page has a Remove (bin icon, confirmed first). It retires that unit and frees its sticker for something else; the part stays, with its other units, or with none. It's a stock change like the others: one `retire` event with the unit as it was in `undoData`, Undo on the toast while it's the part's latest change, and the unit comes back with its sticker unless that has gone on something else since (then without, as with undoing a part's delete). The activity log reads "Stickered one removed". `DELETE /api/units/:id`.
+
+**Consequences:** Retired units stay in the table as before (history keeps pointing at them). Not done: removing from the checked-out list or the bin sheet. Checked in the J8 story of `stories-walk.mjs` and the API tests.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1663,6 +1678,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-060 | Text fields offer the values the category's parts already hold | UX | Accepted | 2026-11-12 |
 | DEC-061 | No instant read at capture; the queued look-up is the one path, with the model kept loaded | UX / Architecture | Accepted | 2026-11-12 |
 | DEC-062 | Per-unit fields: a category field each stickered unit holds for itself | Product / Data | Accepted | 2026-11-12 |
+| DEC-063 | A stickered unit can be removed from its part, undoably | Product | Accepted | 2026-11-12 |
 
 ---
 

@@ -77,7 +77,8 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
     `src/shared/rack.ts` on both server and screen (DEC-035).
   - `items.ts`: items, categories, search. Search uses an FTS5 table kept in sync by `indexItem`;
     any change to an item's searchable fields must call it.
-  - `stock.ts`: adjust, recount, move, and stickered units (create, move, check out, check in); `moveEverything` (DEC-057)
+  - `stock.ts`: adjust, recount, move, and stickered units (create, move, check out, check in, and `retireUnit`, DEC-063: one
+    removed from its part, sticker freed, undoable); `moveEverything` (DEC-057)
     sends all a part has to one place in one undoable event.
   - `bulk.ts` (DEC-057): `POST /items/bulk` applies one change (category, move, tracking, delete) to each checked part on
     its own, in its own transaction with its own event, and reports which couldn't take it.

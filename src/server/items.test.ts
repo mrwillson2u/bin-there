@@ -54,6 +54,29 @@ describe("deleting items", () => {
     expect(await ok<ItemSummary[]>("GET", "/items?q=psu")).toHaveLength(1);
   });
 
+  it("removes one stickered unit from a part (DEC-063): sticker freed, part kept, undo brings it back", async () => {
+    const shelf = await bin("Shelf");
+    const pack = await item({ name: "LiPo 2000 mAh", code: "BAT001", locationId: shelf.id });
+    await ok<StockResult>("POST", "/units", { itemId: pack.id, code: "BAT002", locationId: shelf.id });
+    const [u1, u2] = (await ok<ItemDetail>("GET", `/items/${pack.id}`)).unitList;
+    const gone = await ok<StockResult>("DELETE", `/units/${u2!.id}`);
+    expect(gone.item.unitList.map((u) => u.code)).toEqual(["BAT001"]);
+    expect(await ok<ScanResult>("GET", "/scan/BAT002")).toMatchObject({ kind: "unassigned" });
+    expect((await ok<EventView[]>("GET", "/events"))[0]).toMatchObject({ type: "retire", itemId: pack.id, delta: -1, canUndo: true });
+    expect((await call("DELETE", `/units/${u2!.id}`)).status).toBe(409);
+    expect((await call("DELETE", "/units/999")).status).toBe(404);
+    const back = await ok<ItemDetail>("POST", `/events/${gone.eventId}/undo`);
+    expect(back.unitList.map((u) => u.code)).toEqual(["BAT001", "BAT002"]);
+    expect(await ok<ScanResult>("GET", "/scan/BAT002")).toMatchObject({ kind: "unit", itemId: pack.id });
+    // The last unit can go too: the part stays, with none. A sticker reused meanwhile stays where it went.
+    const last = await ok<StockResult>("DELETE", `/units/${u1!.id}`);
+    expect(last.item.unitList.map((u) => u.code)).toEqual(["BAT002"]);
+    const other = await item({ name: "Other", code: "BAT001", locationId: shelf.id });
+    const back2 = await ok<ItemDetail>("POST", `/events/${last.eventId}/undo`);
+    expect(back2.unitList.map((u) => u.code)).toEqual([null, "BAT002"]);
+    expect(await ok<ScanResult>("GET", "/scan/BAT001")).toMatchObject({ kind: "unit", itemId: other.id });
+  });
+
   it("lets the freed sticker go on something else; undo then restores the item without it", async () => {
     const shelf = await bin("Shelf");
     const old = await item({ name: "Old meter", code: "TOOL0001", locationId: shelf.id });
