@@ -455,7 +455,7 @@ export function partNumberCandidates(markings: string[]): string[] {
       if (token.length < 4 || token.length > 32) continue;
       if (/[./]/.test(token) && /\.[a-z]{2,}(\/|$)/i.test(token)) continue; // a web address
       if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(token) || /^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(token)) continue; // a date
-      if (/^\d+(\.\d+)?(awg|mm|cm|in|v|vdc|vac|a|ma|w|k|m|uf|nf|pf|mf|ohm|ohms|r|hz|khz|mhz|ghz|pin|pins|p|pcs|pk|x)$/i.test(token)) continue; // a size or rating
+      if (/^\d+(\.\d+)?(awg|mm|cm|in|v|vdc|vac|mv|kv|a|ma|ua|w|mw|kw|wh|kwh|mah|ah|k|m|uf|nf|pf|mf|ohm|ohms|r|hz|khz|mhz|ghz|rpm|g|kg|mg|ml|l|oz|lb|lbs|pin|pins|p|pcs|pk|x)$/i.test(token)) continue; // a size or rating
       if (/^\d+x\d+$/i.test(token)) continue; // 2x20: a header's pins, not a number
       if (/[°%]/.test(token)) continue; // 105°C, 5%: a rating
       const letters = /[A-Za-z]/.test(token);

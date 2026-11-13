@@ -399,7 +399,7 @@ describe("researchItem", () => {
     ]);
     expect(partNumberCandidates(["LM2596S-ADJ/NOPB", "IN+ IN- OUT+ OUT-"])).toEqual(["LM2596S-ADJ/NOPB"]);
     // A size or a rating with a unit isn't a part number.
-    expect(partNumberCandidates(["30AWG", "5mm", "12V", "100uF", "2x20", "10pcs", "105°C", "5%"])).toEqual([]);
+    expect(partNumberCandidates(["30AWG", "5mm", "12V", "100uF", "2x20", "10pcs", "105°C", "5%", "2000mAh", "7.4Wh", "3.7V", "500g"])).toEqual([]);
     expect(partNumberCandidates(["just words here"])).toEqual([]);
   });
 
