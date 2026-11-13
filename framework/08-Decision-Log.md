@@ -1735,7 +1735,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** On a computer, the sidebar has Categories (after Inventory, since it describes parts) and Print stickers (after Locations, since stickers go on places), and the Locations page no longer carries those links or Settings. On a phone, each screen has a slim top row, "Bin→There" on the left and a "☰ Menu" button on the right (Colin chose a menu at the top over a More tab in the bar, Q119, and asked for the hamburger with the word Menu rather than "More"). It drops down Categories, Print stickers, Search and Settings, the sidebar's entries the bar doesn't hold, and closes on a pick, a tap outside, Escape or a new screen. It sits in a row of its own rather than in each screen's title row so it never covers a screen's own top buttons (the part page's Pin and Edit). The links at the bottom of Locations are gone on phones too.
 
-**Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry), `categories-check.mjs` and `stickers-check.mjs` (the phone: no links on Locations, the Menu's four entries, Escape, Settings). The computer half shipped with DEC-069.
+**Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry), `categories-check.mjs` and `stickers-check.mjs` (the phone: no links on Locations, the Menu's four entries, Escape, Settings). The computer half shipped with DEC-069; the phone's Menu on 2026-11-13 (backup `2026-11-13_133135`, `main` at 87ae137).
 
 ## Decision Index
 
