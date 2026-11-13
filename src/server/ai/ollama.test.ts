@@ -16,6 +16,6 @@ describe("ollamaChat", () => {
     await ask("gemma4:e4b", true);
     await ask("gemma3:4b", true);
     expect(bodies.map((b) => b.think)).toEqual([false, undefined, false, undefined]);
-    expect(bodies.every((b) => b.model && b.stream === false)).toBe(true);
+    expect(bodies.every((b) => b.model && b.stream === false && b.keep_alive === -1)).toBe(true);
   });
 });

@@ -21,6 +21,10 @@ export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch =
         // Gemma 4 thinks too, usefully for the full look-up, but a glance (DEC-061) can't wait for it.
         // Only models that can think take the flag: Ollama refuses it for the others.
         ...(/^qwen3/i.test(model) || (fast && /^gemma4/i.test(model)) ? { think: false } : {}),
+        // Keep the model loaded (DEC-061): Ollama otherwise drops it after five idle minutes, and
+        // a cold load is most of a minute, past what a phone browser waits for a glance. A model
+        // that needs the room still gets it (Ollama unloads this one and reloads it next call).
+        keep_alive: -1,
         options: { temperature, num_ctx: 8192, num_predict: 1500 },
       }),
       signal: AbortSignal.timeout(180_000),
@@ -46,9 +50,9 @@ export async function ollamaHasModel(url: string, model: string, fetchImpl: type
 
 /**
  * Load the model now, so the first glance of the day doesn't wait for it (DEC-061): Ollama
- * loads on demand, and a cold load of a 6 GB model is most of a minute. The production compose
- * file tells Ollama to keep it loaded; at boot the model server may still be waiting for the
- * card, so this tries a few times over a few minutes and then gives up quietly.
+ * loads on demand, and a cold load of a 6 GB model is most of a minute. Loaded with
+ * `keep_alive: -1`, as every call is, so it stays; at boot the model server may still be
+ * waiting for the card, so this tries a few times over a few minutes and then gives up quietly.
  */
 export async function ollamaWarm(url: string, model: string, fetchImpl: typeof fetch = fetch, tries = 4, waitMs = 60_000): Promise<boolean> {
   for (let i = 0; i < tries; i++) {
@@ -56,7 +60,7 @@ export async function ollamaWarm(url: string, model: string, fetchImpl: typeof f
       const res = await fetchImpl(`${url.replace(/\/$/, "")}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model }),
+        body: JSON.stringify({ model, keep_alive: -1 }),
         signal: AbortSignal.timeout(180_000),
       });
       if (res.ok) return true;

@@ -93,7 +93,7 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
     (DEC-049); `mouser.ts` and `digikey.ts` read those two through their APIs when a key is set, and (DEC-053) a part number
     read off the part is tried at both before any web search, `mode: "quick"` is the photo alone for a likely name and category
     (the Needs details list runs it row by row), and a datasheet a shop page names is read with pdf.js (`pdfReader` in `search.ts`). `ollamaWarm`
-    loads the model at server start and `compose.yaml` keeps it loaded (`OLLAMA_KEEP_ALIVE`, DEC-061); `fast` on `chat` turns a thinking model's
+    loads the model at server start and every request carries `keep_alive: -1` so it stays loaded (DEC-061); `fast` on `chat` turns a thinking model's
     thinking off (Gemma 4) for the glance. On only when
     `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`, the shop keys). The AI never writes: `POST /items/:id/research`
     returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time). `queue.ts` (DEC-055) is the in-process queue: parts queued at capture are
