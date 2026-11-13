@@ -1,0 +1,1 @@
+ALTER TABLE `units` ADD `attributes` text DEFAULT '{}' NOT NULL;

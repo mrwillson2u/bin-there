@@ -107,6 +107,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 | home_location_id | FK → Location | Where it lives |
 | status | enum UnitStatus | home / checked_out / lost / retired |
 | checked_out_at, checked_out_note | nullable | e.g. "Synth build" |
+| attributes | JSON `{ fieldKey: value }`, default `{}` | The category's per-unit fields' values for this one (DEC-062, migration 0020): a battery's charge level |
 
 ### Photo
 

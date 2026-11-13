@@ -74,7 +74,8 @@ export const categories = sqliteTable("categories", {
   fieldDefs: text("field_defs", { mode: "json" }).$type<FieldDef[]>().notNull().default([]),
 });
 
-export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[] };
+/** `perUnit` (DEC-062): each stickered unit holds its own value (a battery's charge level), not the part. */
+export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean };
 
 export const items = sqliteTable("items", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -136,6 +137,8 @@ export const units = sqliteTable("units", {
   status: text("status", { enum: UNIT_STATUSES }).notNull().default("home"),
   checkedOutAt: text("checked_out_at"),
   checkedOutNote: text("checked_out_note"),
+  /** Values of the category's per-unit fields (DEC-062), by field key. */
+  attributes: text("attributes", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
   ...timestamps,
 });
 

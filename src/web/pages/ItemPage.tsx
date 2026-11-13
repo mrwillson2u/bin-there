@@ -8,6 +8,7 @@ import {
   type ItemDetail,
   type Place,
   type StockResult,
+  type Unit,
 } from "../../shared/api";
 import { api } from "../api";
 import { useWide } from "../lib/useWide";
@@ -82,6 +83,7 @@ export function ItemPage() {
                 ) : (
                   <span className="block truncate text-[13px] text-muted">{u.out ? (u.out.note ?? "") : "No location"}</span>
                 )}
+                <UnitFields item={item} unit={u} />
               </span>
               <span className="flex">
                 {u.out ? (
@@ -297,6 +299,61 @@ function CheckOutUnit({ unitId, code, done }: { unitId: number; code: string | n
         </Button>
       </div>
     </PickLocation>
+  );
+}
+
+/**
+ * The category's per-unit fields on one stickered unit (DEC-062): a battery's charge level, say.
+ * Each saves as it's changed; a detail, not a stock change, so no toast and no Undo.
+ */
+function UnitFields({ item, unit }: { item: ItemDetail; unit: Unit }) {
+  const qc = useQueryClient();
+  const fields = item.fieldDefs.filter((f) => f.perUnit);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const save = useMutation({
+    mutationFn: (attributes: Record<string, string>) => api<ItemDetail>(`/units/${unit.id}`, { method: "PATCH", body: { attributes } }),
+    onSuccess: (detail) => {
+      qc.setQueryData(["item", item.id], detail);
+      qc.invalidateQueries({ queryKey: ["items"] });
+      setDraft({});
+    },
+  });
+  if (fields.length === 0) return null;
+  const who = unit.code ?? `unit ${unit.id}`;
+  const set = (key: string, value: string) => save.mutate({ ...unit.attributes, [key]: value });
+  return (
+    <span className="mt-1 flex flex-wrap gap-2">
+      {fields.map((f) => {
+        const value = draft[f.key] ?? unit.attributes[f.key] ?? "";
+        return (
+          <label key={f.key} className="flex items-center gap-1.5 text-[13px] text-muted">
+            {f.label}
+            {f.type === "choice" ? (
+              <select value={value} onChange={(e) => set(f.key, e.target.value)} className={`${inputClass} min-h-9 py-0 text-sm text-text`} aria-label={`${f.label} of ${who}`}>
+                <option value="">—</option>
+                {(f.options ?? []).map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+                {value && !(f.options ?? []).includes(value) && <option value={value}>{value} (not in the list)</option>}
+              </select>
+            ) : (
+              <input
+                value={value}
+                onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                onBlur={() => {
+                  if (draft[f.key] !== undefined && draft[f.key] !== (unit.attributes[f.key] ?? "")) set(f.key, draft[f.key]!);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                }}
+                className={`${inputClass} min-h-9 w-32 py-0 text-sm text-text`}
+                aria-label={`${f.label} of ${who}`}
+              />
+            )}
+          </label>
+        );
+      })}
+    </span>
   );
 }
 

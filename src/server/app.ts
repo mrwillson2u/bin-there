@@ -49,7 +49,7 @@ import {
   updateCategory,
   updateItem,
 } from "./items";
-import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock } from "./stock";
+import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock, updateUnit } from "./stock";
 import { listEvents, undoEvent } from "./events";
 import { bulkItems } from "./bulk";
 import { putBack } from "./putback";
@@ -96,6 +96,7 @@ import {
   type BackupInfo,
   type CodesCheck,
   type ResearchRequest,
+  updateUnitSchema,
   type ResearchResult,
   type StoredResearch,
   type ScanResult,
@@ -268,7 +269,8 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
         name: now.name || item.name,
         url: now.url !== undefined ? now.url || null : item.url,
         categoryName: item.categoryName,
-        fields: item.fieldDefs.map((d) => ({ key: d.key, label: d.label, ...(d.type === "choice" && d.options?.length ? { options: d.options } : {}) })),
+        // Per-unit fields (DEC-062) are each unit's own state, not something a page can tell.
+        fields: item.fieldDefs.filter((d) => !d.perUnit).map((d) => ({ key: d.key, label: d.label, ...(d.type === "choice" && d.options?.length ? { options: d.options } : {}) })),
         attributes: item.attributes,
         supplier: now.supplier !== undefined ? now.supplier || null : item.supplier,
         supplierPn: now.supplierPn !== undefined ? now.supplierPn || null : item.supplierPn,
@@ -427,6 +429,12 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const input = parseBody(checkInSchema, await c.req.json().catch(() => ({})));
     const { eventId, itemId } = checkInUnit(db, intParam(c.req.param("id")), input);
     return c.json(result(eventId, itemId));
+  });
+  // A unit's own details (DEC-062): the per-unit fields' values. The part comes back, like PATCH /items.
+  api.patch("/units/:id", async (c) => {
+    const input = parseBody(updateUnitSchema, await c.req.json());
+    const itemId = updateUnit(db, intParam(c.req.param("id")), input);
+    return c.json(getItem(db, itemId));
   });
   api.post("/units/:id/move", async (c) => {
     const { toLocationId } = parseBody(moveUnitSchema, await c.req.json());

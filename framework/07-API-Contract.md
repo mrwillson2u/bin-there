@@ -93,6 +93,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | Method | Path | Purpose |
 |--------|------|---------|
 | POST | `/api/units` | Create a unit (with sticker code) for an item |
+| PATCH | `/api/units/:id` | A stickered unit's own details (DEC-062): `{ attributes }`, the whole map of the category's per-unit fields' values by key, replaced; blanks dropped. Not a stock change: no event, no Undo. `ItemDetail` back (each `unitList` entry carries `attributes`) |
 | POST | `/api/units/:id/move` | `{ toLocationId }` (undoable) |
 | POST | `/api/units/:id/checkout` | `{ toLocationId?, note? }`: at least one. Undoable |
 | POST | `/api/units/:id/checkin` | `{ locationId? }` defaults to the unit's home. Undoable. Put-back mode does this automatically when a checked-out unit is scanned |
@@ -116,7 +117,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | POST | `/api/stickers/check` | Print stickers (DEC-052): `{ codes: string[] }` (up to 5000) → `{ used: string[] }`, the ones already on a location or a unit. The codes themselves are drawn on the device and never recorded. |
 | GET | `/api/categories/:id/values` | Per text field key, the values the category's parts already hold, most used first, at most 30 (DEC-060). |
 | GET | `/api/categories/usage` | Per category id (DEC-056): `{ items, fields: { [key]: parts holding a value } }`. |
-| PATCH | `/api/categories/:id` | Edit a category (DEC-056): `name?`, `defaultKind?`, `defaultTracking?`, `fieldDefs?: [{ key?, label, type?, options? }]` (a field with its key is renamed/moved, one without is new, fields left out are removed; `type` is `text` or `choice`, left out it keeps its type; `options` are a choice field's options in order, DEC-059). `409` on a name clash. `Category` back. |
+| PATCH | `/api/categories/:id` | Edit a category (DEC-056): `name?`, `defaultKind?`, `defaultTracking?`, `fieldDefs?: [{ key?, label, type?, options? }]` (a field with its key is renamed/moved, one without is new, fields left out are removed; `type` is `text` or `choice`, left out it keeps its type; `options` are a choice field's options in order, DEC-059; `perUnit: true` makes it a per-unit field, held by each stickered unit instead of the part, left out it keeps its setting, DEC-062). `409` on a name clash. `Category` back. |
 | DELETE | `/api/categories/:id` | Delete a category no part uses; `409` with the count while parts use it. |
 | POST | `/api/items/:id/research/queue` | Queue the part for the AI look-up (DEC-055): worked one at a time in the background; `ItemDetail` back, with `aiJob` (`queued` / `running` / `failed`, `at`, `error`). `400` when AI isn't set up. |
 | DELETE | `/api/items/:id/research/queue` | Cancel the part's queued or running look-up (a running one finishes and its answer is thrown away). `ItemDetail` back. |

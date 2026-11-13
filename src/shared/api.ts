@@ -386,6 +386,8 @@ export const updateCategorySchema = z.object({
         type: z.enum(["text", "choice"]).optional(),
         /** For a choice field: its options, in order (DEC-059). */
         options: z.array(z.string().trim().min(1).max(60)).max(50).optional(),
+        /** Each stickered unit holds its own value (DEC-062). Left out, a field keeps its setting. */
+        perUnit: z.boolean().optional(),
       }),
     )
     .max(20)
@@ -398,7 +400,8 @@ export type CategoryValues = Record<string, string[]>;
 export type CategoryUsage = { items: number; fields: Record<string, number> };
 
 /** A category's field (DEC-056). A `choice` field (DEC-059) has a fixed list of options, and the AI picks from them or leaves it. */
-export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[] };
+/** `perUnit` (DEC-062): each stickered unit holds its own value (a battery's charge level), not the part. */
+export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean };
 export const fieldTypes = ["text", "choice"] as const;
 export const fieldTypeLabels: Record<(typeof fieldTypes)[number], string> = { text: "Text", choice: "Choice" };
 
@@ -532,7 +535,15 @@ export type Unit = {
   path: Crumb[];
   /** Checked out (F10): to `path` if set, and/or with a note. */
   out: { at: string; note: string | null } | null;
+  /** The category's per-unit fields' values for this one (DEC-062), by field key. */
+  attributes: Record<string, string>;
 };
+
+/** A stickered unit's own details (DEC-062): the whole map of per-unit field values, replaced. */
+export const updateUnitSchema = z.object({
+  attributes: z.record(z.string().trim().min(1).max(50), z.string().trim().max(200)),
+});
+export type UpdateUnit = z.infer<typeof updateUnitSchema>;
 
 /** A stickered unit that's out right now. */
 export type CheckedOutUnit = {

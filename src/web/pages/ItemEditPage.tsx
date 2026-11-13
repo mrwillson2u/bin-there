@@ -140,7 +140,7 @@ export function ItemForm({
   const { data: used } = useQuery({
     queryKey: ["categories", category?.id, "values"],
     queryFn: () => api<CategoryValues>(`/categories/${category!.id}/values`),
-    enabled: !!category && category.fieldDefs.some((f) => f.type !== "choice"),
+    enabled: !!category && category.fieldDefs.some((f) => f.type !== "choice" && !f.perUnit),
   });
   const value = (key: string) => attrs.find(([k]) => k === key)?.[1] ?? "";
   const setValue = (key: string, v: string) =>
@@ -312,11 +312,12 @@ export function ItemForm({
       </div>
 
       <div className="flex flex-col gap-4">
-      {category && category.fieldDefs.length > 0 && (
+      {category && category.fieldDefs.some((f) => !f.perUnit) && (
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">{category.name} fields</legend>
           <div className="grid grid-cols-2 gap-3">
-            {category.fieldDefs.map((f) => (
+            {/* Per-unit fields (DEC-062) are set on each stickered unit, on the part's page. */}
+            {category.fieldDefs.filter((f) => !f.perUnit).map((f) => (
               <Field key={f.key} label={f.label}>
                 {f.type === "choice" ? (
                   <select value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={inputClass}>

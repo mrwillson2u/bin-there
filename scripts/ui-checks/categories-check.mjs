@@ -99,6 +99,7 @@ await page.waitForTimeout(400);
 const typeField = (await api("GET", "/categories")).find((c) => c.id === wire.id).fieldDefs.find((f) => f.label === "Type");
 check(typeField.type === "choice" && typeField.options.join() === "DC barrel,USB-C,JST", "Type is a choice field with three options: " + JSON.stringify(typeField));
 await page.goto(`${base}/items/${plug.id}/edit`);
+await page.getByText("Wire & connectors fields").waitFor();
 const typeSelect = page.getByRole("combobox", { name: "Type", exact: true });
 check((await typeSelect.locator("option").allTextContents()).join("|") === "|DC barrel|USB-C|JST", "the part's form offers the options in a drop-down: " + JSON.stringify(await typeSelect.locator("option").allTextContents()));
 await typeSelect.selectOption("USB-C");
@@ -107,6 +108,35 @@ await page.waitForURL(`${base}/items/${plug.id}`);
 check((await api("GET", `/items/${plug.id}`)).attributes[typeField.key] === "USB-C", "the chosen option is saved on the part");
 await page.goto(`${base}/categories`);
 await page.locator('[data-category="Wire & connectors"]').waitFor();
+
+// A per-unit field (DEC-062): "Each stickered one has its own" on Type; the part's form drops it,
+// each stickered unit's row on the part's page gets it, and each keeps its own value.
+await wireCard.getByRole("checkbox", { name: "Each stickered one has its own Type" }).check();
+await page.waitForTimeout(400);
+check((await api("GET", "/categories")).find((c) => c.id === wire.id).fieldDefs.find((f) => f.label === "Type").perUnit === true, "the field is marked per unit");
+const pack = await api("POST", "/items", { name: "LiPo pack", locationId: tote.id, categoryId: wire.id, code: "BAT001" });
+await api("POST", "/units", { itemId: pack.id, code: "BAT002", locationId: tote.id });
+await page.goto(`${base}/items/${pack.id}`);
+const unitType1 = page.getByRole("combobox", { name: "Type of BAT001" });
+await unitType1.waitFor();
+check((await page.getByRole("combobox", { name: "Type of BAT002" }).count()) === 1, "each stickered unit's row has its own Type box");
+await unitType1.selectOption("USB-C");
+await page.waitForTimeout(400);
+const packUnits = (await api("GET", `/items/${pack.id}`)).unitList;
+check(packUnits[0].attributes[typeField.key] === "USB-C" && !packUnits[1].attributes[typeField.key], "the value is saved on that unit alone");
+check((await page.getByRole("combobox", { name: "Type of BAT002" }).inputValue()) === "", "the other unit's box stays empty");
+await page.screenshot({ path: `${shots}/cat-3-per-unit.png`, fullPage: true });
+await page.goto(`${base}/items/${pack.id}/edit`);
+await page.getByText("Wire & connectors fields").waitFor();
+const formTypes = await page.getByRole("combobox", { name: "Type", exact: true }).count();
+const formGauges = await page.getByRole("combobox", { name: "Wire gauge" }).count(); // a text field with its suggestion list reads as a combobox
+check(formTypes === 0 && formGauges === 1, `the part's form shows the part's fields but not the per-unit one (Type boxes ${formTypes}, gauge boxes ${formGauges})`);
+await page.screenshot({ path: `${shots}/cat-4-form-without-it.png`, fullPage: true });
+await page.goto(`${base}/categories`);
+await page.locator('[data-category="Wire & connectors"]').waitFor();
+await wireCard.getByRole("checkbox", { name: "Each stickered one has its own Type" }).uncheck();
+await page.waitForTimeout(400);
+await api("PATCH", `/items/${pack.id}`, { categoryId: relaysCat.id });
 
 // Remove a field that holds values: a warning, then removal; the value stays stored, unseen.
 await page.goto(`${base}/categories`);

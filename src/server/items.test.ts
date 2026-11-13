@@ -143,6 +143,39 @@ describe("categories (DEC-056)", () => {
     expect(text.fieldDefs[1]).toEqual({ key: type!.key, label: "Connector", type: "text" });
   });
 
+  it("a per-unit field (DEC-062): kept on the category, set on each stickered unit, off the part's values list", async () => {
+    const cats = await ok<Category[]>("GET", "/categories");
+    const wire = cats.find((c) => c.name === "Wire & connectors")!;
+    const [gauge, type] = wire.fieldDefs;
+    const cat = await ok<Category>("PATCH", `/categories/${wire.id}`, {
+      fieldDefs: [{ key: gauge!.key, label: gauge!.label }, { key: type!.key, label: "Charge", type: "choice", options: ["Full", "Storage", "Used"], perUnit: true }],
+    });
+    expect(cat.fieldDefs[1]).toEqual({ key: type!.key, label: "Charge", type: "choice", options: ["Full", "Storage", "Used"], perUnit: true });
+    // Left out, the setting stays; false clears it (and the key is dropped from the record).
+    const same = await ok<Category>("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge!.key, label: gauge!.label }, { key: type!.key, label: "Charge" }] });
+    expect(same.fieldDefs[1]!.perUnit).toBe(true);
+    const off = await ok<Category>("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge!.key, label: gauge!.label }, { key: type!.key, label: "Charge", perUnit: false }] });
+    expect(off.fieldDefs[1]!.perUnit).toBeUndefined();
+    await ok<Category>("PATCH", `/categories/${wire.id}`, { fieldDefs: [{ key: gauge!.key, label: gauge!.label }, { key: type!.key, label: "Charge", perUnit: true }] });
+    // Two stickered units of one part: each holds its own value; blanks are dropped; the part comes back.
+    const b = await bin("Bin");
+    const pack = await item({ name: "LiPo 2000 mAh", categoryId: wire.id, locationId: b.id, code: "BAT001" });
+    await ok<StockResult>("POST", "/units", { itemId: pack.id, code: "BAT002", locationId: b.id });
+    const [u1, u2] = (await ok<ItemDetail>("GET", `/items/${pack.id}`)).unitList;
+    expect(u1!.attributes).toEqual({});
+    const after = await ok<ItemDetail>("PATCH", `/units/${u1!.id}`, { attributes: { [type!.key]: "Full", [gauge!.key]: " " } });
+    expect(after.id).toBe(pack.id);
+    expect(after.unitList.map((u) => u.attributes)).toEqual([{ [type!.key]: "Full" }, {}]);
+    await ok<ItemDetail>("PATCH", `/units/${u2!.id}`, { attributes: { [type!.key]: "Storage" } });
+    expect((await ok<ItemDetail>("GET", `/items/${pack.id}`)).unitList.map((u) => u.attributes[type!.key])).toEqual(["Full", "Storage"]);
+    expect((await call("PATCH", "/units/999", { attributes: {} })).status).toBe(404);
+    expect((await call("PATCH", `/units/${u1!.id}`, { attributes: "Full" })).status).toBe(400);
+    // The values list is about the parts' own fields: a per-unit field isn't offered there.
+    await ok("PATCH", `/items/${pack.id}`, { attributes: { [gauge!.key]: "20 AWG" } });
+    const values = await ok<Record<string, string[]>>("GET", `/categories/${wire.id}/values`);
+    expect(values).toEqual({ [gauge!.key]: ["20 AWG"] });
+  });
+
   it("lists the values a category's parts already hold, most used first, text fields only (DEC-060)", async () => {
     const cats = await ok<Category[]>("GET", "/categories");
     const wire = cats.find((c) => c.name === "Wire & connectors")!;

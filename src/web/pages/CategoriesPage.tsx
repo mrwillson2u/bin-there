@@ -76,6 +76,8 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
   // Options as typed, one line of commas per choice field; saved on blur.
   const optionsText = (defs: FieldDef[]) => Object.fromEntries(defs.filter((f) => f.type === "choice").map((f) => [f.key, (f.options ?? []).join(", ")]));
   const [options, setOptions] = useState<Record<string, string>>(() => optionsText(c.fieldDefs));
+  // The per-unit switch as tapped, until the save comes back (DEC-062), so it doesn't snap back meanwhile.
+  const [perUnitTapped, setPerUnitTapped] = useState<Record<string, boolean>>({});
   const [newField, setNewField] = useState("");
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
@@ -85,6 +87,7 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
       qc.setQueryData<Category[]>(["categories"], (old) => old?.map((x) => (x.id === updated.id ? updated : x)).sort((a, b) => a.name.localeCompare(b.name)));
       setLabels(Object.fromEntries(updated.fieldDefs.map((f) => [f.key, f.label])));
       setOptions(optionsText(updated.fieldDefs));
+      setPerUnitTapped({});
       for (const key of ["item", "items", "categories"]) qc.invalidateQueries({ queryKey: [key] });
     },
     onError: (e: Error) => {
@@ -98,10 +101,14 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
     onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
   });
 
-  const fields = c.fieldDefs.map((f) => ({ key: f.key, label: labels[f.key] ?? f.label, type: f.type === "choice" ? ("choice" as const) : ("text" as const), options: f.options }));
-  type FieldIn = { key?: string; label: string; type?: "text" | "choice"; options?: string[] };
+  const fields = c.fieldDefs.map((f) => ({ key: f.key, label: labels[f.key] ?? f.label, type: f.type === "choice" ? ("choice" as const) : ("text" as const), options: f.options, perUnit: f.perUnit }));
+  type FieldIn = { key?: string; label: string; type?: "text" | "choice"; options?: string[]; perUnit?: boolean };
   const saveFields = (next: FieldIn[]) => patch.mutate({ fieldDefs: next });
   const parseOptions = (text: string) => text.split(/[,\n]/).map((o) => o.trim()).filter(Boolean);
+  const setPerUnit = (key: string, perUnit: boolean) => {
+    setPerUnitTapped((t) => ({ ...t, [key]: perUnit }));
+    saveFields(fields.map((x) => (x.key === key ? { ...x, perUnit } : x)));
+  };
   const setType = (key: string, type: "text" | "choice") => saveFields(fields.map((x) => (x.key === key ? { ...x, type, options: type === "choice" ? x.options ?? [] : undefined } : x)));
   const saveOptions = (key: string) => {
     const next = parseOptions(options[key] ?? "");
@@ -205,6 +212,11 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
                     aria-label={`Options for ${f.label}`}
                   />
                 )}
+                {/* Each stickered unit holds its own value (DEC-062): a battery's charge level, a tool's calibration date. */}
+                <label className="flex min-h-8 items-center gap-1.5 text-[13px] text-muted">
+                  <input type="checkbox" checked={perUnitTapped[f.key] ?? !!f.perUnit} onChange={(e) => setPerUnit(f.key, e.target.checked)} className="h-4 w-4" aria-label={`Each stickered one has its own ${f.label}`} />
+                  Each stickered one has its own
+                </label>
               </div>
               {confirmRemove === f.key && (
                 <p className="rounded-lg bg-warn/10 px-3 py-2 text-[13px] text-warn" role="alert">

@@ -1582,6 +1582,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** About 6.6 GB of the card stays allocated; any other model that needs it takes it, at the cost of one 47-second reload of Gemma afterwards. The first look-up after a reboot no longer waits for the load. The reads wobble (three reads of one wire photo gave three answers), which is why the one review on the part stays. Ideas kept for later, not built: the model labelling every marking with what it is (maker's number, shop order number, brand, rating, date code) in place of the rule of thumb that decides what gets tried at the shops, which is where accuracy would actually be gained; the shop bag's 2D barcode read at capture (Digi-Key and Mouser bags carry the exact part number; the scanner already decodes codes) for the add and add-to-existing flows; RapidOCR/PaddleOCR (16 MB, could run in the phone's browser) if an instant read is ever wanted after all.
 
+### DEC-062: Per-unit fields: a category field each stickered unit holds for itself
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q112) |
+| **Deciders** | Colin |
+| **Category** | Product / Data |
+
+**Context:** Colin has ten identical LiPo batteries, each with its own sticker, and wants to track each one's charge level (full, storage, used). He asked whether they should be ten parts, whether each needs its own photo, or whether a third kind of thing was needed: one part, many instances. The app already has that: a returnable part with stickered units, each with its own sticker, location, home and checked-out state, the specs and the photo on the part. The gap was state per unit: category fields live on the part, so a Charge level field would have been one value for all ten.
+
+**Decision:** A category field can be marked per unit ("Each stickered one has its own" on the Categories screen; `perUnit` on the field, kept across edits like its type). Such a field is held by each stickered unit: `units.attributes` (migration 0020), by field key, set from the unit's row on the part's page (a drop-down for a choice field, a box for text, saving as it changes; `PATCH /units/:id` with the whole map, blanks dropped). It stays off the part's form, off the values-already-used list, and out of the AI's field list, since it's each unit's own state and not something a page can tell. A unit's details are a detail, not a stock change: no event, no Undo, like a part's details. Ten identical batteries are one part with ten units and one photo; the other nine stickers are added from the part's page with the scanner.
+
+**Consequences:** A per-unit field on a part with no stickered units has nowhere to show, which is right: it's for the stickered kind. Not done: a per-unit field in the bin sheet or the checked-out list; setting it right after scanning that unit's sticker (today a scan opens the part, and the unit's row is there); searching by a unit's value. Checked in `categories-check.mjs` and the API tests.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1647,6 +1662,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-059 | Choice fields: a category field with a fixed list of options | UX / Data / AI | Accepted | 2026-11-12 |
 | DEC-060 | Text fields offer the values the category's parts already hold | UX | Accepted | 2026-11-12 |
 | DEC-061 | No instant read at capture; the queued look-up is the one path, with the model kept loaded | UX / Architecture | Accepted | 2026-11-12 |
+| DEC-062 | Per-unit fields: a category field each stickered unit holds for itself | Product / Data | Accepted | 2026-11-12 |
 
 ---
 

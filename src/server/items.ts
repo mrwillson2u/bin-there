@@ -196,6 +196,7 @@ export function getItem(db: Db, id: number): ItemDetail {
       homeLocationId: u.homeLocationId,
       path: u.locationId ? locationPath(db, u.locationId) : [],
       out: u.status === "checked_out" ? { at: u.checkedOutAt ?? u.updatedAt, note: u.checkedOutNote } : null,
+      attributes: u.attributes ?? {},
     })),
     history: listEvents(db, { itemId: id, limit: 20 }),
     pinned: isPinned(db, "item", id),
@@ -688,7 +689,8 @@ export function updateCategory(db: Db, id: number, input: UpdateCategory): Categ
       const type = f.type ?? existing?.type ?? "text";
       // A choice field's options, each once (DEC-059); turning a field back to text drops them.
       const options = type === "choice" ? [...new Set(f.options ?? existing?.options ?? [])] : undefined;
-      next.push({ key: candidate, label: f.label, type, ...(options ? { options } : {}) });
+      const perUnit = f.perUnit ?? existing?.perUnit ?? false;
+      next.push({ key: candidate, label: f.label, type, ...(options ? { options } : {}), ...(perUnit ? { perUnit } : {}) });
     }
     changes.fieldDefs = next;
   }
@@ -729,7 +731,8 @@ export function categoryValues(db: Db, id: number): CategoryValues {
   const cat = db.select().from(categories).where(eq(categories.id, id)).get();
   if (!cat) throw new ApiError(404, "NOT_FOUND", "Category not found");
   const counts = new Map<string, Map<string, number>>();
-  for (const f of cat.fieldDefs) if (f.type !== "choice") counts.set(f.key, new Map());
+  // Per-unit fields (DEC-062) live on the units, not the parts: nothing to offer from here.
+  for (const f of cat.fieldDefs) if (f.type !== "choice" && !f.perUnit) counts.set(f.key, new Map());
   for (const row of db.select({ attributes: items.attributes }).from(items).where(and(eq(items.categoryId, id), eq(items.archived, false))).all()) {
     for (const [k, v] of Object.entries(row.attributes ?? {})) {
       const value = String(v ?? "").trim();

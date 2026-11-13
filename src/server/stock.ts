@@ -233,6 +233,18 @@ export function createUnit(db: Db, input: { itemId: number; code: string; locati
   return id;
 }
 
+/**
+ * A unit's own details (DEC-062): the values of its category's per-unit fields. A detail, not a
+ * stock change, so no event and no undo, like a part's details. Blank values are dropped.
+ */
+export function updateUnit(db: Db, unitId: number, input: { attributes: Record<string, string> }): number {
+  const unit = db.select({ id: units.id, itemId: units.itemId }).from(units).where(eq(units.id, unitId)).get();
+  if (!unit) throw new ApiError(404, "NOT_FOUND", "Unit not found");
+  const attributes = Object.fromEntries(Object.entries(input.attributes).filter(([, v]) => v.trim() !== ""));
+  db.update(units).set({ attributes }).where(eq(units.id, unitId)).run();
+  return unit.itemId;
+}
+
 export function moveUnit(db: Db, unitId: number, toLocationId: number): { eventId: number; itemId: number } {
   const unit = db.select().from(units).where(eq(units.id, unitId)).get();
   if (!unit) throw new ApiError(404, "NOT_FOUND", `No unit ${unitId}`);
