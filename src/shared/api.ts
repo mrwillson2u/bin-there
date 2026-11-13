@@ -341,6 +341,8 @@ export type MoveStock = z.infer<typeof moveStockSchema>;
 
 export const createUnitSchema = z.object({ itemId: id, code: codeSchema, locationId: id.nullable().optional(), label: optText(100) });
 export const moveUnitSchema = z.object({ toLocationId: id });
+/** Several of a part's stickered units to one place, one undoable event (DEC-067). */
+export const moveUnitsSchema = z.object({ unitIds: z.array(id).min(1).max(500), toLocationId: id });
 
 export const checkOutSchema = z.object({ toLocationId: id.nullable().optional(), note: optText(200) });
 export const checkInSchema = z.object({ locationId: id.nullable().optional() });

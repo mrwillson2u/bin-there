@@ -50,7 +50,7 @@ import {
   updateCategory,
   updateItem,
 } from "./items";
-import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveStock, moveUnit, recountStock, retireUnit, updateUnit } from "./stock";
+import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveEverything, moveStock, moveUnit, moveUnits, recountStock, retireUnit, updateUnit } from "./stock";
 import { listEvents, undoEvent } from "./events";
 import { bulkItems } from "./bulk";
 import { putBack } from "./putback";
@@ -79,6 +79,7 @@ import {
   photoCropSchema,
   moveStockSchema,
   moveUnitSchema,
+  moveUnitsSchema,
   checkInSchema,
   checkOutSchema,
   putBackSchema,
@@ -452,6 +453,19 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const input = parseBody(updateUnitSchema, await c.req.json());
     const itemId = updateUnit(db, intParam(c.req.param("id")), input);
     return c.json(getItem(db, itemId));
+  });
+  // The Move sheet (DEC-067): any of a part's stickered units, or everything the part has, in one undoable step.
+  api.post("/units/move", async (c) => {
+    const { unitIds, toLocationId } = parseBody(moveUnitsSchema, await c.req.json());
+    const { eventId, itemId } = moveUnits(db, unitIds, toLocationId);
+    return c.json(result(eventId, itemId));
+  });
+  api.post("/items/:id/move-everything", async (c) => {
+    const itemId = intParam(c.req.param("id"));
+    const { toLocationId } = parseBody(moveUnitSchema, await c.req.json());
+    const eventId = moveEverything(db, itemId, toLocationId);
+    if (eventId === null) throw new ApiError(400, "VALIDATION", "It's all there already");
+    return c.json(result(eventId, itemId));
   });
   api.post("/units/:id/move", async (c) => {
     const { toLocationId } = parseBody(moveUnitSchema, await c.req.json());

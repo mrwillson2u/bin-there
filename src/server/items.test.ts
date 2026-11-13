@@ -55,6 +55,60 @@ describe("deleting items", () => {
     expect(await ok<ItemSummary[]>("GET", "/items?q=psu")).toHaveLength(1);
   });
 
+  it("moves any of a part's stickered units in one undoable step, placing them and dropping an empty count there (DEC-067)", async () => {
+    const tote = await bin("Nano Tote");
+    const drawer = await bin("Drawer");
+    // Captured with no place, three stickers added from its page: they're nowhere.
+    const pack = await item({ name: "LiPo battery 3.7 V 2000 mAh", code: "BAT001" });
+    await ok<StockResult>("POST", "/units", { itemId: pack.id, code: "BAT002" });
+    await ok<StockResult>("POST", "/units", { itemId: pack.id, code: "BAT003" });
+    // The old "Add another place": an empty, uncounted entry in the tote, the units still nowhere.
+    await ok<StockResult>("POST", "/stock/recount", { itemId: pack.id, locationId: tote.id, qty: null });
+    const before = await ok<ItemDetail>("GET", `/items/${pack.id}`);
+    expect(before.places.map((p) => [p.locationId, p.hasStock, p.qty, p.units])).toEqual([[tote.id, true, null, 0]]);
+    expect(before.unitList.every((u) => u.path.length === 0)).toBe(true);
+    const ids = before.unitList.map((u) => u.id);
+    // All three to the tote, one step: they're there, the empty entry is gone, they count.
+    const moved = await ok<StockResult>("POST", "/units/move", { unitIds: ids, toLocationId: tote.id });
+    expect(moved.item.places.map((p) => [p.locationId, p.hasStock, p.units, p.isHome])).toEqual([[tote.id, false, 3, true]]);
+    expect(moved.item.totalQty).toBe(3);
+    expect((await ok<EventView[]>("GET", "/events"))[0]).toMatchObject({ type: "move", itemId: pack.id, delta: 3, canUndo: true });
+    // Undo puts it all back as it was, empty entry included.
+    const undone = await ok<ItemDetail>("POST", `/events/${moved.eventId}/undo`);
+    expect(undone.places.map((p) => [p.locationId, p.hasStock, p.qty, p.units])).toEqual([[tote.id, true, null, 0]]);
+    expect(undone.unitList.every((u) => u.path.length === 0)).toBe(true);
+    // A part with no home at all gets the place as its home.
+    const fresh = await item({ name: "Drill battery", code: "DRL001" });
+    const placed = await ok<StockResult>("POST", "/units/move", { unitIds: fresh.unitList.map((u) => u.id), toLocationId: drawer.id });
+    expect(placed.item.places.map((p) => [p.locationId, p.isHome, p.units])).toEqual([[drawer.id, true, 1]]);
+    // Some of them: two to the drawer, one stays.
+    await ok<StockResult>("POST", "/units/move", { unitIds: ids, toLocationId: tote.id });
+    const two = await ok<StockResult>("POST", "/units/move", { unitIds: [ids[0], ids[1]], toLocationId: drawer.id });
+    expect(two.item.places.map((p) => [p.locationId, p.units]).sort()).toEqual([[drawer.id, 2], [tote.id, 1]].sort());
+    // Already there, checked out, another part's, gone.
+    expect((await call("POST", "/units/move", { unitIds: [ids[0]], toLocationId: drawer.id })).status).toBe(400);
+    await ok("POST", `/units/${ids[2]}/checkout`, { note: "In the drone" });
+    expect((await call("POST", "/units/move", { unitIds: [ids[2]], toLocationId: drawer.id })).status).toBe(400);
+    expect((await call("POST", "/units/move", { unitIds: [ids[0], fresh.unitList[0]!.id], toLocationId: tote.id })).status).toBe(400);
+    expect((await call("POST", "/units/move", { unitIds: [999], toLocationId: tote.id })).status).toBe(404);
+    expect((await call("POST", "/units/move", { unitIds: [], toLocationId: tote.id })).status).toBe(400);
+  });
+
+  it("move everything: one step for all a part has, and no empty count for a stickered part (DEC-067)", async () => {
+    const a = await bin("Bin A");
+    const b = await bin("Bin B");
+    const pack = await item({ name: "Drone pack", code: "DRN001", locationId: a.id });
+    await ok<StockResult>("POST", "/units", { itemId: pack.id, code: "DRN002", locationId: a.id });
+    const moved = await ok<StockResult>("POST", `/items/${pack.id}/move-everything`, { toLocationId: b.id });
+    expect(moved.item.places.map((p) => [p.locationId, p.hasStock, p.units, p.isHome])).toEqual([[b.id, false, 2, true]]);
+    expect((await call("POST", `/items/${pack.id}/move-everything`, { toLocationId: b.id })).status).toBe(400);
+    // A counted part still collapses its counts into the one place.
+    const screws = await item({ name: "M3 screws", locationId: a.id, qty: 40 });
+    await ok<StockResult>("POST", "/stock/recount", { itemId: screws.id, locationId: b.id, qty: 10 });
+    const all = await ok<StockResult>("POST", `/items/${screws.id}/move-everything`, { toLocationId: a.id });
+    expect(all.item.places.map((p) => [p.locationId, p.qty])).toEqual([[a.id, 50]]);
+  });
+
   it("removes one stickered unit from a part (DEC-063): sticker freed, part kept, undo brings it back", async () => {
     const shelf = await bin("Shelf");
     const pack = await item({ name: "LiPo 2000 mAh", code: "BAT001", locationId: shelf.id });

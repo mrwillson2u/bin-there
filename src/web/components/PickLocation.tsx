@@ -19,6 +19,7 @@ export function PickLocation({
   onCancel,
   near,
   exclude,
+  onOtherScan,
   children,
 }: {
   title: string;
@@ -28,6 +29,8 @@ export function PickLocation({
   near?: Crumb[];
   /** A place that can't be picked or opened: the one being moved (so nothing goes inside itself). */
   exclude?: number;
+  /** A scan that isn't a place (a unit's sticker, in the Move sheet, DEC-067): true if it was handled. */
+  onOtherScan?: (r: ScanResult) => boolean;
   children?: ReactNode;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +41,7 @@ export function PickLocation({
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
       .then((r) => {
         if (r.kind === "location") onPick(r.location);
-        else setError("That sticker isn't on a bin, box or other location");
+        else if (!onOtherScan?.(r)) setError("That sticker isn't on a bin, box or other location");
       })
       .catch((e: Error) => setError(e.message));
     return true;

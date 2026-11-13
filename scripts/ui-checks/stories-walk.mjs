@@ -149,7 +149,8 @@ await story("J2", "Put things back from the put-back bin", "/", async () => {
 
 await story("J3a", "Move a part to a different bin, picking from the list", "/", async () => {
   await page.goto(`${base}/items/${headers.id}`); lastUrl = page.url(); cur.screens++;
-  await tap(page.getByRole("button", { name: "Move" }).first());
+  // The one Move sheet (DEC-067): what's moving, then where, then the button that says it.
+  await tap(page.getByRole("button", { name: /^Move: / }).first());
   await tap(page.getByRole("button", { name: "Pick from list" }));
   const here = page.getByRole("button", { name: /Bin 0002 \(here now\)/ });
   await here.waitFor();
@@ -157,7 +158,9 @@ await story("J3a", "Move a part to a different bin, picking from the list", "/",
   note(`rows say what's inside: "${await page.getByRole("button", { name: /^(?!Choose).*Bin 0001/ }).first().textContent()}"`);
   await snap("J3a-browse");
   await tap(page.getByRole("button", { name: "Choose Bin 0004" }));
-  await toast("Moved to Bin 0004");
+  note(`the sheet's button says what will happen: "${await page.getByRole("dialog").getByRole("button", { name: /^Move .+ to Bin 0004$/ }).textContent()}"`);
+  await tap(page.getByRole("dialog").getByRole("button", { name: /^Move .+ to Bin 0004$/ }));
+  await toast(/Moved .+ to Bin 0004/);
 });
 
 await story("J3b", "Move a bin to another gridded box", "/", async () => {
@@ -266,9 +269,10 @@ await story("J11b", "Part put in the wrong bin: move it from the box view", `/lo
   await pane.waitFor();
   note(`pane has a way to move the part: ${(await pane.getByRole("button", { name: /Move/ }).count()) > 0}`);
   await tap(pane.getByRole("link", { name: "M3 x 10 socket screws", exact: true }));
-  await tap(page.getByRole("button", { name: "Move" }).first());
+  await tap(page.getByRole("button", { name: /^Move: / }).first());
   await scan("BIN0003");
-  await toast("Moved to Bin 0003");
+  await tap(page.getByRole("dialog").getByRole("button", { name: /^Move .+ to Bin 0003$/ }));
+  await toast(/Moved .+ to Bin 0003/);
 });
 
 await story("J12", "See what's running low", "/", async () => {

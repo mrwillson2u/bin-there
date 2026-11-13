@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, House, LogIn, LogOut, MapPinPlus, MoveRight, Pencil, QrCode, Sparkles, Trash2 } from "lucide-react";
+import { ExternalLink, House, LogIn, LogOut, Pencil, QrCode, Sparkles, Trash2 } from "lucide-react";
 import {
   itemKindLabels,
   trackingLabels,
@@ -16,6 +16,7 @@ import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl, useStockMutation } from "../components/StockControl";
 import { PickLocation } from "../components/PickLocation";
+import { MoveSheet, type MoveStart } from "../components/MoveSheet";
 import { EventList, timeAgo } from "../components/EventList";
 import { PinButton } from "../components/PinButton";
 import { Badge, Button, Card, inputClass, itemName, PlacePath } from "../components/ui";
@@ -23,9 +24,7 @@ import { WhereBlock } from "../components/WhereMap";
 import { PartPhotos } from "../components/PartPhotos";
 
 type Mode =
-  | { kind: "move"; place: Place }
-  | { kind: "addPlace" }
-  | { kind: "moveUnit"; unitId: number; code: string | null }
+  | { kind: "move"; start: MoveStart }
   | { kind: "addUnit" }
   | { kind: "checkOut"; unitId: number; code: string | null }
   | null;
@@ -44,6 +43,8 @@ export function ItemPage() {
       <Pencil size={18} /> Needs details: tap to fill in
     </Link>
   );
+  // Stickered ones in, with no place: "No place yet" says so and offers Move (DEC-067).
+  const unplaced = item.unitList.filter((u) => !u.out && u.locationId === null).length;
   const where = (
     <section className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
@@ -52,20 +53,26 @@ export function ItemPage() {
           <span className="text-sm text-muted"><span className="font-mono text-text">{item.totalQty}</span> total</span>
         )}
       </div>
-      {item.places.length === 0 && <p className="text-muted">Not in any location yet.</p>}
-      {item.places.map((p) => (
-        <PlaceCard key={p.locationId} item={item} place={p} onMove={() => setMode({ kind: "move", place: p })} />
-      ))}
-
-      {mode?.kind === "move" && <MoveStock item={item} place={mode.place} done={() => setMode(null)} />}
-      {mode?.kind === "addPlace" && <AddPlace item={item} done={() => setMode(null)} />}
-      {mode === null && (
-        <Button onClick={() => setMode({ kind: "addPlace" })} className="self-start">
-          <MapPinPlus size={18} /> Add another place
-        </Button>
+      {(item.places.length === 0 || unplaced > 0) && (
+        <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4" data-no-place>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">No place yet</p>
+            <p className="text-[13px] text-muted">
+              {unplaced > 0 ? `${unplaced} stickered ${unplaced === 1 ? "one isn't" : "ones aren't"} anywhere` : "It isn't in any place yet"}
+            </p>
+          </div>
+          <Button onClick={() => setMode({ kind: "move", start: { kind: "nowhere" } })} aria-label="Move: no place yet">
+            Move…
+          </Button>
+        </div>
       )}
+      {item.places.map((p) => (
+        <PlaceCard key={p.locationId} item={item} place={p} onMove={() => setMode({ kind: "move", start: { kind: "place", locationId: p.locationId } })} />
+      ))}
     </section>
   );
+  // The one Move sheet (DEC-067), from wherever it was opened.
+  const moveSheet = mode?.kind === "move" && <MoveSheet itemId={item.id} start={mode.start} onClose={() => setMode(null)} />;
   const units = (item.kind === "returnable" || item.unitList.length > 0) && (
     <section className="flex flex-col gap-2">
       <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted">Stickered units</h2>
@@ -73,7 +80,8 @@ export function ItemPage() {
         <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
           {item.unitList.map((u) => (
             <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
-              <span className="min-w-0 flex-1">
+              {/* Keeps room for the code and place; on a phone the buttons go to a line of their own. */}
+              <span className="min-w-[10rem] flex-1">
                 <span className="flex items-center gap-2">
                   <span className="font-mono text-sm">{u.code ?? "no sticker"}</span>
                   {u.out && <Badge tone="info">out {timeAgo(u.out.at)}</Badge>}
@@ -81,7 +89,7 @@ export function ItemPage() {
                 {u.path.length ? (
                   <PlacePath path={u.path} after={u.out?.note && ` · ${u.out.note}`} className="text-[13px] text-muted" />
                 ) : (
-                  <span className="block truncate text-[13px] text-muted">{u.out ? (u.out.note ?? "") : "No location"}</span>
+                  <span className="block truncate text-[13px] text-muted">{u.out ? (u.out.note ?? "") : "No place yet"}</span>
                 )}
                 <UnitFields item={item} unit={u} />
               </span>
@@ -93,8 +101,8 @@ export function ItemPage() {
                     <Button variant="ghost" onClick={() => setMode({ kind: "checkOut", unitId: u.id, code: u.code })}>
                       <LogOut size={18} /> Check out
                     </Button>
-                    <Button variant="ghost" onClick={() => setMode({ kind: "moveUnit", unitId: u.id, code: u.code })} aria-label="Move">
-                      <MoveRight size={18} />
+                    <Button variant="ghost" onClick={() => setMode({ kind: "move", start: { kind: "unit", unitId: u.id } })} aria-label={`Move ${u.code ?? `unit ${u.id}`}`}>
+                      Move…
                     </Button>
                   </>
                 )}
@@ -104,7 +112,6 @@ export function ItemPage() {
           ))}
         </ul>
       )}
-      {mode?.kind === "moveUnit" && <MoveUnit unitId={mode.unitId} code={mode.code} done={() => setMode(null)} />}
       {mode?.kind === "checkOut" && <CheckOutUnit unitId={mode.unitId} code={mode.code} done={() => setMode(null)} />}
       {mode?.kind === "addUnit" && <AddUnit item={item} done={() => setMode(null)} />}
       {mode === null && (
@@ -135,6 +142,7 @@ export function ItemPage() {
           {units}
           {history}
         </div>
+        {moveSheet}
       </div>
     );
   }
@@ -146,6 +154,7 @@ export function ItemPage() {
       {units}
       <Details item={item} />
       {history}
+      {moveSheet}
     </div>
   );
 }
@@ -157,7 +166,13 @@ function Header({ item }: { item: ItemDetail }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className={`text-xl font-semibold ${item.name ? "" : "italic text-muted"}`}>{itemName(item.name)}</h1>
+          <h1 className={`text-xl font-semibold ${item.name ? "" : "italic text-muted"}`}>
+            {itemName(item.name)}
+            {/* The part's own number (DEC-067), never reused: "part 24" always means this one. Only here. */}
+            <span className="ml-2 inline-block rounded-md border border-border px-1.5 py-0.5 align-middle font-mono text-xs font-semibold not-italic text-muted" title="This part's ID" data-part-id>
+              ID {item.id}
+            </span>
+          </h1>
           <p className="text-[13px] text-muted">
             {[item.categoryName, itemKindLabels[item.kind], trackingLabels[item.tracking]].filter(Boolean).join(" · ")}
           </p>
@@ -212,9 +227,9 @@ function PlaceCard({ item, place, onMove }: { item: ItemDetail; place: Place; on
       <div className="flex items-center gap-2">
         {place.units > 0 && <Badge tone="info">{place.units} stickered</Badge>}
         <span className="flex-1" />
-        {place.hasStock && (
-          <Button variant="ghost" onClick={onMove}>
-            <MoveRight size={18} /> Move
+        {(place.hasStock || place.units > 0) && (
+          <Button variant="ghost" onClick={onMove} aria-label={`Move: ${name}`}>
+            Move…
           </Button>
         )}
       </div>
@@ -222,58 +237,8 @@ function PlaceCard({ item, place, onMove }: { item: ItemDetail; place: Place; on
   );
 }
 
-function MoveStock({ item, place, done }: { item: ItemDetail; place: Place; done: () => void }) {
-  const handlers = useStockMutation();
-  const [qty, setQty] = useState("");
-  const partial = item.tracking === "exact" && place.qty !== null && place.qty > 1;
-  const move = useMutation({
-    mutationFn: (to: { id: number; name: string }) =>
-      api<StockResult>("/stock/move", {
-        method: "POST",
-        body: { itemId: item.id, fromLocationId: place.locationId, toLocationId: to.id, qty: qty ? Number(qty) : undefined },
-      }),
-    ...handlers((_, to: { name: string }) => `Moved to ${to.name}`),
-    onSettled: done,
-  });
-  return (
-    <PickLocation title={`Move from ${place.path.at(-1)?.name}: scan where it's going`} onPick={(l) => move.mutate(l)} onCancel={done} near={place.path}>
-      {partial && (
-        <label className="flex items-center gap-2 text-sm text-muted">
-          How many?
-          <input
-            inputMode="numeric"
-            value={qty}
-            onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))}
-            placeholder={`all ${place.qty}`}
-            className={`${inputClass} w-28 text-center font-mono`}
-          />
-        </label>
-      )}
-    </PickLocation>
-  );
-}
 
-function AddPlace({ item, done }: { item: ItemDetail; done: () => void }) {
-  const handlers = useStockMutation();
-  const add = useMutation({
-    mutationFn: (to: { id: number; name: string }) =>
-      api<StockResult>("/stock/recount", { method: "POST", body: { itemId: item.id, locationId: to.id, qty: null } }),
-    ...handlers((_, to: { name: string }) => `Added to ${to.name}`),
-    onSettled: done,
-  });
-  return <PickLocation title="Scan the bin or box it's also in" onPick={(l) => add.mutate(l)} onCancel={done} near={item.places[0]?.path} />;
-}
 
-function MoveUnit({ unitId, code, done }: { unitId: number; code: string | null; done: () => void }) {
-  const handlers = useStockMutation();
-  const move = useMutation({
-    mutationFn: (to: { id: number; name: string }) =>
-      api<StockResult>(`/units/${unitId}/move`, { method: "POST", body: { toLocationId: to.id } }),
-    ...handlers((_, to: { name: string }) => `Moved to ${to.name}`),
-    onSettled: done,
-  });
-  return <PickLocation title={`Move ${code ?? "unit"}: scan where it's going`} onPick={(l) => move.mutate(l)} onCancel={done} />;
-}
 
 /** Take a stickered unit out: scan where it's going (bench, project), or just note who has it. */
 function CheckOutUnit({ unitId, code, done }: { unitId: number; code: string | null; done: () => void }) {

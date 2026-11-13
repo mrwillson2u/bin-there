@@ -176,10 +176,15 @@ export function moveEverything(db: Db, itemId: number, to: number): number | nul
   const order = ["out", "low", "plenty"] as const;
   const level = !exact && counted ? (order.find((l) => rows.some((r) => r.level === l)) ?? null) : null;
   const lastCountedAt = rows.map((r) => r.lastCountedAt).filter((d): d is string => !!d).sort().at(-1) ?? null;
+  // Stickered units count themselves (DEC-067): a part with units and no count of its own keeps
+  // no empty "not counted" entry where they land.
+  const keepRow = counted || unitRows.length === 0;
 
   return db.transaction(() => {
     for (const r of fromRows) db.delete(stock).where(whereRow(itemId, r.locationId)).run();
-    if (toRow) db.update(stock).set({ qty, level, changesSinceCount: fromRows.length > 0 ? toRow.changesSinceCount + 1 : toRow.changesSinceCount }).where(whereRow(itemId, to)).run();
+    if (!keepRow) {
+      if (toRow) db.delete(stock).where(whereRow(itemId, to)).run();
+    } else if (toRow) db.update(stock).set({ qty, level, changesSinceCount: fromRows.length > 0 ? toRow.changesSinceCount + 1 : toRow.changesSinceCount }).where(whereRow(itemId, to)).run();
     else db.insert(stock).values({ itemId, locationId: to, qty, level, ...(lastCountedAt ? { lastCountedAt } : {}) }).run();
     for (const u of unitsToMove) {
       db.update(units)
@@ -287,6 +292,56 @@ export function moveUnit(db: Db, unitId: number, toLocationId: number): { eventI
     });
   });
   return { eventId, itemId: unit.itemId };
+}
+
+/**
+ * Move any of a part's stickered units to one place in one undoable event (DEC-067): the Move
+ * sheet's "all", "just this one" and "pick which". A unit with no home gets this place as its
+ * home, and so does the part when it has none (not a project kit, DEC-019). An empty "not
+ * counted" entry for the part where they land goes: the units count themselves.
+ */
+export function moveUnits(db: Db, unitIds: number[], to: number): { eventId: number; itemId: number } {
+  requireLocation(db, to);
+  const ids = [...new Set(unitIds)];
+  const rows = db.select().from(units).where(inArray(units.id, ids)).all();
+  if (rows.length !== ids.length || rows.some((u) => u.status === "retired")) throw new ApiError(404, "NOT_FOUND", "One of those stickered ones isn't there any more");
+  const itemId = rows[0]!.itemId;
+  if (rows.some((u) => u.itemId !== itemId)) throw new ApiError(400, "VALIDATION", "Those stickered ones belong to different parts");
+  requireItem(db, itemId);
+  const out = rows.find((u) => u.status === "checked_out");
+  if (out) throw new ApiError(400, "VALIDATION", `${out.code ?? "One of them"} is checked out: check it in first`);
+  const moving = rows.filter((u) => u.locationId !== to);
+  if (moving.length === 0) throw new ApiError(400, "VALIDATION", rows.length === 1 ? "It's already there" : "They're already there");
+  const toKit = isProject(db, to);
+  const homes = homesOf(db, itemId);
+  const there = stockRow(db, itemId, to);
+  const dropEntry = there && there.qty === null && there.level === null ? there : null;
+  const addHome = homes.length === 0 && !toKit;
+  const froms = [...new Set(moving.map((u) => u.locationId))];
+  const eventId = db.transaction(() => {
+    for (const u of moving) {
+      db.update(units)
+        .set({ locationId: to, ...(u.homeLocationId === null && !toKit ? { homeLocationId: to } : {}), updatedAt: now })
+        .where(eq(units.id, u.id))
+        .run();
+    }
+    if (dropEntry) db.delete(stock).where(whereRow(itemId, to)).run();
+    if (addHome) db.insert(itemHomes).values({ itemId, locationId: to }).run();
+    return record(db, {
+      type: "move",
+      itemId,
+      unitId: moving.length === 1 ? moving[0]!.id : null,
+      fromLocationId: froms.length === 1 ? froms[0]! : null,
+      toLocationId: to,
+      delta: moving.length,
+      undoData: {
+        units: moving.map((u) => ({ id: u.id, locationId: u.locationId, homeLocationId: u.homeLocationId })),
+        ...(dropEntry ? { stock: [{ itemId, locationId: to, row: dropEntry }] } : {}),
+        ...(addHome ? { homes } : {}),
+      },
+    });
+  });
+  return { eventId, itemId };
 }
 
 // ── Check out / check in (F10): stickered returnables ──────────────────────────

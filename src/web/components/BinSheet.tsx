@@ -9,6 +9,7 @@ import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl, useStockMutation } from "./StockControl";
 import { PickLocation } from "./PickLocation";
+import { MoveSheet } from "./MoveSheet";
 import { QtyBadge } from "./ItemList";
 import { PhotoSpot } from "./PhotoSpot";
 import { useToast } from "./Toast";
@@ -162,8 +163,6 @@ export function BinSheet({
           />
         ) : takingOut ? (
           <TakeOutForm bin={bin} onDone={() => setTakingOut(false)} onCancel={() => setTakingOut(false)} />
-        ) : moving ? (
-          <MovePart item={moving} bin={bin} box={box} onDone={() => setMoving(null)} />
         ) : items.length === 0 || adding ? (
           <AddPart bin={bin} first={items.length === 0} onDone={() => setAdding(false)} onCancel={items.length > 0 ? () => setAdding(false) : undefined} />
         ) : (
@@ -186,6 +185,8 @@ export function BinSheet({
         </Button>
       )}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+      {/* The one Move sheet (DEC-067), starting from this bin. */}
+      {moving && <MoveSheet itemId={moving.itemId} start={{ kind: "place", locationId: bin.id }} onClose={() => setMoving(null)} />}
 
       {/* Deleting a bin is on its own page (tap its name above), not in this quick view. */}
     </>
@@ -266,9 +267,9 @@ export function OnePart({ item: i, bin, onMove }: { item: LocationItem; bin: Loc
             <Link to={`/items/${i.itemId}/edit`} className={`text-sm ${i.needsDetails ? "text-warn" : "text-accent"}`}>
               {i.needsDetails ? "Add details" : "Edit details"}
             </Link>
-            {i.hasStock && onMove && (
+            {(i.hasStock || i.units > 0) && onMove && (
               <button type="button" onClick={onMove} className="inline-flex min-h-8 items-center gap-1 text-sm text-accent">
-                <MoveRight size={16} /> Move
+                Move…
               </button>
             )}
           </div>
@@ -283,36 +284,6 @@ export function OnePart({ item: i, bin, onMove }: { item: LocationItem; bin: Loc
   );
 }
 
-/** Moving a part (or some of it) out of this bin: scan where it's going, or pick from the list, which opens beside this bin (DEC-047). */
-function MovePart({ item, bin, box, onDone }: { item: LocationItem; bin: LocationSummary; box: LocationDetail; onDone: () => void }) {
-  const handlers = useStockMutation();
-  const [qty, setQty] = useState("");
-  const partial = item.tracking === "exact" && item.qty !== null && item.qty > 1;
-  const move = useMutation({
-    mutationFn: (to: { id: number; name: string }) =>
-      api<StockResult>("/stock/move", {
-        method: "POST",
-        body: { itemId: item.itemId, fromLocationId: bin.id, toLocationId: to.id, qty: qty ? Number(qty) : undefined },
-      }),
-    ...handlers((_, to: { name: string }) => `Moved ${itemName(item.name)} to ${to.name}`),
-    onSettled: onDone,
-  });
-  return (
-    <PickLocation
-      title={`Move ${itemName(item.name)} from ${bin.name}: scan where it's going`}
-      near={[...box.path, { id: bin.id, name: bin.name }]}
-      onPick={(l) => move.mutate(l)}
-      onCancel={onDone}
-    >
-      {partial && (
-        <label className="flex items-center gap-2 text-sm text-muted">
-          How many?
-          <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder={`all ${item.qty}`} className={`${inputClass} w-28 text-center font-mono`} aria-label="How many to move" />
-        </label>
-      )}
-    </PickLocation>
-  );
-}
 
 /** Two or more parts: a row each, with a photo (or a button to take one) and the count. */
 function PartList({ items, bin, onMove }: { items: LocationItem[]; bin: LocationSummary; onMove: (item: LocationItem) => void }) {
@@ -332,9 +303,9 @@ function PartList({ items, bin, onMove }: { items: LocationItem[]; bin: Location
               {i.units > 0 && <Badge tone="info">{i.units} stickered</Badge>}
               {i.tracking === "exact" ? stock : null}
               {!i.hasStock && i.units === 0 && <QtyBadge qty={i.qty} level={i.level} units={i.units} tracking={i.tracking} />}
-              {i.hasStock && (
-                <button type="button" onClick={() => onMove(i)} aria-label={`Move ${itemName(i.name)}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-accent">
-                  <MoveRight size={18} />
+              {(i.hasStock || i.units > 0) && (
+                <button type="button" onClick={() => onMove(i)} aria-label={`Move ${itemName(i.name)}`} className="flex min-h-10 shrink-0 items-center rounded-xl px-1 text-sm text-accent">
+                  Move…
                 </button>
               )}
             </div>

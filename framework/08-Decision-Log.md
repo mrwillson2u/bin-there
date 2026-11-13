@@ -1665,6 +1665,29 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** Yandex may start blocking too; the look-up's notes say so when the search fails, and the list is one line in the compose files. Generic cells and other no-name parts have no maker's number for Mouser or Digi-Key to match, so the web search is the path for them. Checked in the pipeline and search tests, and against the live search service. Shipped to the live app on 2026-11-13 with DEC-064 to DEC-066 (backup `2026-11-13_104312`, `main` at 07430ab).
 
+### DEC-067: One Move sheet: it asks what's moving, then where, and says what it will do; each part shows its ID
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, Q118) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Colin's LiPo battery part (ID 24) had seven stickered units and showed "not counted". It was captured with no place, so the seven stickers added from its page were saved with no location; with no place yet, the only button was "Add another place", which made an empty, uncounted entry in Nano Tote and left the units nowhere. Moving them meant seven separate moves behind an unlabelled arrow. Colin pointed out the deeper flaw: the part's page had three move controls that each moved something different (a unit's arrow moved that one unit; a place's Move moved only the loose count, never stickered units; Add another place moved nothing), and with many stickered units he couldn't tell whether he was moving one or all. He asked for simplicity and consistency: always say what will happen ("Move this unit", "Move all"), and one dialog that asks whether to move one unit, all of them, or a chosen few (by tapping or scanning their stickers), used the same way every time. He also asked for an automatic ID on each part, shown only on its page, to refer to a part by. Q117 proposed fixes in words; Q118 showed them drawn, and he accepted.
+
+**Decision:**
+- **One Move sheet** (`MoveSheet.tsx`) for every move of a part's things: each place card on the part's page, each stickered unit's row, the new "No place yet" card, and the bin sheet's Move all open it, each worded "Move…". "Add another place" is gone: moving some of a part to a new spot covers it.
+- **It always asks what's moving, then where.** For stickered units: all of them (or all here), just this one, or Pick which (a checklist that opens when chosen; scanning a unit's sticker ticks it and switches to Pick which). For a counted part: all of its count from that place, or Some (a number). For an uncounted part: all of it, or some of it (it'll be in both places). When a part is in two or more places, Everything it has (the bulk move, DEC-057, now on the part's page too). Where it was opened only decides which choice starts ticked (a unit's row starts on Just this one); the choices and wording are the same from everywhere.
+- **Where to:** scan the place or pick it from the list; scanning a place's sticker sets or changes it.
+- **The button says exactly what will happen:** "Move 7 to Nano Tote", "Move 10 to Bin 0043", "Move some to Workbench", "Move everything to Nano Tote". Nothing moves until it's pressed; the toast says the same and offers Undo.
+- **Many units, one step:** `POST /units/move` moves any of a part's stickered units in one undoable event. A unit with no home gets the place as its home, and so does the part if it has none; a checked-out unit is refused (check it in first).
+- **Stickered units count themselves:** where stickered ones land, an empty "not counted" entry for the part goes (so Colin's part fixes itself when he moves its seven units into Nano Tote), and moving everything a stickered-only part has makes none.
+- **"No place yet"** on the part's page says how many stickered ones aren't anywhere, or that the part isn't in any place, with Move…; each such unit's row says "No place yet".
+- **The part's ID** ("ID 24", the database's own number, never reused) sits by the name on the part's page and nowhere else.
+
+**Consequences:** Every move now takes the extra step of the sheet, even when there's one choice; seeing the same screen every time is the point. The old single-unit route (`POST /units/:id/move`) stays for the API. Not done: the same sheet for check out (it stays its own), for moving many parts at once (Select's bar, DEC-057, which already says how many parts), and for moving bins and boxes themselves. Checked in `move-check.mjs` (Colin's case end to end, a unit's row with a scanned sticker, some of a count, some of an uncounted part, a part with no place, Everything, Undo, the ID) and the API tests.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1735,6 +1758,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-064 | The AI fills the fields of the category it picks, in the same run | Product / AI | Accepted | 2026-11-13 |
 | DEC-065 | Names follow one rule and the owner's own names | Product / AI | Accepted | 2026-11-13 |
 | DEC-066 | Finding pages again: search engines that answer, off-topic hits dropped, part numbers read by the model | Architecture / AI | Accepted | 2026-11-13 |
+| DEC-067 | One Move sheet: it asks what's moving, then where, and says what it will do; each part shows its ID | UX | Accepted | 2026-11-13 |
 
 ---
 
