@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { ChevronRight, CopyPlus, FolderKanban, Pin, Plus, QrCode, Search, Settings, Tags, Warehouse, X } from "lucide-react";
+import { ChevronRight, CopyPlus, FolderKanban, Pin, Plus, Search, Warehouse, X } from "lucide-react";
 import { crumbLabel, locationTypes, type LocationDetail, type LocationSummary, type LocationType, type PinnedLocation, type Pins, type ProjectSummary } from "../../shared/api";
 import { api } from "../api";
 import { contents, LocationList, LocationIcon } from "../components/LocationList";
@@ -121,19 +121,6 @@ export function LocationsPage() {
         )}
         <Link to="/locations/new?type=site" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
           <Warehouse size={16} /> Add a site{single ? " (another place you keep things)" : ""}
-        </Link>
-      </div>
-
-      {/* Phone only, until the phone gets its own way there (DEC-070); a computer has them in the sidebar. */}
-      <div className="flex flex-wrap justify-center gap-x-6 lg:hidden">
-        <Link to="/stickers/print" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
-          <QrCode size={16} /> Print stickers
-        </Link>
-        <Link to="/categories" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
-          <Tags size={16} /> Categories
-        </Link>
-        <Link to="/settings" className="flex min-h-11 items-center justify-center gap-2 text-sm text-muted">
-          <Settings size={16} /> Settings: appearance, scanning, beep
         </Link>
       </div>
     </div>

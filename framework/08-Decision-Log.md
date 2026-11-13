@@ -1722,20 +1722,20 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** Colin's Linear bearing becomes ID 8mm, OD 15mm, with Width 24mm still its own field, at the first start after the ship. Matching ignores spelling beyond letters and digits, so "OD" and "Outer diameter" stay separate. Checked in the API tests (his values exactly; the merge rule; the start-up pass) and `categories-check.mjs` (adding Pin count picks up a part's own Pin count; the options box under its name). Shipped to the live app on 2026-11-13 (backup `2026-11-13_131745`, `main` at 67c20fa); the first start matched one part, the Linear bearing, to ID 8mm, OD 15mm, Width 24mm, as on the dev copy first.
 
-### DEC-070: Categories and Print stickers in the sidebar, not at the bottom of Locations
+### DEC-070: Categories and Print stickers in the sidebar and the phone's Menu, not at the bottom of Locations
 
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-13 |
-| **Status** | Accepted for the computer; the phone's way there is Q119 |
+| **Status** | Accepted (Colin, Q119 for the phone) |
 | **Deciders** | Colin |
 | **Category** | UX / Navigation |
 
 **Context:** Colin asked why Categories and Print stickers were reached from the bottom of the Locations page, along with a Settings link he doesn't need there. They were put there when built (DEC-052, DEC-056) because the phone's bottom bar was full and the bottom of Locations (the old home page) reached both phone and computer without redesigning navigation; on the phone that block is also the only way to Settings. Convenience, not a reason.
 
-**Decision:** On a computer, the sidebar has Categories (after Inventory, since it describes parts) and Print stickers (after Locations, since stickers go on places), and the Locations page no longer carries those links or Settings. On a phone the links stay at the bottom of Locations until Colin picks the phone's way there: a More tab in the bar, or a menu button at the top of each screen (Q119, drawn for him).
+**Decision:** On a computer, the sidebar has Categories (after Inventory, since it describes parts) and Print stickers (after Locations, since stickers go on places), and the Locations page no longer carries those links or Settings. On a phone, each screen has a slim top row, "Bin→There" on the left and a "☰ Menu" button on the right (Colin chose a menu at the top over a More tab in the bar, Q119, and asked for the hamburger with the word Menu rather than "More"). It drops down Categories, Print stickers, Search and Settings, the sidebar's entries the bar doesn't hold, and closes on a pick, a tap outside, Escape or a new screen. It sits in a row of its own rather than in each screen's title row so it never covers a screen's own top buttons (the part page's Pin and Edit). The links at the bottom of Locations are gone on phones too.
 
-**Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry) and `categories-check.mjs`. Shipped with DEC-069.
+**Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry), `categories-check.mjs` and `stickers-check.mjs` (the phone: no links on Locations, the Menu's four entries, Escape, Settings). The computer half shipped with DEC-069.
 
 ## Decision Index
 
@@ -1810,7 +1810,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-067 | One Move sheet: it asks what's moving, then where, and says what it will do; each part shows its ID | UX | Accepted | 2026-11-13 |
 | DEC-068 | The app never tells you how to work a scanner | UX / Wording | Accepted | 2026-11-13 |
 | DEC-069 | A part's own fields named like its category's become them; the category editor groups each field | Data / UX | Accepted | 2026-11-13 |
-| DEC-070 | Categories and Print stickers in the sidebar, not at the bottom of Locations | UX / Navigation | Accepted (computer) | 2026-11-13 |
+| DEC-070 | Categories and Print stickers in the sidebar and the phone's Menu, not at the bottom of Locations | UX / Navigation | Accepted | 2026-11-13 |
 
 ---
 

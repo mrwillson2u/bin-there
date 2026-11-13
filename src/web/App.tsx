@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Archive, Boxes, History, QrCode, ScanLine, Search, Settings, Tags, Warehouse } from "lucide-react";
+import { Archive, Boxes, History, Menu, QrCode, ScanLine, Search, Settings, Tags, Warehouse } from "lucide-react";
 import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
@@ -100,6 +100,12 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
     <div ref={shellRef} className="flex min-h-dvh flex-col lg:pl-56">
       {/* Top: clear of the status bar and the Dynamic Island's blur, not just the inset edge. Bottom: room for the bar, and for the scan strip when one is up (DEC-044). */}
       <main className={`mx-auto w-full max-w-2xl flex-1 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:max-w-6xl lg:px-8 lg:pb-10 lg:pt-6 ${target ? "pb-40" : "pb-28"}`}>
+        {/* Phone: the menu for what the bar doesn't hold (DEC-070, Q119), in a row of its own so it
+            never sits on a screen's own buttons (the part page's Pin and Edit). */}
+        <div className="mb-2 flex min-h-10 items-center justify-between lg:hidden">
+          <span className="text-sm font-semibold text-muted">Bin→There</span>
+          <PhoneMenu />
+        </div>
         {scanError && <p className="mb-4 rounded-xl bg-danger/15 px-4 py-3 text-sm text-danger" role="alert">{scanError}</p>}
         {/* Above the per-screen remount, so it also catches a screen that fails while closing. */}
         <ScreenErrorBoundary resetKey={location.pathname}>
@@ -164,6 +170,50 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
           )}
         </div>
       </nav>
+    </div>
+  );
+}
+
+/**
+ * The phone's menu (DEC-070, Q119): Categories, Print stickers, Search and Settings, the sidebar's
+ * entries the bottom bar doesn't hold. It closes on a pick, a tap outside, Escape or a new screen.
+ */
+function PhoneMenu() {
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium ${open ? "border-accent text-accent" : "border-border text-text"}`}
+      >
+        <Menu size={18} /> Menu
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />
+          <nav aria-label="Menu" className="absolute right-0 top-full z-40 mt-2 flex w-56 flex-col gap-0.5 rounded-2xl border border-border bg-surface p-1.5 shadow-xl">
+            <SideItem to="/categories" icon={<Tags size={20} />} label="Categories" />
+            <SideItem to="/stickers/print" icon={<QrCode size={20} />} label="Print stickers" />
+            <SideItem to="/search" icon={<Search size={20} />} label="Search" />
+            <SideItem to="/settings" icon={<Settings size={20} />} label="Settings" />
+          </nav>
+        </>
+      )}
     </div>
   );
 }

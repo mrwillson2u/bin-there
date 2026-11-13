@@ -151,9 +151,21 @@ await sheet().waitFor({ state: "detached" });
 check((await page.locator("video").count()) === 0, "camera is off after Done");
 
 // 8b. Settings (DEC-043, DEC-044): scanning on this device decides what the Stickers screen offers.
+// Reached from the phone's Menu (DEC-070, Q119), not from the bottom of Locations.
 await page.goto(`${base}/locations`);
-await page.getByRole("link", { name: /Settings: appearance, scanning, beep/ }).click();
+check((await page.locator("main").getByRole("link", { name: /Print stickers|Categories|Settings/ }).count()) === 0, "phone: the Locations page carries no Print stickers, Categories or Settings links");
+await page.getByRole("button", { name: "Menu" }).click();
+const phoneMenu = page.getByRole("navigation", { name: "Menu" });
+await phoneMenu.waitFor();
+check((await phoneMenu.getByRole("link").allTextContents()).map((t) => t.trim()).join(", ") === "Categories, Print stickers, Search, Settings", "phone: Menu lists Categories, Print stickers, Search, Settings");
+await page.screenshot({ path: `${shots}/s8-phone-menu.png` });
+await page.keyboard.press("Escape");
+await phoneMenu.waitFor({ state: "detached" });
+check(true, "phone: Escape closes the menu");
+await page.getByRole("button", { name: "Menu" }).click();
+await phoneMenu.getByRole("link", { name: "Settings" }).click();
 await page.getByRole("heading", { name: "Settings" }).waitFor();
+check((await page.getByRole("navigation", { name: "Menu" }).count()) === 0, "phone: picking Settings goes there and closes the menu");
 const scanning = () => page.getByRole("radiogroup", { name: "Scanning on this device" });
 await scanning().getByRole("radio", { name: "Scanner only" }).click();
 const b4 = await mk("1x1", { x: 3, y: 0 }); // a bin without a sticker, so the screen has a next one
