@@ -47,6 +47,11 @@ services:
     # all day (ten times slower; `ollama ps` says "100% CPU"). So: wait for the card, up to two
     # minutes, before serving (DEC-049 found the first case, DEC-053 the boot one).
     entrypoint: ["sh", "-c", "n=0; until nvidia-smi >/dev/null 2>&1 || [ $$n -ge 60 ]; do n=$$((n+1)); sleep 2; done; exec ollama serve"]
+    environment:
+      # Keep the model loaded (DEC-061): Ollama otherwise drops it after five idle minutes, and a
+      # cold load is most of a minute, which the glance at capture can't wait for. Another model
+      # that needs the room still gets it (Ollama unloads this one and reloads it on the next call).
+      OLLAMA_KEEP_ALIVE: "-1"
     ports:
       # The dev instance uses this same Ollama through the host (compose.dev.yaml).
       - "127.0.0.1:11435:11434"

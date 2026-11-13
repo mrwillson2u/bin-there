@@ -190,6 +190,14 @@ check((await page.getByRole("radio", { name: "Plenty", exact: true }).count()) =
 await page.getByRole("radio", { name: "Exact count" }).click();
 await page.getByLabel("How many?").fill("3");
 await page.setInputFiles("input[type=file]", `${shots}/part.jpg`);
+// The glance (DEC-061): the moment the photo is in, what the model read comes back as chips; nothing is taken until tapped.
+const pnChip = page.getByRole("button", { name: "Use part number LM2596S" });
+await pnChip.waitFor({ timeout: 15000 });
+check((await page.getByRole("button", { name: "Use name LM2596 buck module" }).count()) === 1 && (await page.getByRole("button", { name: "Use category Modules & boards" }).count()) === 1, "a glance at the photo offers the part number, a name and a category as chips");
+check((await page.getByRole("textbox", { name: "Part number" }).inputValue()) === "", "nothing is filled in until a chip is tapped");
+await pnChip.click();
+check((await page.getByRole("textbox", { name: "Part number" }).inputValue()) === "LM2596S" && (await pnChip.getAttribute("aria-pressed")) === "true", "tapping the part number chip fills the part number box and the chip shows as used");
+await page.screenshot({ path: `${shots}/ai-7-glance.png`, fullPage: true });
 await page.getByPlaceholder("Later is fine").fill("Queued part");
 await page.getByRole("button", { name: "Save", exact: true }).click();
 await page.getByText(/^Saved/).waitFor({ timeout: 20000 });
@@ -198,6 +206,8 @@ const queuedItem = (await api("GET", "/items/needs-details")).find((i) => i.name
 check(!!queuedItem && queuedItem.tracking === "exact", "saved as an exact count");
 const queuedDetail = await api("GET", `/items/${queuedItem.id}`);
 check(queuedDetail.places[0]?.qty === 3, "with the count typed: " + queuedDetail.places[0]?.qty);
+check(queuedDetail.supplierPn === "LM2596S" && queuedDetail.aiFields.supplierPn?.source === "photo" && !queuedDetail.aiFields.name, "the confirmed part number is on the part with the AI mark; the typed name has none");
+check((await page.getByRole("button", { name: /^Use part number/ }).count()) === 0 && (await page.getByRole("textbox", { name: "Part number" }).count()) === 0, "after saving, the chips and the part number box are gone for the next part");
 // The fake model answers at once, so the queue has finished by now: the answer is on the part.
 let stored = queuedDetail;
 for (let i = 0; i < 50 && (stored.aiJob || !stored.aiResult); i++) { await page.waitForTimeout(100); stored = await api("GET", `/items/${queuedItem.id}`); }
@@ -221,6 +231,25 @@ await api("POST", `/items/${queuedItem.id}/research/queue`);
 const cancelled = await api("DELETE", `/items/${queuedItem.id}/research/queue`);
 check(cancelled.aiJob === null, "a queued look-up can be cancelled");
 await page.screenshot({ path: `${shots}/ai-6-stored.png`, fullPage: true });
+
+// A one-off with everything taken from the glance (DEC-061): name and category chips, so the part
+// is complete at capture and never lands on Needs details.
+await page.goto(`${base}/capture?location=${tote.id}`);
+await page.setInputFiles("input[type=file]", `${shots}/part.jpg`);
+await page.getByRole("button", { name: "Use name LM2596 buck module" }).click();
+await page.getByRole("button", { name: "Use category Modules & boards" }).click();
+check((await page.getByPlaceholder("Later is fine").inputValue()) === "LM2596 buck module", "the name chip fills the name box");
+await page.getByRole("button", { name: "Use name LM2596 buck module" }).click();
+check((await page.getByPlaceholder("Later is fine").inputValue()) === "", "tapping a used chip again takes it back out");
+await page.getByRole("button", { name: "Use name LM2596 buck module" }).click();
+await page.getByRole("button", { name: "Save", exact: true }).click();
+await page.getByText(/^Saved/).waitFor({ timeout: 20000 });
+await page.waitForTimeout(500);
+// The newest of that name: the quick naming over Needs details gave an earlier part the same one.
+const complete = (await api("GET", "/inventory?limit=100")).items.filter((i) => i.name === "LM2596 buck module").sort((a, b) => b.id - a.id)[0];
+const completeDetail = complete && (await api("GET", `/items/${complete.id}`));
+check(!!completeDetail && completeDetail.categoryId === modules.id && completeDetail.needsDetails === false, "a part named and categorised from the glance is complete at capture");
+check(!!completeDetail && completeDetail.aiFields.name?.source === "photo" && completeDetail.aiFields.category?.source === "photo" && !completeDetail.supplierPn, "name and category carry the AI mark; the part number wasn't taken");
 
 await browser.close();
 server.kill();

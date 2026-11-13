@@ -7,6 +7,7 @@ import { openDb } from "./db/client";
 import { createApi, type AiConfig } from "./app";
 import { msUntilHour, scheduleBackups, type BackupConfig } from "./backup";
 import { scheduleHousekeeping } from "./housekeeping";
+import { ollamaWarm } from "./ai/ollama";
 
 const dataDir = process.env.DATA_DIR ?? "./data";
 const port = Number(process.env.PORT ?? 3000);
@@ -40,6 +41,9 @@ console.log(
     ? `AI data fill on: ${ai.model} at ${ai.url}, search ${ai.searchUrl ?? "off"}, Mouser API ${ai.mouserKey ? "on" : "off"}, Digi-Key API ${ai.digikey ? "on" : "off"}`
     : "AI data fill off: set AI_URL to enable",
 );
+
+// Load the model now rather than on the first glance (DEC-061); Ollama keeps it loaded (compose.yaml).
+if (ai) void ollamaWarm(ai.url, ai.model).then((ok) => console.log(ok ? `AI model ${ai.model} loaded and ready` : `AI model ${ai.model} couldn't be loaded ahead; it loads on first use`));
 
 const app = new Hono();
 app.route("/api", createApi(db, { photoDir, backup, ai }));

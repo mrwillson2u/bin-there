@@ -358,6 +358,38 @@ describe("researchItem", () => {
     expect(g.searched.length).toBeGreaterThan(0);
   });
 
+  it("tries a part number on record at the shops before the printed ones, and says it was on record (DEC-061)", async () => {
+    const f = fakes({
+      look: { markings: ["KYCON", "KPPX-4P"], description: "a plug", likelyPart: "DC plug", queries: ["KPPX-4P"] },
+      extract: { identified: "Kycon KPPX-4P plug", suggestions: [], notes: [] },
+    });
+    const asked: string[] = [];
+    f.deps.shops = {
+      Mouser: async (link) => {
+        asked.push(link.makerPn ?? "");
+        return link.makerPn === "IDS-34-P" ? { title: "Mouser: IDS-34-P", url: "https://www.mouser.com/ProductDetail/x/IDS-34-P?qs=x", text: "Mouser part number: 123-IDS-34-P\n" + "x".repeat(100), productNumber: "123-IDS-34-P" } : null;
+      },
+    };
+    // The supplier isn't a known shop, so there's no page to build from it; the number itself is tried first.
+    const r = await researchItem({ ...input, supplier: "Some shop", supplierPn: "IDS-34-P" }, f.deps);
+    expect(asked).toEqual(["IDS-34-P"]);
+    expect(r.notes).toContain("Found at Mouser by the part number on record, IDS-34-P.");
+    expect(f.searched).toEqual([]);
+  });
+
+  it("a glance (DEC-061) asks the model for the photo step without thinking; the full look-up doesn't", async () => {
+    const seen: (boolean | undefined)[] = [];
+    const f = fakes({ look: { markings: ["LP103450"], description: "", likelyPart: "LiPo", name: "LiPo battery", queries: [] }, extract: {} });
+    const chat = f.deps.chat;
+    f.deps.chat = async (o) => {
+      seen.push(o.fast);
+      return chat(o);
+    };
+    await researchItem({ ...input, name: "" }, f.deps, { quick: true, fast: true });
+    await researchItem({ ...input, name: "" }, f.deps, { quick: true });
+    expect(seen).toEqual([true, undefined]);
+  });
+
   it("picks what could be a part number out of the markings", () => {
     expect(partNumberCandidates(["NooPixel Diffused", "5mm LED x5", "http://adafru.it/1938", "P1938", "C2483-003", "2021-6-18", "1528-1938-ND", "KYCON KPPX-4P", "303"])).toEqual([
       "1528-1938-ND",

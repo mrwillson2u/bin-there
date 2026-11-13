@@ -75,6 +75,16 @@ describe("quick capture", () => {
     expect(scan).toMatchObject({ kind: "unit", itemId: it1.id });
   });
 
+  it("keeps a part number confirmed at capture, with its AI mark, and finds the part by it (DEC-061)", async () => {
+    const b = await bin("Bin");
+    const at = "2026-11-12T20:00:00.000Z";
+    const made = await item({ locationId: b.id, supplierPn: " IDS-34-P ", aiFields: { supplierPn: { source: "photo", at } } });
+    expect(made.supplierPn).toBe("IDS-34-P");
+    expect(made.aiFields).toEqual({ supplierPn: { source: "photo", at } });
+    expect(made.needsDetails).toBe(true);
+    expect((await ok<ItemSummary[]>("GET", "/items?q=ids-34")).map((i) => i.id)).toEqual([made.id]);
+  });
+
   it("captures a sticker-less consumable straight into a bin", async () => {
     const b = await bin("Bin 7", "BIN7");
     const screws = await item({ name: "M3 x 10mm socket cap", locationId: b.id, qty: 40 });

@@ -223,6 +223,10 @@ const id = z.number().int().positive();
 const qty = z.number().int().min(0).max(1_000_000);
 const optText = (max: number) => z.string().trim().max(max).nullable().optional();
 
+/** A detail filled in by AI (DEC-048): the page it came from (or "photo"), and when. */
+export type AiFill = { source: string; at: string };
+export const aiFieldsSchema = z.record(z.string().min(1).max(60), z.object({ source: z.string().max(1000), at: z.string().max(40) }));
+
 /** Quick capture and full create share one shape; anything left out is filled in later. */
 export const createItemSchema = z.object({
   name: z.string().trim().max(200).optional(),
@@ -234,12 +238,12 @@ export const createItemSchema = z.object({
   locationId: id.optional(),
   qty: qty.optional(),
   level: z.enum(stockLevels).optional(),
+  /** A part number confirmed at capture (DEC-061): read off the photo, or typed. */
+  supplierPn: optText(100),
+  /** Which of these came from the photo's glance (DEC-061), so the part shows the AI mark. */
+  aiFields: aiFieldsSchema.optional(),
 });
 export type CreateItem = z.infer<typeof createItemSchema>;
-
-/** A detail filled in by AI (DEC-048): the page it came from (or "photo"), and when. */
-export type AiFill = { source: string; at: string };
-export const aiFieldsSchema = z.record(z.string().min(1).max(60), z.object({ source: z.string().max(1000), at: z.string().max(40) }));
 
 export const updateItemSchema = z
   .object({
@@ -304,6 +308,13 @@ export const researchSchema = z.object({
   supplierPn: z.string().trim().max(200).nullable().optional(),
 });
 export type ResearchRequest = z.infer<typeof researchSchema>;
+
+/**
+ * A glance at a photo just taken (DEC-061): the photo step alone, before the part exists.
+ * `partNumbers` is what on the label could be a part number, longest first; the screen offers
+ * each as a chip to confirm. `name` and `category` are the model's quick guesses, or null.
+ */
+export type GlanceResult = { markings: string[]; partNumbers: string[]; name: string | null; category: string | null };
 
 /** A part's place in the AI look-up queue (DEC-055). */
 export type AiJob = { state: "queued" | "running" | "failed"; at: string | null; error: string | null };

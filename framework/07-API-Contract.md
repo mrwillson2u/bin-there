@@ -69,7 +69,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | GET | `/api/items/low` | The shopping list: level items low/out anywhere, exact items at zero or at/below their `lowThreshold`; worst first (DEC-016) |
 | GET | `/api/review` | Stale exact counts (`ReviewEntry[]`: item, location path, qty, last counted, changes since), in walking order by location (DEC-015) |
 | GET | `/api/items/:id` | Item + stock by location + units + homes + recent events |
-| POST | `/api/items` | Create. Used by quick capture: everything optional (`name`, `code` → returnable unit, `locationId`, `qty`/`level`, `categoryId`). Needs details unless it has a name **and** a category (DEC-007) |
+| POST | `/api/items` | Create. Used by quick capture: everything optional (`name`, `code` → returnable unit, `locationId`, `qty`/`level`, `categoryId`, and since DEC-061 `supplierPn` and `aiFields` for what was taken from the photo's glance). Needs details unless it has a name **and** a category (DEC-007) |
 | PATCH | `/api/items/:id` | Edit details, any subset of fields; includes `lowThreshold` (null = no warning). Afterwards the part needs details unless it has a name and a category (DEC-007, DEC-037); sending `needsDetails: true` keeps it on the list anyway. Switching `tracking` converts the stock |
 | PUT | `/api/items/:id/homes` | Set designated home location(s) |
 | DELETE | `/api/items/:id` | Soft delete: hidden everywhere, stickers freed, history kept; returns `{ eventId }` for Undo (DEC-013) |
@@ -112,6 +112,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | POST | `/api/events/:id/undo` | Undo a recent action |
 | GET | `/api/health` | Health check |
 | PATCH | `/api/locations/:id` with `grid: { cols, rows }` | A gridded box's grid size (1–12 × 1–8); `409 CONFLICT` naming any placed bin that wouldn't fit; the front strip follows the new front row (DEC-047). `grid` is also taken on create |
+| POST | `/api/ai/glance` | A glance at a photo just taken (DEC-061): multipart `photo` (an image under 10 MB); the photo step alone, with the model's thinking off, nothing stored, no search. `GlanceResult`: `markings` (text read off it), `partNumbers` (what among them could be a part number, longest first), `name` and `category` (the quick guesses, or null; the category is one of the inventory's own). Doesn't bump the change stream. `400` when AI isn't set up. A few seconds with the model loaded |
 | GET | `/api/ai/status` | `{ enabled, model, modelReady, search, shops: { mouser, digikey } }`: AI data fill is on when `AI_URL` is set; the shop flags say whether a Mouser / Digi-Key API key is set (DEC-048, DEC-049; `ai` branch) |
 | POST | `/api/stickers/check` | Print stickers (DEC-052): `{ codes: string[] }` (up to 5000) → `{ used: string[] }`, the ones already on a location or a unit. The codes themselves are drawn on the device and never recorded. |
 | GET | `/api/categories/:id/values` | Per text field key, the values the category's parts already hold, most used first, at most 30 (DEC-060). |

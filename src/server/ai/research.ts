@@ -67,6 +67,8 @@ type Look = { markings: string[]; description: string; likelyPart: string; name?
 export type ResearchOptions = {
   /** Quick naming (DEC-053): the photo alone, no reading or searching; a likely name and category. */
   quick?: boolean;
+  /** A glance at capture (DEC-061): the photo step without the model's thinking, for an answer in seconds. */
+  fast?: boolean;
 };
 
 /** Suppliers and makers first: their pages have the fields. Forums and videos last. */
@@ -98,7 +100,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
       ...(wantCategory ? [`\`category\`: the one of these it belongs in: ${input.categories.join(" | ")}`] : []),
       "`queries`: 2 or 3 web searches that would find its supplier or datasheet page, built from the markings and what you see: the most specific first. Don't put a part number in a query unless it's in the markings.",
     ].join("\n");
-    const lookRaw = await deps.chat({ messages: [{ role: "user", content: lookPrompt, images }], schema: lookSchema(wantCategory ? input.categories : null) });
+    const lookRaw = await deps.chat({ messages: [{ role: "user", content: lookPrompt, images }], schema: lookSchema(wantCategory ? input.categories : null), ...(opts.fast ? { fast: true } : {}) });
     look = parseJson<Look>(lookRaw, look);
     look.markings = (look.markings ?? []).filter((m) => typeof m === "string" && m.trim()).map((m) => m.trim());
   }
@@ -159,7 +161,8 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   // search: only an exact match on the maker's (or the shop's) number counts, and the first found
   // is the page. Longest number first, since a short one matches more loosely.
   if (pages.length === 0 && deps.shops) {
-    const numbers = partNumberCandidates(look.markings);
+    // A number on record (confirmed at capture, DEC-061, or typed) goes first, then the printed ones.
+    const numbers = uniq([...(input.supplierPn ? [input.supplierPn] : []), ...partNumberCandidates(look.markings)]);
     const readers = (["Mouser", "Digi-Key"] as Shop[]).filter((s) => deps.shops![s]);
     let tried = 0;
     outer: for (const number of numbers) {
@@ -171,7 +174,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
             const url = page.url;
             direct.push({ title: page.title, url, link: { shop, productNumber: page.productNumber ?? null, makerPn: number, url }, why: "the number read off the part", sure: false });
             pages.push({ title: page.title, url, text: page.text, own: false, productNumber: page.productNumber ?? null, productUrl: url, datasheetUrl: page.datasheetUrl ?? null });
-            notes.push(`Found at ${shop} by the number read off the part, ${number}. Check it's the right one.`);
+            notes.push(number === input.supplierPn ? `Found at ${shop} by the part number on record, ${number}.` : `Found at ${shop} by the number read off the part, ${number}. Check it's the right one.`);
             log(`shops (${elapsed()}): ${number} found at ${shop} after ${tried} lookups`);
             break outer;
           }

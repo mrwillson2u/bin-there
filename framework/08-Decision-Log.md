@@ -1567,6 +1567,21 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Consequences:** One small read per form open, only when the category has a text field. Not done: the same on Fill in details' rows (they open the same form in a popup, so they get it there). Shipped to the live app with DEC-055 to DEC-059 on 2026-11-12 (backup `2026-11-12_160213`, `main` at 01066d4).
 
+### DEC-061: The model glances at the photo at capture; a part number is confirmed with a tap; the model stays loaded
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-12 |
+| **Status** | Accepted (Colin, Q108) |
+| **Deciders** | Colin |
+| **Category** | UX / Architecture |
+
+**Context:** Colin wanted an almost instant part number read off a part at capture, to confirm with a tap, so a one-off addition doesn't wait on the background look-up; he asked whether a lighter tool than the model (plain OCR) would do that. Measured on the live card (GTX 1080 Ti, 11 GB): RapidOCR reads a label in 0.6–0.9 s on the CPU but misread one character of a part number (IPS for IDS) and missed a wire's marking; Gemma 4 e4b, loaded, reads the same label right in 1.6–2.2 s with a plain text prompt, and the app's photo step with its JSON schema takes 8–17 s with the model's thinking on and 3.3–3.8 s with it off, reading the same markings. The minute Colin was seeing was the model being unloaded: Ollama drops it after five idle minutes and a cold load is 47 s. Colin didn't want it kept loaded if that blocked other models; tested: a model pinned "forever" is still unloaded when a bigger one needs the room (gemma3:12b beside it), and reloads on its next call.
+
+**Decision:** No second engine. (1) Ollama keeps the model loaded (`OLLAMA_KEEP_ALIVE=-1` on the model container in `compose.yaml`), and the app loads it at start (`ollamaWarm`, a few tries over a few minutes for the boot case when the card isn't up yet). (2) The moment a photo is taken on Quick capture, the resized photo goes to `POST /api/ai/glance`: the photo step alone (quick mode) with the model's thinking off (`fast` on `chat`; only models that can think take the flag, since Ollama refuses it for the others), nothing stored, no search, and it doesn't bump the change stream. (3) What came back shows under the photo as chips: the part number(s) picked out of the markings (`partNumberCandidates`, up to three), the quick name, and the category when it's one of the inventory's own. Nothing is taken until a chip is tapped; a tapped chip fills the box (a Part number box appears when there's a number to confirm, editable) and shows pressed; tapping it again takes the value back out. (4) A confirmed value is saved with the part on create (`supplierPn`, `categoryId`, `aiFields` with `source: "photo"` for the ones taken as they came; a value typed over carries no mark), and the queued look-up tries a part number on record at Mouser and Digi-Key first, before the printed ones ("Found at Mouser by the part number on record"). A part named and categorised from the chips is complete at capture and never lands on Needs details.
+
+**Consequences:** About 6.6 GB of the card stays allocated; any other model that needs it takes it, at the cost of one 47-second reload of Gemma afterwards. A glance is a few seconds with the model loaded; it can queue behind a background look-up's model call for a few seconds (Ollama runs them in turn). The reads wobble: three reads of one wire photo gave three answers, which is why nothing is taken without a tap. RapidOCR/PaddleOCR stay in reserve (16 MB of models, could run in the phone's browser) if the seconds turn out to matter. Not done: the shop bag's 2D barcode read at capture (Digi-Key and Mouser bags carry the exact part number; the scanner already decodes codes), which Colin wants next for the add and add-to-existing flows; the glance on the full form's photo button. Checked with the fake model in `ai-check.mjs` and the real one on the dev instance.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1631,6 +1646,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 | DEC-058 | Adding several places in a run: name, scan, next | UX | Accepted | 2026-11-12 |
 | DEC-059 | Choice fields: a category field with a fixed list of options | UX / Data / AI | Accepted | 2026-11-12 |
 | DEC-060 | Text fields offer the values the category's parts already hold | UX | Accepted | 2026-11-12 |
+| DEC-061 | The model glances at the photo at capture; a part number is confirmed with a tap; the model stays loaded | UX / Architecture | Accepted | 2026-11-12 |
 
 ---
 

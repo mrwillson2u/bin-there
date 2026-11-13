@@ -4,10 +4,11 @@
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string; images?: string[] };
 
-export type Chat = (opts: { messages: ChatMessage[]; schema?: object; temperature?: number }) => Promise<string>;
+/** `fast` (DEC-061): no thinking first, for a glance at capture; a thinking model answers in a third of the time. */
+export type Chat = (opts: { messages: ChatMessage[]; schema?: object; temperature?: number; fast?: boolean }) => Promise<string>;
 
 export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch = fetch): Chat {
-  return async ({ messages, schema, temperature = 0 }) => {
+  return async ({ messages, schema, temperature = 0, fast = false }) => {
     const res = await fetchImpl(`${url.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -17,7 +18,9 @@ export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch =
         stream: false,
         ...(schema ? { format: schema } : {}),
         // Qwen 3 models think out loud for a minute before answering; the answer is what's wanted.
-        ...(/^qwen3/i.test(model) ? { think: false } : {}),
+        // Gemma 4 thinks too, usefully for the full look-up, but a glance (DEC-061) can't wait for it.
+        // Only models that can think take the flag: Ollama refuses it for the others.
+        ...(/^qwen3/i.test(model) || (fast && /^gemma4/i.test(model)) ? { think: false } : {}),
         options: { temperature, num_ctx: 8192, num_predict: 1500 },
       }),
       signal: AbortSignal.timeout(180_000),
@@ -39,4 +42,28 @@ export async function ollamaHasModel(url: string, model: string, fetchImpl: type
   } catch {
     return false;
   }
+}
+
+/**
+ * Load the model now, so the first glance of the day doesn't wait for it (DEC-061): Ollama
+ * loads on demand, and a cold load of a 6 GB model is most of a minute. The production compose
+ * file tells Ollama to keep it loaded; at boot the model server may still be waiting for the
+ * card, so this tries a few times over a few minutes and then gives up quietly.
+ */
+export async function ollamaWarm(url: string, model: string, fetchImpl: typeof fetch = fetch, tries = 4, waitMs = 60_000): Promise<boolean> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetchImpl(`${url.replace(/\/$/, "")}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model }),
+        signal: AbortSignal.timeout(180_000),
+      });
+      if (res.ok) return true;
+    } catch {
+      // not up yet
+    }
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, waitMs));
+  }
+  return false;
 }
