@@ -1625,7 +1625,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Decision:** When a part has no category and the photo step picks one, the rest of that same look-up fills that category's fields (per-unit ones left out, DEC-062): the extract step is told the category and asked for its fields, not for a category. The photo's category leads the suggestions, and the extract can't name a different one, so the field values always belong to the category suggested with them. On Fill in details the AI's guess under the row shows those values after the name and category, and Use saves them with the name and category in one change, each marked as the AI's with its source; only fields still empty are filled. The form's suggestions list already applies them.
 
-**Consequences:** Quick naming (DEC-053) is still the photo alone and fills no fields. A part captured with no photo still gets a category guessed from its name and no fields. Checked in the pipeline tests and in `ai-check.mjs` (a part queued with no category: its category leads, its field is shown under the row, Use saves it).
+**Consequences:** Quick naming (DEC-053) is still the photo alone and fills no fields. A part captured with no photo still gets a category guessed from its name and no fields. Checked in the pipeline tests and in `ai-check.mjs` (a part queued with no category: its category leads, its field is shown under the row, Use saves it). Shipped to the live app on 2026-11-13 with DEC-064 to DEC-066 (backup `2026-11-13_104312`, `main` at 07430ab).
 
 ### DEC-065: Names follow one rule and the owner's own names
 
@@ -1640,7 +1640,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Decision:** The model names a part by a rule given in both prompts: the kind of thing first, then the values that tell it apart from others of its kind (voltage, capacity, size, length, pins, count), then a brand or model only when printed and it matters; never a slogan or label copy, never a sentence. Like "LiPo battery 3.7 V 1200 mAh" and "Socket cap screw M3 × 10". With it go the owner's own names: up to 12 from the part's category (or the category the photo picked), most recently changed first, or up to 3 from each category when none is known yet. Those outrank the rule's examples: write the name the way they are written, the same way for the same kind of thing with only the values changed, and the very same name for the very same part. Parts still needing details and archived parts aren't used as examples.
 
-**Consequences:** The convention is whatever Colin's own names in a category are; the rule only decides while a category has none. Renaming the parts already in a category changes how the next ones are named. A part already named isn't renamed by the AI unless its name is missing, vague or wrong, as before. Not done: telling Colin when a new part looks like one he already has. Checked in the pipeline tests and the names query's own test.
+**Consequences:** The convention is whatever Colin's own names in a category are; the rule only decides while a category has none. Renaming the parts already in a category changes how the next ones are named. A part already named isn't renamed by the AI unless its name is missing, vague or wrong, as before. Not done: telling Colin when a new part looks like one he already has. Checked in the pipeline tests and the names query's own test. Shipped to the live app on 2026-11-13 with DEC-064 to DEC-066 (backup `2026-11-13_104312`, `main` at 07430ab).
 
 ### DEC-066: Finding pages again: search engines that answer, off-topic hits dropped, part numbers read by the model
 
@@ -1663,7 +1663,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 After these, the same three runs came back whole in 30–40 s each: the first with its maker's own page (PKNERGY, the 10 × 34 × 50 mm size, the link), the second from its label alone (the pages found were about other cells), the third with chemistry and size from a page naming MakerHawk.
 
-**Consequences:** Yandex may start blocking too; the look-up's notes say so when the search fails, and the list is one line in the compose files. Generic cells and other no-name parts have no maker's number for Mouser or Digi-Key to match, so the web search is the path for them. Checked in the pipeline and search tests, and against the live search service.
+**Consequences:** Yandex may start blocking too; the look-up's notes say so when the search fails, and the list is one line in the compose files. Generic cells and other no-name parts have no maker's number for Mouser or Digi-Key to match, so the web search is the path for them. Checked in the pipeline and search tests, and against the live search service. Shipped to the live app on 2026-11-13 with DEC-064 to DEC-066 (backup `2026-11-13_104312`, `main` at 07430ab).
 
 ## Decision Index
 
