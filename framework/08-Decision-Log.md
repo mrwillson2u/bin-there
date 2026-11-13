@@ -1720,7 +1720,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - **The part's page** lists the category's fields first, in the category's order, then the part's own, as its form does.
 - **The category editor:** a choice field's options box sits right under the field's name, above its Text / Choice switch; each field has its own light outline, so its name, options and switches read as one.
 
-**Consequences:** Colin's Linear bearing becomes ID 8mm, OD 15mm, with Width 24mm still its own field, at the first start after the ship. Matching ignores spelling beyond letters and digits, so "OD" and "Outer diameter" stay separate. Checked in the API tests (his values exactly; the merge rule; the start-up pass) and `categories-check.mjs` (adding Pin count picks up a part's own Pin count; the options box under its name).
+**Consequences:** Colin's Linear bearing becomes ID 8mm, OD 15mm, with Width 24mm still its own field, at the first start after the ship. Matching ignores spelling beyond letters and digits, so "OD" and "Outer diameter" stay separate. Checked in the API tests (his values exactly; the merge rule; the start-up pass) and `categories-check.mjs` (adding Pin count picks up a part's own Pin count; the options box under its name). Shipped to the live app on 2026-11-13 (backup `2026-11-13_131745`, `main` at 67c20fa); the first start matched one part, the Linear bearing, to ID 8mm, OD 15mm, Width 24mm, as on the dev copy first.
 
 ### DEC-070: Categories and Print stickers in the sidebar, not at the bottom of Locations
 
@@ -1735,7 +1735,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** On a computer, the sidebar has Categories (after Inventory, since it describes parts) and Print stickers (after Locations, since stickers go on places), and the Locations page no longer carries those links or Settings. On a phone the links stay at the bottom of Locations until Colin picks the phone's way there: a More tab in the bar, or a menu button at the top of each screen (Q119, drawn for him).
 
-**Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry) and `categories-check.mjs`.
+**Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry) and `categories-check.mjs`. Shipped with DEC-069.
 
 ## Decision Index
 
