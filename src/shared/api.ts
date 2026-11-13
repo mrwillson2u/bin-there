@@ -247,7 +247,10 @@ export const updateItemSchema = z
     categoryId: id.nullable(),
     kind: z.enum(itemKinds),
     tracking: z.enum(trackingModes),
+    /** Category field values by field key ("f12"); the whole map, replaced. */
     attributes: z.record(z.string().trim().min(1).max(50), z.string().trim().max(200)),
+    /** Custom fields, on this part only, by name (DEC-071); the whole map, replaced. */
+    custom: z.record(z.string().trim().min(1).max(50), z.string().trim().max(200)),
     price: z.number().min(0).max(1_000_000).nullable(),
     supplier: optText(200),
     supplierPn: optText(100),
@@ -390,12 +393,16 @@ export const updateCategorySchema = z.object({
         options: z.array(z.string().trim().min(1).max(60)).max(50).optional(),
         /** Each stickered unit holds its own value (DEC-062). Left out, a field keeps its setting. */
         perUnit: z.boolean().optional(),
+        /** For a new entry: use this existing field (another category's) instead of making one; it becomes universal (DEC-071). */
+        shareKey: z.string().min(2).max(20).optional(),
       }),
     )
     .max(20)
     .optional(),
 });
 export type UpdateCategory = z.infer<typeof updateCategorySchema>;
+/** Two fields are really one (DEC-071): `withKey` becomes `key` everywhere, and it's universal. */
+export const mergeFieldsSchema = z.object({ key: z.string().min(2).max(20), withKey: z.string().min(2).max(20) });
 /** Per text field key, the values the category's parts already hold, most used first (DEC-060). */
 export type CategoryValues = Record<string, string[]>;
 /** How much a category is used: parts in it, and per field key, parts holding a value (DEC-056). */
@@ -403,7 +410,7 @@ export type CategoryUsage = { items: number; fields: Record<string, number> };
 
 /** A category's field (DEC-056). A `choice` field (DEC-059) has a fixed list of options, and the AI picks from them or leaves it. */
 /** `perUnit` (DEC-062): each stickered unit holds its own value (a battery's charge level), not the part. */
-export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean };
+export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean; universal?: boolean };
 export const fieldTypes = ["text", "choice"] as const;
 export const fieldTypeLabels: Record<(typeof fieldTypes)[number], string> = { text: "Text", choice: "Choice" };
 
@@ -583,7 +590,12 @@ export type ItemDetail = ItemSummary & {
   aiJob: AiJob | null;
   /** The stored look-up, for review (DEC-055). */
   aiResult: StoredResearch | null;
+  /** Every category field value the part holds, by field key, shown or not (DEC-071). */
   attributes: Record<string, string>;
+  /** Custom fields: on this part only, by name (DEC-071). */
+  custom: Record<string, string>;
+  /** Universal fields it holds a value for that its category's template doesn't have: shown with the custom ones (DEC-071). */
+  carried: { key: string; label: string }[];
   price: number | null;
   supplier: string | null;
   supplierPn: string | null;

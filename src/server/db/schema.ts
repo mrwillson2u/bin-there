@@ -74,8 +74,23 @@ export const categories = sqliteTable("categories", {
   fieldDefs: text("field_defs", { mode: "json" }).$type<FieldDef[]>().notNull().default([]),
 });
 
-/** `perUnit` (DEC-062): each stickered unit holds its own value (a battery's charge level), not the part. */
-export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean };
+/**
+ * A field in a category's template. `key` is the field's ID ("f12", DEC-071), never its name.
+ * `perUnit` (DEC-062): each stickered unit holds its own value, not the part. `universal`
+ * (DEC-071): the one field is used by several categories and its value follows the part.
+ */
+export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean; universal?: boolean };
+
+/**
+ * Every category field, once (DEC-071). Universal: used by any number of categories. Otherwise
+ * category-only, owned by `categoryId`. A part's custom fields aren't here: `items.custom`.
+ */
+export const fields = sqliteTable("fields", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  universal: integer("universal", { mode: "boolean" }).notNull().default(false),
+  categoryId: integer("category_id").references((): AnySQLiteColumn => categories.id),
+});
 
 export const items = sqliteTable("items", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -83,7 +98,10 @@ export const items = sqliteTable("items", {
   categoryId: integer("category_id").references(() => categories.id),
   kind: text("kind", { enum: ITEM_KINDS }).notNull().default("consumable"),
   tracking: text("tracking", { enum: TRACKING_MODES }).notNull().default("exact"),
+  /** Values of category fields, by field key ("f12", DEC-071): the part's, whatever category it's in now. */
   attributes: text("attributes", { mode: "json" }).$type<Record<string, string | number>>().notNull().default({}),
+  /** Custom fields (DEC-071): on this part only, by name. */
+  custom: text("custom", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
   price: real("price"),
   supplier: text("supplier"),
   supplierPn: text("supplier_pn"),

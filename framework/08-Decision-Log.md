@@ -1737,6 +1737,32 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** Checked in `stickers-print-check.mjs` (no such links on Locations on a computer; the sidebar entry), `categories-check.mjs` and `stickers-check.mjs` (the phone: no links on Locations, the Menu's four entries, Escape, Settings). The computer half shipped with DEC-069; the phone's Menu on 2026-11-13 (backup `2026-11-13_133135`, `main` at 87ae137).
 
+### DEC-071: Fields have IDs; universal, category-only and custom fields
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, Q120 to Q123; the names are his) |
+| **Deciders** | Colin |
+| **Category** | Data / UX |
+| **Supersedes** | DEC-069's name matching |
+
+**Context:** After the Linear bearing fix (DEC-069) Colin asked why a part's form lets you add fields at all, whether those were custom to the part (the form didn't say), why they could collide with the category's fields, and whether fields were tracked by unique IDs or by name, calling comparison by name a rookie mistake. He was right. A category field's key was made from its name ("ID" became "id") and a part kept one bag of values holding both its category's fields and its own, told apart only by whether a key matched; two categories' "Voltage" shared the key "voltage"; and DEC-069 had repaired the bearing by matching more names. Talking it through (Q120 to Q123): he wanted some values to survive a category change (resistor to none to capacitor keeps its voltage), a naming convention instead of inheriting whatever was typed first, and then saw that a capacitor's Type shouldn't land in a switch's Type. So the same name isn't always the same field, which is what IDs are for.
+
+**Decision:**
+- **Every category field is one row** in a `fields` table with its own ID. Its key everywhere (a category's template, a part's values, a stickered unit's values, the AI's marks and stored suggestions) is that ID ("f12"), never its name.
+- **Universal field:** one field used by any number of categories. Its value belongs to the part and follows it through any category change; in a category whose template doesn't have it (or with no category), it shows with the part's custom fields, and it's a template field again when a category has it.
+- **Category-only field:** belongs to one category. Its value stays behind when the part leaves, unseen, and is there again if the part comes back. A field starts category-only.
+- **Custom field:** on one part only, in its own store (`items.custom`, by name). The form's section is titled "Custom fields · only on this part" and points to the Categories screen for the fields every part of the category has.
+- **How a field becomes universal:** adding a field whose name another category already has, the editor asks: use that one (it becomes universal), or make a separate one only for this category. Two existing same-named fields can be made one with "It's the same field: make it universal" on either's row (`POST /fields/merge`): the parts keep their values; not undoable.
+- **Names are compared in one place:** when a field is made or named, to make that offer, to refuse two fields of one name in one category, and to turn a custom field typed with the name of one of the part's fields, or of a universal field, into that field (refused if it already holds a different value). Nowhere else.
+- **The naming convention** (enforced by the server for category and custom fields): spaces tidied, the first letter a capital, the rest as typed, so "voltage" is "Voltage", "thread pitch" is "Thread pitch", and "ID" stays "ID". Renaming a universal field renames it in every category that uses it: it's one field.
+- **A field dropped from a category and added again by name** is the same field, with the parts' values (as before).
+- **The migration** (`migrateFields`, run when the database opens, once): each category's fields become rows; same-named fields in different categories stay separate, since only Colin knows which are really one; every stored value, AI mark, stored AI suggestion and unit value is re-keyed; a part's values that weren't its category's fields become its custom fields (the bearing's Width).
+- DEC-069's name matching (`adoptFields`) is gone; its other half (the part's page lists category fields first; the editor's options box under the field's name, each field outlined) stays.
+
+**Consequences:** The same-named fields across Colin's categories (Voltage, Package, Type, Size, Length, Current, Part number, ID) are separate until he makes the ones that are really one universal, on the Categories screen. Per choice field, each category keeps its own options, also for a universal field. Search finds a part by the labels and values of the fields its page shows, and by its custom fields. Not done: a list of all fields in one place; making a field universal before a second category uses it; un-merging. Checked in the API tests (the three kinds through category changes, merge, the migration from the live database's shape) and `categories-check.mjs`, and the migration was run on a copy of the live data first.
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1809,8 +1835,9 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-066 | Finding pages again: search engines that answer, off-topic hits dropped, part numbers read by the model | Architecture / AI | Accepted | 2026-11-13 |
 | DEC-067 | One Move sheet: it asks what's moving, then where, and says what it will do; each part shows its ID | UX | Accepted | 2026-11-13 |
 | DEC-068 | The app never tells you how to work a scanner | UX / Wording | Accepted | 2026-11-13 |
-| DEC-069 | A part's own fields named like its category's become them; the category editor groups each field | Data / UX | Accepted | 2026-11-13 |
+| DEC-069 | A part's own fields named like its category's become them; the category editor groups each field | Data / UX | Name matching superseded by DEC-071 | 2026-11-13 |
 | DEC-070 | Categories and Print stickers in the sidebar and the phone's Menu, not at the bottom of Locations | UX / Navigation | Accepted | 2026-11-13 |
+| DEC-071 | Fields have IDs; universal, category-only and custom fields | Data / UX | Accepted | 2026-11-13 |
 
 ---
 

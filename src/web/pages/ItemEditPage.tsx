@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { bare, fieldName } from "../../shared/fields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Sparkles, Trash2, X } from "lucide-react";
 import {
@@ -68,7 +69,9 @@ export function ItemForm({
   const [kind, setKind] = useState<ItemKind>(item.kind);
   const [tracking, setTracking] = useState<TrackingMode>(item.tracking);
   const [touched, setTouched] = useState({ kind: false, tracking: false });
+  // Category field values by field key (DEC-071), every one the part holds; custom fields are their own list.
   const [attrs, setAttrs] = useState<[string, string][]>(Object.entries(item.attributes));
+  const [custom, setCustom] = useState<[string, string][]>(Object.entries(item.custom));
   const [price, setPrice] = useState(item.price?.toString() ?? "");
   const [supplier, setSupplier] = useState(item.supplier ?? "");
   const [supplierPn, setSupplierPn] = useState(item.supplierPn ?? "");
@@ -145,7 +148,22 @@ export function ItemForm({
   const value = (key: string) => attrs.find(([k]) => k === key)?.[1] ?? "";
   const setValue = (key: string, v: string) =>
     setAttrs((a) => (a.some(([k]) => k === key) ? a.map(([k, old]) => [k, k === key ? v : old]) : [...a, [key, v]]));
-  const extras = attrs.map(([k], i) => [k, i] as const).filter(([k]) => !fieldKeys.includes(k));
+  // Universal fields the part holds a value for that this category's template doesn't have: they
+  // follow the part, so they show with its custom fields (DEC-071). Worked out against the category
+  // chosen on the form, so changing it here shows what will happen before saving.
+  const universal = new Map<string, string>(item.carried.map((f) => [f.key, f.label]));
+  for (const c of categories) for (const f of c.fieldDefs) if (f.universal) universal.set(f.key, f.label);
+  const carried = attrs.filter(([k, v]) => universal.has(k) && !fieldKeys.includes(k) && (v.trim() || item.carried.some((f) => f.key === k))).map(([k]) => ({ key: k, label: universal.get(k)! }));
+  // A custom name that is already one of the part's fields, or a universal field: the form says so.
+  const shownNames = new Map<string, string>([...(category?.fieldDefs.filter((f) => !f.perUnit) ?? []), ...carried].map((f) => [bare(f.label), f.label]));
+  const universalNames = new Map<string, string>([...universal.values()].map((n) => [bare(n), n]));
+  const customNote = (name: string) => {
+    const b = bare(name);
+    if (!b) return null;
+    if (shownNames.has(b)) return `${shownNames.get(b)} is already one of this part's fields above. Set it there.`;
+    if (universalNames.has(b)) return `${universalNames.get(b)} is a universal field: it will be saved as that field and follow this part into any category.`;
+    return null;
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -155,6 +173,7 @@ export function ItemForm({
         kind,
         tracking,
         attributes: Object.fromEntries(attrs.filter(([k, v]) => k.trim() && v.trim()).map(([k, v]) => [k.trim(), v.trim()])),
+        custom: Object.fromEntries(custom.filter(([k, v]) => k.trim() && v.trim()).map(([k, v]) => [k.trim(), v.trim()])),
         price: price.trim() ? Number(price) : null,
         supplier: supplier.trim() || null,
         supplierPn: supplierPn.trim() || null,
@@ -345,31 +364,59 @@ export function ItemForm({
         </fieldset>
       )}
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">Other fields</legend>
-        {extras.map(([, i]) => (
-          <div key={i} className="flex gap-2">
-            <input
-              aria-label="Field name"
-              value={attrs[i]![0]}
-              onChange={(e) => setAttrs((a) => a.map((row, j) => (j === i ? [e.target.value, row[1]] : row)))}
-              className={`${inputClass} w-2/5`}
-              placeholder="Field"
-            />
-            <input
-              aria-label="Value"
-              value={attrs[i]![1]}
-              onChange={(e) => setAttrs((a) => a.map((row, j) => (j === i ? [row[0], e.target.value] : row)))}
-              className={`${inputClass} min-w-0 flex-1`}
-              placeholder="Value"
-            />
-            <button type="button" onClick={() => setAttrs((a) => a.filter((_, j) => j !== i))} className="flex min-h-11 w-11 items-center justify-center text-muted" aria-label="Remove field">
+      <fieldset className="flex flex-col gap-2" data-custom-fields>
+        <legend className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Custom fields · only on this part</legend>
+        <p className="text-[13px] text-muted">
+          These belong to this one part. To change the fields every {category ? `${category.name} part` : "part of a category"} has, edit the category on the{" "}
+          <Link to="/categories" className="text-accent underline">Categories</Link> screen.
+        </p>
+        {/* A universal field's value follows the part (DEC-071): this category doesn't have the field, so it shows here. */}
+        {carried.map((f) => (
+          <div key={f.key} className="flex items-center gap-2" data-carried={f.label}>
+            <span className="flex w-2/5 min-w-0 flex-col px-1">
+              <span className="truncate">{f.label}</span>
+              <span className="text-[12px] text-muted">Universal field{category ? `, not in ${category.name}` : ""}</span>
+            </span>
+            <input aria-label={f.label} value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={`${inputClass} min-w-0 flex-1`} />
+            <button type="button" onClick={() => setAttrs((a) => a.filter(([k]) => k !== f.key))} className="flex min-h-11 w-11 items-center justify-center text-muted" aria-label={`Remove ${f.label}`}>
               <X size={18} />
             </button>
           </div>
         ))}
-        <Button type="button" variant="ghost" className="self-start" onClick={() => setAttrs((a) => [...a, ["", ""]])}>
-          <Plus size={18} /> Add field
+        {custom.map(([n, v], i) => (
+          <div key={i} className="flex flex-col gap-1">
+            <div className="flex gap-2">
+              <input
+                aria-label="Custom field name"
+                value={n}
+                onChange={(e) => setCustom((a) => a.map((row, j) => (j === i ? [e.target.value, row[1]] : row)))}
+                onBlur={() => setCustom((a) => a.map((row, j) => (j === i ? [fieldName(row[0]), row[1]] : row)))}
+                className={`${inputClass} w-2/5`}
+                placeholder="Name"
+                list={`${listId}-universal`}
+                autoComplete="off"
+              />
+              <input
+                aria-label={n.trim() ? `Value of ${n.trim()}` : "Custom field value"}
+                value={v}
+                onChange={(e) => setCustom((a) => a.map((row, j) => (j === i ? [row[0], e.target.value] : row)))}
+                className={`${inputClass} min-w-0 flex-1`}
+                placeholder="Value"
+              />
+              <button type="button" onClick={() => setCustom((a) => a.filter((_, j) => j !== i))} className="flex min-h-11 w-11 items-center justify-center text-muted" aria-label={`Remove ${n.trim() || "custom field"}`}>
+                <X size={18} />
+              </button>
+            </div>
+            {customNote(n) && <p className="px-1 text-[13px] text-warn" role="note">{customNote(n)}</p>}
+          </div>
+        ))}
+        <datalist id={`${listId}-universal`}>
+          {[...universal].filter(([k]) => !fieldKeys.includes(k) && !carried.some((f) => f.key === k)).map(([k, label]) => (
+            <option key={k} value={label} />
+          ))}
+        </datalist>
+        <Button type="button" variant="ghost" className="self-start" onClick={() => setCustom((a) => [...a, ["", ""]])}>
+          <Plus size={18} /> Add a custom field
         </Button>
       </fieldset>
 

@@ -60,7 +60,7 @@ await relays.getByLabel("New field for Relays").fill("Contacts");
 await relays.getByLabel("New field for Relays").press("Enter");
 await relays.getByLabel("Field 2 of Relays").waitFor();
 const relaysCat = (await api("GET", "/categories")).find((c) => c.name === "Relays");
-check(relaysCat.fieldDefs.map((f) => [f.key, f.label]).join(";") === "coil_voltage,Coil voltage;contacts,Contacts", "a new category with two fields, keys from the labels: " + JSON.stringify(relaysCat.fieldDefs));
+check(relaysCat.fieldDefs.map((f) => f.label).join(";") === "Coil voltage;Contacts" && relaysCat.fieldDefs.every((f) => /^f\d+$/.test(f.key)), "a new category with two fields, each with an ID for a key (DEC-071): " + JSON.stringify(relaysCat.fieldDefs));
 // Reorder: Contacts up.
 await relays.getByRole("button", { name: "Move Contacts up" }).click();
 await page.waitForTimeout(300);
@@ -89,21 +89,61 @@ const offered = await page.locator(`datalist[id="${listId}"] option`).evaluateAl
 check(offered.join() === "20 AWG,22 AWG", "the gauge box offers the values already used: " + offered.join(", "));
 check((await page.getByRole("link", { name: "Manage categories and their fields" }).count()) === 1, "the form links to the Categories screen");
 
-// A part's own field named like a category field becomes it when the field is added (DEC-069).
-await api("PATCH", `/items/${plug.id}`, { attributes: { [gauge.key]: "20 AWG", "Pin count": "2" } });
+// Universal, category-only and custom fields (DEC-071).
 await page.goto(`${base}/categories`);
-await wireCard.getByLabel("New field for Wire & connectors").fill("Pin count");
+await wireCard.getByLabel("New field for Wire & connectors").fill("pin count");
 await wireCard.getByLabel("New field for Wire & connectors").press("Enter");
 await wireCard.getByLabel("Field 3 of Wire & connectors").waitFor();
-await page.waitForTimeout(400);
-{
-  const pinKey = (await api("GET", "/categories")).find((c) => c.id === wire.id).fieldDefs.find((f) => f.label === "Pin count").key;
-  const attrs = (await api("GET", `/items/${plug.id}`)).attributes;
-  check(attrs[pinKey] === "2" && !("Pin count" in attrs), "adding Pin count to the category picks up the value the part held as its own field: " + JSON.stringify(attrs));
-  await wireCard.getByRole("button", { name: "Remove Pin count from Wire & connectors" }).click();
-  await wireCard.getByRole("button", { name: "Remove anyway" }).click();
-  await wireCard.getByLabel("Field 3 of Wire & connectors").waitFor({ state: "detached" });
-  await api("PATCH", `/items/${plug.id}`, { attributes: { [gauge.key]: "20 AWG" } });
+check((await wireCard.getByLabel("Field 3 of Wire & connectors").inputValue()) === "Pin count", "a new field's name follows the convention: pin count becomes Pin count");
+check((await wireCard.locator('[data-field="Pin count"] [data-field-kind]').getAttribute("data-field-kind")) === "category-only", "a new field starts category-only, and says so");
+const pinKey = (await api("GET", "/categories")).find((c) => c.id === wire.id).fieldDefs.find((f) => f.label === "Pin count").key;
+check(/^f\d+$/.test(pinKey), "its key is an ID, not its name: " + pinKey);
+await api("PATCH", `/items/${plug.id}`, { attributes: { [gauge.key]: "20 AWG", [pinKey]: "2" } });
+// The same name in another category: the editor asks whether it's the same field.
+const relaysCard = page.locator('[data-category="Relays"]');
+await relaysCard.getByLabel("New field for Relays").fill("PIN COUNT");
+await relaysCard.getByLabel("New field for Relays").press("Enter");
+const ask = relaysCard.getByRole("group", { name: /already exists/ });
+await ask.waitFor();
+check((await ask.getByRole("button", { name: /Make a separate/ }).count()) === 1, "adding a name another category has asks: the same field, or a separate one");
+await page.screenshot({ path: `${shots}/cat-2c-same-field.png` });
+await ask.getByRole("button", { name: /^Use the Pin count of Wire & connectors/ }).click();
+await relaysCard.locator('[data-field="Pin count"] [data-field-kind="universal"]').waitFor();
+await wireCard.locator('[data-field="Pin count"] [data-field-kind="universal"]').waitFor();
+check((await wireCard.locator('[data-field="Pin count"] [data-field-kind]').textContent()).includes("also in Relays"), "used by both, it's a universal field in both, and each says where else it is");
+const catsNow = await api("GET", "/categories");
+const relaysNow = catsNow.find((c) => c.name === "Relays");
+check(relaysNow.fieldDefs.find((f) => f.label === "Pin count").key === pinKey, "it's the one field, with the one key");
+// The part leaves for no category: the universal value follows and shows with its custom fields.
+await api("PATCH", `/items/${plug.id}`, { categoryId: null });
+await page.goto(`${base}/items/${plug.id}/edit`);
+const customBox = page.locator("[data-custom-fields]");
+await customBox.locator('[data-carried="Pin count"]').waitFor();
+check((await customBox.getByText("Custom fields · only on this part").count()) === 1, "the form's custom section says it's only on this part");
+check((await customBox.getByRole("textbox", { name: "Pin count", exact: true }).inputValue()) === "2", "the universal Pin count followed the part out of its category, shown with the custom fields");
+check((await api("GET", `/items/${plug.id}`)).attributes[gauge.key] === "20 AWG" && (await page.getByRole("textbox", { name: "Wire gauge" }).count()) === 0, "the category-only Wire gauge stayed behind: kept, not shown");
+// A custom field: named by the convention; a name that's already a field says so.
+await customBox.getByRole("button", { name: "Add a custom field" }).click();
+await customBox.getByRole("combobox", { name: "Custom field name" }).fill("pin count");
+check((await customBox.getByRole("note").textContent()).includes("already one of this part's fields"), "a custom name that's already one of the part's fields says so");
+await customBox.getByRole("combobox", { name: "Custom field name" }).fill("cable colour");
+await customBox.getByRole("combobox", { name: "Custom field name" }).blur();
+await customBox.getByRole("textbox", { name: "Value of Cable colour" }).fill("Black");
+await page.screenshot({ path: `${shots}/cat-2d-custom-fields.png`, fullPage: true });
+await page.getByRole("button", { name: "Save" }).click();
+await page.getByRole("heading", { name: "DC plug" }).waitFor();
+const loose = await api("GET", `/items/${plug.id}`);
+check(loose.custom["Cable colour"] === "Black" && loose.carried.map((f) => f.label).join() === "Pin count", "saved: the custom field on the part, the universal one carried");
+check((await page.getByText("Cable colour").count()) === 1 && (await page.getByText("Pin count").count()) === 1, "the part's page shows both");
+// Into Relays: Pin count is in the template there, value and all; back to Wire & connectors, the gauge is still there.
+check((await api("PATCH", `/items/${plug.id}`, { categoryId: relaysNow.id })).carried.length === 0, "in Relays the Pin count is a template field again");
+const back = await api("PATCH", `/items/${plug.id}`, { categoryId: wire.id, custom: {} });
+check(back.attributes[gauge.key] === "20 AWG" && back.attributes[pinKey] === "2", "back in Wire & connectors: the gauge that stayed behind and the pin count that travelled");
+// Tidy up for the steps below.
+await api("PATCH", `/items/${plug.id}`, { attributes: { [gauge.key]: "20 AWG" } });
+for (const cat of [wire.id, relaysNow.id]) {
+  const defs = (await api("GET", "/categories")).find((c) => c.id === cat).fieldDefs;
+  await api("PATCH", `/categories/${cat}`, { fieldDefs: defs.filter((f) => f.label !== "Pin count").map((f) => ({ key: f.key, label: f.label })) });
 }
 
 // A choice field (DEC-059): Type becomes a Choice with options; the part's form offers them in a drop-down.

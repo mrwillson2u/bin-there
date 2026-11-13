@@ -62,7 +62,16 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 | id, name | | e.g. Fasteners, Resistors, Batteries. Optional parent_id for a light hierarchy, not used yet (DEC-027: flat, specific categories with their own fields for now) |
 | default_kind | enum ItemKind | consumable / returnable |
 | default_tracking | enum TrackingMode | exact / level (DEC-001) |
-| field_defs | JSON | e.g. `[{key:"thread",label:"Thread",type:"text"},{key:"length_mm",type:"number"}]` |
+| field_defs | JSON | The category's template, in order: `[{key:"f12",label:"Thread",type:"text"},{key:"f13",label:"Head",type:"choice",options:[…],universal:true}]`. `key` is the field's ID in the `fields` table (DEC-071), never its name; `label` and `universal` are copies kept in step with it |
+
+**fields** (DEC-071, migration 0021): every category field, once.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | integer PK | The field's key everywhere is `f<id>` |
+| name | text | By the naming convention: first letter a capital, the rest as typed |
+| universal | boolean | Used by any number of categories; its value follows the part. Otherwise category-only |
+| category_id | FK, nullable | The owner of a category-only field; null for a universal one |
 
 ### Item (a kind of thing)
 
@@ -73,7 +82,8 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 | category_id | FK, nullable | null allowed during quick capture |
 | kind | enum ItemKind | consumable / returnable |
 | tracking | enum TrackingMode | exact / level; default from category |
-| attributes | JSON | Values for the category's `field_defs` |
+| attributes | JSON | Category field values by field key (`{"f12":"M3"}`): every one the part holds, whatever its category now (a universal field's value follows it; another category's own stays unseen) (DEC-071) |
+| custom | JSON `{ name: value }`, default `{}` | Custom fields: on this part only (DEC-071, migration 0021) |
 | price, supplier, supplier_pn, url | nullable | |
 | needs_details | boolean | true until the part has a name and a category (DEC-007, DEC-037; migration 0017 put back parts that had left with only a name) |
 | low_threshold | int, nullable | exact mode: on the low-stock list once the total is at or below this (DEC-016). Set on the edit screen |
