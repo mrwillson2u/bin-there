@@ -61,16 +61,17 @@ const lookSchema = (categories: string[] | null) => ({
   properties: {
     markings: { type: "array", items: { type: "string" } },
     partNumbers: { type: "array", items: { type: "string" } },
+    brand: { type: "string" },
     description: { type: "string" },
     likelyPart: { type: "string" },
     name: { type: "string" },
     ...(categories ? { category: { type: "string", enum: categories } } : {}),
     queries: { type: "array", items: { type: "string" } },
   },
-  required: ["markings", "partNumbers", "description", "likelyPart", "name", ...(categories ? ["category"] : []), "queries"],
+  required: ["markings", "partNumbers", "brand", "description", "likelyPart", "name", ...(categories ? ["category"] : []), "queries"],
 });
 
-type Look = { markings: string[]; partNumbers?: string[]; description: string; likelyPart: string; name?: string; category?: string; queries: string[] };
+type Look = { markings: string[]; partNumbers?: string[]; brand?: string; description: string; likelyPart: string; name?: string; category?: string; queries: string[] };
 
 export type ResearchOptions = {
   /** Quick naming (DEC-053): the photo alone, no reading or searching; a likely name and category. */
@@ -80,6 +81,8 @@ export type ResearchOptions = {
 /** Suppliers and makers first: their pages have the fields. Forums and videos last. */
 const GOOD_HOSTS = /digikey|mouser|lcsc|ti\.com|st\.com|microchip|nxp|analog\.com|adafruit|sparkfun|pololu|seeedstudio|dfrobot|raspberrypi|arduino|espressif|amazon|aliexpress|mcmaster|boltdepot|datasheet|alldatasheet|octopart|farnell|newark|rs-online|element14/i;
 const BAD_HOSTS = /youtube|facebook|reddit|pinterest|tiktok|instagram|twitter|x\.com|quora/i;
+/** A shop's search results or a list of many products (DEC-066): its prices are other listings', not this part's. */
+const LISTING_PAGE = /aliexpress\.[a-z.]+\/w\/|amazon\.[a-z.]+\/(?:[^?#]*\/)?(?:s|b|clp)[/?]|ebay\.[a-z.]+\/(sch|shop)\/|[?&](_nkw|k|q|keyword|keywords|search)=/i;
 
 export async function researchItem(input: ResearchInput, deps: Deps, opts: ResearchOptions = {}): Promise<ResearchResult> {
   const log = deps.log ?? (() => {});
@@ -101,6 +104,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
       "You identify parts and components in a garage or electronics workshop inventory. These are photo(s) of one part, and you know nothing else about it.",
       "`markings`: every piece of text actually printed on the part, its label or its bag, exactly as written, one string each (model numbers, values, web addresses, brand names you can see). Only text you can see. If nothing is printed, leave it empty. Never list a brand, a type or a part number you merely recognise or expect: that is not a marking.",
       "`partNumbers`: the markings that are a model or part number, the maker's or seller's number to order it by, written without spaces inside it (\"PL 103750\" is PL103750). Not a rating, size, count, date, batch or lot code, standard (ISO 9001) or brand name. Empty if there is none.",
+      "`brand`: the maker's or seller's name when one is printed (it is in `markings`), else empty.",
       "`description`: one sentence saying what you see (what kind of part, how many pins or leads, colour, size clues).",
       "`likelyPart`: what it most likely is: a specific product if a marking names one, otherwise just the kind of part.",
       `\`name\`: a short, clear name for it. ${NAMING} Only as specific as what you can actually see: a brand, series, model or part number goes in only when it's printed and in \`markings\`; otherwise name the kind of thing with what's printed or plainly visible (ratings, pins, colour, size). A plain right name beats a specific wrong one.`,
@@ -116,6 +120,8 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
       .filter((n) => typeof n === "string")
       .map((n) => n.replace(/\s+/g, ""))
       .filter((n) => n.length >= 4 && n.length <= 32 && /\d/.test(n) && look.markings.some((m) => squash(m).includes(squash(n))));
+    const brand = typeof look.brand === "string" ? look.brand.trim() : "";
+    look.brand = brand && look.markings.some((m) => squash(m).includes(squash(brand))) ? brand : "";
   }
   // The category the photo put a part with none in (DEC-064): its fields are filled in this same run.
   const pickedCategory = wantCategory && images.length > 0 && input.categories.includes(String(look.category ?? "")) ? String(look.category) : null;
@@ -231,15 +237,34 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
         problems.push((e as Error).message);
       }
     }
-    const ranked = hits.filter((h) => !BAD_HOSTS.test(h.url)).sort((a, b) => Number(GOOD_HOSTS.test(b.url)) - Number(GOOD_HOSTS.test(a.url)));
+    // A part with a name of its own printed on it (a part number, a brand) is only on a page that
+    // names it (DEC-066): a page about some other 3.7 V battery is another product's price and supplier.
+    const ids = partIds(look);
+    const namesIt = (text: string) => ids.length === 0 || mentionsAny(text, ids);
+    const score = (h: Hit) => (ids.length > 0 && mentionsAny(`${h.title} ${h.snippet} ${h.url}`, ids) ? 2 : 0) + (GOOD_HOSTS.test(h.url) ? 1 : 0);
+    const ranked = hits.filter((h) => !BAD_HOSTS.test(h.url) && !LISTING_PAGE.test(h.url)).sort((a, b) => score(b) - score(a));
+    let opened = 0;
+    let elsewhere = 0;
     for (const h of ranked) {
-      if (pages.length >= 4) break;
-      const link = shopFromUrl(h.url);
-      const page = await readDirect(h.url, link, deps).catch(() => null);
-      if (page) pages.push({ ...page, title: h.title, own: false });
+      if (pages.length >= 3 || opened >= 6) break;
+      opened++;
+      const page = await readDirect(h.url, shopFromUrl(h.url), deps).catch(() => null);
+      if (!page) continue;
+      // The page itself (its own title is in its text), not the engine's line about it.
+      if (!namesIt(page.text)) {
+        elsewhere++;
+        continue;
+      }
+      pages.push({ ...page, title: h.title, own: false });
     }
-    log(`search (${elapsed()}): ${hits.length} hits, ${pages.length} pages read`);
+    if (elsewhere > 0 && pages.length === 0) notes.push("The pages the search found were about other products, so only what's printed on the part is suggested.");
+    log(`search (${elapsed()}): ${hits.length} hits, ${opened} opened, ${pages.length} read${elsewhere ? `, ${elsewhere} about other products` : ""}`);
   }
+
+  // The pages share a budget so the prompt fits the model's window with room to answer (DEC-066):
+  // four whole pages once pushed the instructions out, and the answer rambled or came back empty.
+  const share = Math.floor(PAGE_BUDGET / Math.max(1, pages.length));
+  for (const p of pages) if (p.text.length > share) p.text = p.text.slice(0, share);
 
   // EXTRACT: fill the fields from the pages (and the markings), each with its source.
   const fieldList: { key: string; label: string; options?: string[] }[] = [
@@ -284,6 +309,7 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
     "`price` is a number in USD with no symbol, and only ever from a page, never from the photo or memory; when a page shows this part's price, suggest it (the single-unit price, not a quantity discount). `url` is the address (the URL line) of the one best page for this part (supplier or maker): a page that was read, or a web address printed on the part. `name` is a short clear name, only if the current name is missing, vague or wrong; what it is and its values come from a page's description when a page names the part, not from what the photo looked like. With no page, only as specific as the markings: no brand, series, model or number that isn't printed on the part. A plain right name beats a specific wrong one.",
     `Naming: ${NAMING}`,
     ...nonEmpty(namesGuide(input.namesByCategory, input.categoryName ?? pickedCategory)),
+    "A field's value keeps its unit, as printed or as the page gives it (\"3.7 V\", \"2000 mAh\", \"22 AWG\"), never a bare number when there is a unit.",
     "`supplierPn` is the number to order it by: for Adafruit or SparkFun that is the product number in the adafru.it or sparkfun.com link, not a lot or date code.",
     ...(input.categoryName || pickedCategory ? [] : [`\`category\` must be one of exactly: ${input.categories.join(" | ")}`]),
     "Put anything the owner should know in `notes` (an unreadable value, two likely matches, a field that needs a meter reading), in plain words, one short sentence each, no greeting and no name.",
@@ -436,7 +462,8 @@ function priceOnPage(value: string, text: string): boolean {
   if (!Number.isFinite(n)) return false;
   const digits = text.replace(/(\d)\s*[.,]\s*(\d)/g, "$1.$2");
   const forms = [n.toFixed(2), String(n), n.toFixed(1), n.toFixed(3), n.toFixed(4)];
-  return forms.some((f) => new RegExp(`(^|[^\\d.])${f.replace(".", "\\.")}(?![\\d])`).test(digits));
+  // Next to a currency sign (DEC-066): "18650" on a battery page is a cell size, not a price.
+  return forms.some((f) => new RegExp(`(\\$|USD)\\s*${f.replace(".", "\\.")}(?![\\d])`).test(digits));
 }
 
 /** Letters and digits only, lower case: "adafru.it/1938" and "ADAFRU IT 1938" match. */
@@ -521,6 +548,8 @@ function clean(field: string, value: string): string {
     return n > 0 && n < 1_000_000 ? n.toFixed(2) : "";
   }
   if (field === "url") return /^https?:\/\/\S+$/.test(v) ? v : "";
+  // A supplier is a name, not a sentence about suppliers (DEC-066).
+  if (field === "supplier" && (v.length > 60 || /[.!?;:]\s/.test(v))) return "";
   if (v.length > 200) v = v.slice(0, 200);
   return v;
 }
@@ -595,6 +624,27 @@ export function namesGuide(names: Record<string, string[]> | undefined, category
   return lines.length ? `Some of the owner's names, by category: ${lines.join("; ")}. Write the name the way these are written, which outranks the examples above; if it is the very same part as one of them, use that name exactly.` : "";
 }
 
+/** Characters of page text the extract step reads in all (DEC-066); split evenly between the pages. */
+const PAGE_BUDGET = 14_000;
+
+/**
+ * What names this part on a page (DEC-066): what's printed on it, its part numbers and its brand.
+ * Not the number on record, which is often a shop's own and on no other site.
+ */
+function partIds(look: Look): string[] {
+  const all = [...(look.partNumbers ?? []), ...partNumberCandidates(look.markings), ...(look.brand ? [look.brand] : [])];
+  return [...new Set(all.map(squash).filter((x) => x.length >= 4))];
+}
+
+/**
+ * Whether the text names one of `ids` (squashed). A printed number may carry a suffix the page
+ * leaves off (LM2596S, LM2596), so up to its last two characters may differ, keeping five.
+ */
+export function mentionsAny(text: string, ids: string[]): boolean {
+  const flat = squash(text);
+  return ids.some((id) => flat.includes(id.slice(0, Math.max(5, id.length - 2))));
+}
+
 /** Words too common to tie a hit to its query. */
 const COMMON = new Set(["the", "and", "for", "with", "from", "datasheet", "supplier", "buy", "price", "pdf", "part", "parts"]);
 
@@ -602,6 +652,10 @@ const COMMON = new Set(["the", "and", "for", "with", "from", "datasheet", "suppl
  * A search hit is on topic when its title, snippet or address shares a word with the query
  * (DEC-066). Bing, taking the app for a bot, has answered part numbers with film and adult sites.
  */
+export function isListingPage(url: string): boolean {
+  return LISTING_PAGE.test(url);
+}
+
 export function onTopic(hit: Hit, query: string): boolean {
   const words = (query.toLowerCase().match(/[a-z0-9]+(?:[.\-][a-z0-9]+)*/g) ?? []).filter((w) => w.length >= 3 && !COMMON.has(w));
   if (words.length === 0) return true;

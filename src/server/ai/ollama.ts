@@ -6,7 +6,15 @@ export type ChatMessage = { role: "system" | "user" | "assistant"; content: stri
 
 export type Chat = (opts: { messages: ChatMessage[]; schema?: object; temperature?: number }) => Promise<string>;
 
-export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch = fetch): Chat {
+/**
+ * The model's window and answer allowance (DEC-066). Three shop pages of numbers came to 8,100
+ * tokens, the whole of the old 8,192 window, and the answer came back empty or rambling; and
+ * Gemma 4's hidden thinking took 860 of the old 1,500-token allowance. Doubling the window cost
+ * no memory on the card (5.6 GB either way, measured 2026-11-13).
+ */
+export const MODEL_OPTIONS = { num_ctx: 16_384, num_predict: 3000 };
+
+export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch = fetch, log?: (line: string) => void): Chat {
   return async ({ messages, schema, temperature = 0 }) => {
     const res = await fetchImpl(`${url.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
@@ -22,12 +30,16 @@ export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch =
         // a cold load is most of a minute on every first look-up after a quiet spell. A model
         // that needs the room still gets it (Ollama unloads this one and reloads it next call).
         keep_alive: -1,
-        options: { temperature, num_ctx: 8192, num_predict: 1500 },
+        options: { temperature, ...MODEL_OPTIONS },
       }),
       signal: AbortSignal.timeout(180_000),
     });
     if (!res.ok) throw new Error(`The model didn't answer (${res.status} from Ollama)`);
-    const data = (await res.json()) as { message?: { content?: string } };
+    const data = (await res.json()) as { message?: { content?: string; thinking?: string }; prompt_eval_count?: number; eval_count?: number; done_reason?: string };
+    // What it took, so a cut-short answer explains itself in the log.
+    log?.(
+      `model: prompt ${data.prompt_eval_count ?? "?"} tokens, answer ${data.eval_count ?? "?"} tokens (thinking ${data.message?.thinking?.length ?? 0} chars)${data.done_reason === "length" ? ", stopped at the length limit" : ""}`,
+    );
     return data.message?.content ?? "";
   };
 }
@@ -57,7 +69,8 @@ export async function ollamaWarm(url: string, model: string, fetchImpl: typeof f
       const res = await fetchImpl(`${url.replace(/\/$/, "")}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, keep_alive: -1 }),
+        // Loaded with the window every call asks for, or the first look-up loads it all over again.
+        body: JSON.stringify({ model, keep_alive: -1, options: { num_ctx: MODEL_OPTIONS.num_ctx } }),
         signal: AbortSignal.timeout(180_000),
       });
       if (res.ok) return true;

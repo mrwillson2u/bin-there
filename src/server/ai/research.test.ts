@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelLinks, namesGuide, onTopic, partNumberCandidates, researchItem, withoutUnprintedNumbers, type Deps, type ResearchInput } from "./research";
+import { isListingPage, labelLinks, mentionsAny, namesGuide, onTopic, partNumberCandidates, researchItem, withoutUnprintedNumbers, type Deps, type ResearchInput } from "./research";
 
 // The pipeline with a fake model, fake search and fake pages (DEC-048): what it asks, what it
 // keeps, what it throws away.
@@ -463,6 +463,47 @@ describe("researchItem", () => {
     );
     await researchItem(input, f.deps);
     expect(f.fetched).toEqual(["https://www.example-supplier.com/lm2596"]);
+  });
+
+  it("reads a searched page only when it names the part's printed number or brand, and shares out the page text (DEC-066)", async () => {
+    const other = "Adafruit Lithium Ion Polymer Battery 3.7V 2500mAh. Price $14.95. 18650 cells also sold. " + "y".repeat(9000);
+    const right = "PL103750 3.7V 2000mAh LiPo cell, PCM protected. Price $6.20. " + "z".repeat(9000);
+    const f = fakes(
+      {
+        look: { markings: ["PL 103750", "3.7V 2000mAh"], partNumbers: ["PL 103750"], brand: "", description: "a pouch cell", likelyPart: "LiPo battery", queries: ["PL 103750 battery"] },
+        extract: { identified: "x", suggestions: [{ field: "price", value: "18650", source: "page 1", confidence: "high" }, { field: "supplier", value: "Adafruit is best for projects. Hub360 is another.", source: "page 1", confidence: "high" }], notes: [] },
+      },
+      [
+        { title: "3.7V Batteries", url: "https://www.adafruit.com/product/2011", snippet: "PL 103750 3.7 V battery" },
+        { title: "PL103750 cell", url: "https://cells.example/pl103750", snippet: "PL 103750 battery" },
+        { title: "PL103750 pack", url: "https://packs.example/pl103750", snippet: "PL103750" },
+        { title: "PL103750 sheet", url: "https://sheets.example/pl103750", snippet: "PL103750" },
+      ],
+    );
+    f.deps.fetchPage = async (url) => (url.includes("adafruit") ? other : url.includes(".example") ? right.replace(/z/g, url[8]!) : null);
+    const r = await researchItem({ ...input, supplierPn: null }, f.deps);
+    // The pages naming the printed number were read; the bigger shop's page about another battery wasn't.
+    expect(r.sources.map((x) => x.url)).toEqual(["https://cells.example/pl103750", "https://packs.example/pl103750", "https://sheets.example/pl103750"]);
+    // Three pages share the budget: each cut to a third of it.
+    expect(f.prompts[1]!.content).toContain("c".repeat(4_600));
+    expect(f.prompts[1]!.content).not.toContain("c".repeat(4_700));
+    // A number on the page without a currency sign isn't a price; a sentence isn't a supplier.
+    expect(r.suggestions.filter((x) => x.field === "price" || x.field === "supplier")).toEqual([]);
+    // Nothing on the pages names it: none is used, and the notes say so.
+    const g = fakes(
+      { look: { markings: ["MakerHawk", "2200mAh"], brand: "MakerHawk", description: "", likelyPart: "LiPo", queries: ["MakerHawk 2200mAh"] }, extract: { identified: "x", suggestions: [], notes: [] } },
+      [{ title: "MakerHawk 2200mAh 3.7V", url: "https://blog.example/best-lipo", snippet: "MakerHawk 2200mAh" }],
+    );
+    g.deps.fetchPage = async () => "The best LiPo batteries of the year, ranked. " + "x".repeat(300);
+    const r2 = await researchItem({ ...input, supplierPn: null }, g.deps);
+    expect(r2.sources).toEqual([]);
+    expect(r2.notes).toContain("The pages the search found were about other products, so only what's printed on the part is suggested.");
+    // A shop's search results list other sellers' prices: never read.
+    for (const u of ["https://www.aliexpress.com/w/wholesale-lp103450-battery.html", "https://www.amazon.com/TP4056/s?k=TP4056", "https://www.amazon.com/clp/B08ZCQXFX4", "https://www.amazon.com/37V-Batteries/b/ref=dp_bc_4?ie=UTF8&node=10112773011", "https://www.ebay.com/shop/lm2596-buck-converter?_nkw=lm2596"]) expect(isListingPage(u), u).toBe(true);
+    for (const u of ["https://www.amazon.com/MakerHawk-Rechargeable-Protection/dp/B0D3LQYX", "https://www.alibaba.com/product-detail/Rechargeable-lithium-polymer-battery-LP103450-1800mah_60654285184.html", "https://www.adafruit.com/product/2011", "https://www.pknergy.com/pknergy-lp103450-2000mah-3-7v-li-polymer-battery-pack-product/"]) expect(isListingPage(u), u).toBe(false);
+    // A suffix the page leaves off still counts; another number doesn't.
+    expect(mentionsAny("LM2596 DC-DC buck module", ["lm2596s"])).toBe(true);
+    expect(mentionsAny("LP503040 cell", ["lp103450"])).toBe(false);
   });
 
   it("picks what could be a part number out of the markings", () => {

@@ -256,7 +256,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   const aiDeps = (ai: AiConfig, model: string, log: (line: string) => void): Omit<Deps, "readPhoto"> => {
     const f = ai.fetch ?? fetch;
     return {
-      chat: ollamaChat(ai.url, model, f),
+      chat: ollamaChat(ai.url, model, f, log),
       search: ai.searchUrl ? searxng(ai.searchUrl, f, ai.searchEngines) : async () => [],
       fetchPage: pageFetcher(f),
       readPdf: pdfReader(f),
