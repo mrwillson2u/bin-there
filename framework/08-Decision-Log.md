@@ -1701,7 +1701,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** No screen tells you how to work a scanner. A scan box says what a scan does now ("Scan where it's going") and offers the camera button on devices that use one; where there's another way to do the same thing, the words before it are just "or you can" ("or you can Pick from list"). The sidebar's scan panel says what a scan does and nothing more. The Stickers screen's hint for scanner mode reads "Scan the sticker for the chosen bin."; the Settings description says "every screen says when a scan will do something".
 
-**Consequences:** The scanning setting (DEC-044) still decides whether the camera button shows; it no longer adds any words. New screens follow the same rule. Checked in `stickers-check.mjs` (no "trigger" anywhere on the screen in scanner-only mode) and the Move and bin-sheet checks.
+**Consequences:** The scanning setting (DEC-044) still decides whether the camera button shows; it no longer adds any words. New screens follow the same rule. Checked in `stickers-check.mjs` (no "trigger" anywhere on the screen in scanner-only mode) and the Move and bin-sheet checks. Shipped to the live app on 2026-11-13 with the Move sheet's follow-up (backup `2026-11-13_123654`, `main` at 967c89f).
 
 ## Decision Index
 
