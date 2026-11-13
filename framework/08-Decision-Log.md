@@ -1565,7 +1565,7 @@ The pipeline is three steps on the server (`src/server/ai/`): **look** (the phot
 
 **Decision:** On a part's form, every text field of the category offers, as you type, the values other parts of that category already hold, most used first then alphabetical, at most 30 a field (`GET /categories/:id/values`, the browser's own suggestion list under the box). Blank values, archived parts and choice fields are left out. Nothing is enforced: a new value is typed as before.
 
-**Consequences:** One small read per form open, only when the category has a text field. Not done: the same on Fill in details' rows (they open the same form in a popup, so they get it there).
+**Consequences:** One small read per form open, only when the category has a text field. Not done: the same on Fill in details' rows (they open the same form in a popup, so they get it there). Shipped to the live app with DEC-055 to DEC-059 on 2026-11-12 (backup `2026-11-12_160213`, `main` at 01066d4).
 
 ## Decision Index
 
