@@ -676,18 +676,12 @@ describe("AI data fill (DEC-048)", () => {
 
   it("answers the status and research with a model and search behind a fake fetch", async () => {
     const calls: string[] = [];
-    const thinkFlags: (boolean | undefined)[] = [];
     const fakeFetch = (async (u: URL | string | Request, init?: RequestInit) => {
       const url = String(u);
       calls.push(url);
       if (url.endsWith("/api/tags")) return new Response(JSON.stringify({ models: [{ name: "gemma3:4b" }] }));
       if (url.endsWith("/api/chat")) {
-        const body = JSON.parse(String(init?.body)) as { messages: { content: string; images?: string[] }[]; think?: boolean };
-        // A glance (DEC-061) is the only call here with a photo in it.
-        if (body.messages[0]!.images?.length) {
-          thinkFlags.push(body.think);
-          return new Response(JSON.stringify({ message: { content: JSON.stringify({ markings: ["IDS-34-P", "25310 11644", "QTY: 1 pc"], description: "a bagged connector", likelyPart: "IDC connector", name: "34-pin IDC connector", category: "Connectors", queries: ["IDS-34-P"] }) } }));
-        }
+        const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
         const first = !body.messages[0]!.content.startsWith("You fill in");
         return new Response(JSON.stringify({ message: { content: JSON.stringify(first
           ? { markings: [], description: "a bag of ties", likelyPart: "Nylon cable ties", queries: ["nylon cable ties 100mm"] }
@@ -741,18 +735,5 @@ describe("AI data fill (DEC-048)", () => {
     const quick = (await (await aiApi.request(`/items/${item.id}/research`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode: "quick" }) })).json()) as { suggestions: unknown[]; notes: string[] };
     expect(quick.notes).toEqual(["No photo to go by."]);
     expect(calls.some((c) => c.includes("/search?") || c.includes("/api/chat"))).toBe(false);
-    // A glance at a photo (DEC-061): the photo step alone on the bytes sent, nothing stored, the
-    // numbers on the label picked out, and the quick name and a category from the list.
-    calls.length = 0;
-    const form = new FormData();
-    form.append("photo", new File([new Uint8Array([0xff, 0xd8, 1, 2])], "p.jpg", { type: "image/jpeg" }));
-    const glance = await aiApi.request("/ai/glance", { method: "POST", body: form });
-    expect(glance.status).toBe(200);
-    expect(await glance.json()).toEqual({ markings: ["IDS-34-P", "25310 11644", "QTY: 1 pc"], partNumbers: ["IDS-34-P"], name: "34-pin IDC connector", category: null });
-    expect(calls.filter((c) => c.includes("/api/chat"))).toHaveLength(1);
-    expect(calls.some((c) => c.includes("/search?"))).toBe(false);
-    expect(thinkFlags).toEqual([undefined]); // gemma3 can't be told not to think; see ollama.test.ts for one that can
-    expect((await aiApi.request("/ai/glance", { method: "POST", body: new FormData() })).status).toBe(400);
-    expect((await api.request("/ai/glance", { method: "POST", body: form })).status).toBe(400); // AI off
   });
 });

@@ -485,16 +485,7 @@ export function createItem(db: Db, input: CreateItem): ItemDetail {
     const item = db
       .insert(items)
       // A quick capture (photo, maybe a name) needs details; a name plus a category is enough to skip the queue.
-      .values({
-        name: input.name ?? "",
-        categoryId: input.categoryId ?? null,
-        kind,
-        tracking,
-        needsDetails: !(input.name && cat),
-        // A part number confirmed at capture (DEC-061), with the AI mark when it was read off the photo.
-        supplierPn: input.supplierPn?.trim() || null,
-        aiFields: input.aiFields ?? {},
-      })
+      .values({ name: input.name ?? "", categoryId: input.categoryId ?? null, kind, tracking, needsDetails: !(input.name && cat) })
       .returning({ id: items.id })
       .get();
     if (input.code) {

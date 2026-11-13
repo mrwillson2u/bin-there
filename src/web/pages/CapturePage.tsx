@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Check, MapPin, QrCode, Sparkles, X } from "lucide-react";
-import { trackingLabels, trackingModes, type AiFill, type Category, type CreateItem, type GlanceResult, type ItemDetail, type LocationDetail, type ScanResult, type StockLevel, type TrackingMode } from "../../shared/api";
-import { api, glancePhoto, uploadPhoto } from "../api";
+import { Camera, MapPin, QrCode, Sparkles, X } from "lucide-react";
+import { trackingLabels, trackingModes, type CreateItem, type ItemDetail, type LocationDetail, type ScanResult, type StockLevel, type TrackingMode } from "../../shared/api";
+import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
 import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
@@ -19,12 +19,7 @@ import { Button, Card, Field, inputClass, pathText } from "../components/ui";
  * How it's counted is chosen here (DEC-055): an exact count of 1 unless changed, or
  * Plenty / low / out; a choice made here is kept when a category is picked later.
  * "Look it up with AI after saving" queues each saved part for the AI (DEC-055).
- * The moment a photo is taken the model glances at it (DEC-061): what it read as a part number,
- * and its guess at a name and category, come back as chips to confirm with a tap; nothing is
- * taken without the tap. A confirmed part number is what the full look-up starts from.
  */
-type Glance = { state: "idle" | "reading" | "done" | "failed"; result: GlanceResult | null; error?: string };
-
 export function CapturePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -35,10 +30,6 @@ export function CapturePage() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [supplierPn, setSupplierPn] = useState("");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [prepared, setPrepared] = useState<{ photo: Blob; thumb: Blob } | null>(null);
-  const [glance, setGlance] = useState<Glance>({ state: "idle", result: null });
   const [tracking, setTracking] = useState<TrackingMode>("exact");
   const [qty, setQty] = useState("1");
   const [level, setLevel] = useState<StockLevel>("plenty");
@@ -58,7 +49,6 @@ export function CapturePage() {
     queryFn: () => api<LocationDetail>(`/locations/${locationId}`),
     enabled: locationId !== null,
   });
-  const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: () => api<Category[]>("/categories"), enabled: !!ai?.enabled });
 
   useEffect(() => {
     if (!photo) return setPreview(null);
@@ -66,38 +56,6 @@ export function CapturePage() {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [photo]);
-
-  // The photo is resized once, here, for both the glance and the save; a glance that comes back
-  // after the photo was swapped or saved is dropped.
-  const aiOn = !!ai?.enabled;
-  useEffect(() => {
-    setPrepared(null);
-    setGlance({ state: "idle", result: null });
-    if (!photo) return;
-    let live = true;
-    preparePhoto(photo)
-      .then(async (p) => {
-        if (!live) return;
-        setPrepared(p);
-        if (!aiOn) return;
-        setGlance({ state: "reading", result: null });
-        try {
-          const result = await glancePhoto<GlanceResult>(p.photo);
-          if (live) setGlance({ state: "done", result });
-        } catch (e) {
-          if (live) setGlance({ state: "failed", result: null, error: (e as Error).message });
-        }
-      })
-      .catch((e: Error) => {
-        if (live) setError(e.message);
-      });
-    return () => {
-      live = false;
-    };
-  }, [photo, aiOn]);
-  const read = glance.result;
-  const readCategory = read?.category ? (categories ?? []).find((c) => c.name === read.category) : undefined;
-  const toggle = (value: string, current: string, set: (v: string) => void) => set(current === value ? "" : value);
 
   useScanHandler((scanned) => {
     if (picking) return false; // PickLocation handles it
@@ -117,12 +75,6 @@ export function CapturePage() {
     setError(null);
     try {
       // A part with its own sticker is a returnable unit; it isn't counted here.
-      // What was taken from the glance, as it came, carries the AI mark (DEC-061); a value typed over doesn't.
-      const fromPhoto: Record<string, AiFill> = {};
-      const at = new Date().toISOString();
-      if (supplierPn.trim() && read?.partNumbers.includes(supplierPn.trim())) fromPhoto.supplierPn = { source: "photo", at };
-      if (name.trim() && read?.name === name.trim()) fromPhoto.name = { source: "photo", at };
-      if (categoryId !== null && readCategory?.id === categoryId) fromPhoto.category = { source: "photo", at };
       const body: CreateItem = {
         name: name.trim() || undefined,
         code: code ?? undefined,
@@ -130,13 +82,10 @@ export function CapturePage() {
         tracking: code ? undefined : tracking,
         qty: !code && tracking === "exact" && qty ? Number(qty) : undefined,
         level: !code && tracking === "level" ? level : undefined,
-        supplierPn: supplierPn.trim() || undefined,
-        categoryId: categoryId ?? undefined,
-        aiFields: Object.keys(fromPhoto).length > 0 ? fromPhoto : undefined,
       };
       let item = await api<ItemDetail>("/items", { method: "POST", body });
       if (photo) {
-        const { photo: p, thumb } = prepared ?? (await preparePhoto(photo));
+        const { photo: p, thumb } = await preparePhoto(photo);
         item = await uploadPhoto<ItemDetail>(item.id, p, thumb);
       }
       // Queued for the AI (DEC-055): looked up in the background, the answer kept for review.
@@ -151,8 +100,6 @@ export function CapturePage() {
       setCode(null);
       setPhoto(null);
       setName("");
-      setSupplierPn("");
-      setCategoryId(null);
       setQty("1");
       setLevel("plenty");
     } catch (e) {
@@ -187,51 +134,6 @@ export function CapturePage() {
         )}
         <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
       </label>
-
-      {photo && aiOn && glance.state !== "idle" && (
-        <section aria-label="Read off the photo" className="flex flex-col gap-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm">
-          {glance.state === "reading" && (
-            <p className="flex items-center gap-2 text-muted" role="status">
-              <Sparkles size={16} className="animate-pulse text-accent" /> Reading the label…
-            </p>
-          )}
-          {glance.state === "failed" && <p className="text-muted">Couldn't read the photo{glance.error ? `: ${glance.error}` : ""}.</p>}
-          {glance.state === "done" && read && (
-            read.partNumbers.length === 0 && !read.name && !readCategory ? (
-              <p className="text-muted">Nothing printed to read. Name it, or leave it for later.</p>
-            ) : (
-              <>
-                <p className="flex items-center gap-2 text-muted">
-                  <Sparkles size={16} className="text-accent" /> Read off the photo. Tap to use.
-                </p>
-                {read.partNumbers.length > 0 && (
-                  <Chips label="Part no.">
-                    {read.partNumbers.slice(0, 3).map((n) => (
-                      <Chip key={n} on={supplierPn.trim() === n} label={`Use part number ${n}`} onClick={() => toggle(n, supplierPn.trim(), setSupplierPn)}>
-                        {n}
-                      </Chip>
-                    ))}
-                  </Chips>
-                )}
-                {read.name && (
-                  <Chips label="Name">
-                    <Chip on={name.trim() === read.name} label={`Use name ${read.name}`} onClick={() => toggle(read.name!, name.trim(), setName)}>
-                      {read.name}
-                    </Chip>
-                  </Chips>
-                )}
-                {readCategory && (
-                  <Chips label="Category">
-                    <Chip on={categoryId === readCategory.id} label={`Use category ${readCategory.name}`} onClick={() => setCategoryId(categoryId === readCategory.id ? null : readCategory.id)}>
-                      {readCategory.name}
-                    </Chip>
-                  </Chips>
-                )}
-              </>
-            )
-          )}
-        </section>
-      )}
 
       <Card className="flex flex-col divide-y divide-border">
         <Row icon={<QrCode size={18} />} label="Sticker">
@@ -271,11 +173,6 @@ export function CapturePage() {
       <Field label="Name (optional)">
         <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Later is fine" />
       </Field>
-      {(supplierPn || (read?.partNumbers.length ?? 0) > 0) && (
-        <Field label="Part number">
-          <input value={supplierPn} onChange={(e) => setSupplierPn(e.target.value)} className={`${inputClass} font-mono`} placeholder="As printed on it" />
-        </Field>
-      )}
       {!code && (
         <div className="grid grid-cols-[1fr_7rem] items-end gap-3">
           <div className="flex flex-col gap-1.5">
@@ -340,31 +237,6 @@ export function CapturePage() {
         so you can fill them in later.
       </p>
     </div>
-  );
-}
-
-function Chips({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 shrink-0 text-[12px] text-muted">{label}</span>
-      {children}
-    </div>
-  );
-}
-
-/** One thing read off the photo; pressed once it's in the form. */
-function Chip({ on, label, onClick, children }: { on: boolean; label: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={on}
-      onClick={onClick}
-      className={`flex min-h-10 max-w-full items-center gap-1.5 rounded-full border px-3 text-sm ${on ? "border-accent bg-accent/15 text-accent" : "border-border bg-surface-2 text-text"}`}
-    >
-      {on && <Check size={14} className="shrink-0" />}
-      <span className="truncate">{children}</span>
-    </button>
   );
 }
 

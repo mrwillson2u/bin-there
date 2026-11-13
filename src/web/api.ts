@@ -33,18 +33,6 @@ export async function uploadPhoto<T>(itemId: number, photo: Blob, thumb: Blob): 
   return res.json() as Promise<T>;
 }
 
-/** A glance at a photo just taken (DEC-061): what the model reads off it, before the part exists. */
-export async function glancePhoto<T>(photo: Blob): Promise<T> {
-  const form = new FormData();
-  form.append("photo", photo, "photo.jpg");
-  const res = await fetch(`/api/ai/glance`, { method: "POST", body: form });
-  if (!res.ok) {
-    const err = (await res.json().catch(() => null)) as ApiError | null;
-    throw new RequestError(res.status, err?.error.code ?? "INTERNAL", err?.error.message ?? res.statusText);
-  }
-  return res.json() as Promise<T>;
-}
-
 /** Save a photo's square crop with the thumbnail cut from it on the device (DEC-030). */
 export async function savePhotoCrop<T>(photoId: number, crop: unknown, thumb: Blob): Promise<T> {
   const form = new FormData();

@@ -93,8 +93,8 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
     (DEC-049); `mouser.ts` and `digikey.ts` read those two through their APIs when a key is set, and (DEC-053) a part number
     read off the part is tried at both before any web search, `mode: "quick"` is the photo alone for a likely name and category
     (the Needs details list runs it row by row), and a datasheet a shop page names is read with pdf.js (`pdfReader` in `search.ts`). `ollamaWarm`
-    loads the model at server start and every request carries `keep_alive: -1` so it stays loaded (DEC-061); `fast` on `chat` turns a thinking model's
-    thinking off (Gemma 4) for the glance. On only when
+    loads the model at server start and every request carries `keep_alive: -1` so it stays loaded (DEC-061); a part
+    number on record is tried at the shops before the printed ones. On only when
     `createApi` gets `ai` (`AI_URL`, `AI_MODEL`, `SEARCH_URL`, the shop keys). The AI never writes: `POST /items/:id/research`
     returns suggestions, and accepted ones arrive through `PATCH /items/:id` with `aiFields` (source + time). `queue.ts` (DEC-055) is the in-process queue: parts queued at capture are
     looked up one at a time in the background, the answer stored on the item (`ai_result`), the job state on it too (`ai_job`),
@@ -147,10 +147,7 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   the New location form; with `?many=1` (Add several, DEC-058) it stays after each save, a scan saves the place with
   that sticker, the name counts up or stays (`nextName` in `src/shared/names.ts`) and rack positions fill in order.
   `CapturePage.tsx` (`/capture`) is Quick capture: how it's counted is chosen there (an exact count of 1 unless
-  changed, DEC-055) and "Look it up with AI after saving" queues the part. The moment a photo is taken it goes to
-  `POST /api/ai/glance` (DEC-061: the photo step alone, thinking off, nothing stored) and what came back shows as
-  chips to tap: part number(s), a name, a category; a tapped value is saved with the part (`supplierPn`, `categoryId`,
-  `aiFields` on create) and the queued look-up tries a part number on record at the shops first. `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
+  changed, DEC-055) and "Look it up with AI after saving" queues the part. `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
   part needing details as rows that save as you go; each row reads `["item", id]`, seeded from
   `GET /api/items/needs-details`, so stock toasts and Undo update it. It opens `ItemForm` (exported
   from `ItemEditPage.tsx`) in a popup; the form lays itself out by its own width (`@container`: two columns from 48 rem, DEC-051). `CategoryPicker.tsx` is the type-to-find category box used there

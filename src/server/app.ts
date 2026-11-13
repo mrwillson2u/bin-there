@@ -59,7 +59,7 @@ import { readBackupStatus, runBackup, type BackupConfig } from "./backup";
 import { Changes } from "./changes";
 import { ollamaChat, ollamaHasModel } from "./ai/ollama";
 import { pageFetcher, pdfReader, searxng } from "./ai/search";
-import { partNumberCandidates, researchItem, type Deps } from "./ai/research";
+import { researchItem, type Deps } from "./ai/research";
 import { AiQueue } from "./ai/queue";
 import { mouserReader } from "./ai/mouser";
 import { digikeyReader } from "./ai/digikey";
@@ -95,7 +95,6 @@ import {
   type AiStatus,
   type BackupInfo,
   type CodesCheck,
-  type GlanceResult,
   type ResearchRequest,
   type ResearchResult,
   type StoredResearch,
@@ -135,8 +134,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   const changes = new Changes();
   api.use("*", async (c, next) => {
     await next();
-    // A backup and a glance at a photo (DEC-061) change nothing, so they don't tell screens to refresh.
-    if (c.req.method !== "GET" && c.res.ok && !c.req.path.endsWith("/backup") && !c.req.path.endsWith("/ai/glance")) changes.bump(c.req.header("x-client") ?? null);
+    if (c.req.method !== "GET" && c.res.ok && !c.req.path.endsWith("/backup")) changes.bump(c.req.header("x-client") ?? null);
   });
 
   const intParam = (v: string | undefined) => {
@@ -286,29 +284,6 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
       { quick: now.mode === "quick" },
     );
   };
-  // A glance at a photo just taken (DEC-061): the photo step alone, before the part exists, so
-  // the capture screen can offer what it read (a part number, a name, a category) to confirm with
-  // a tap. Nothing is stored; the photo is read once and dropped.
-  api.post("/ai/glance", async (c) => {
-    const ai = opts.ai;
-    if (!ai) throw new ApiError(400, "VALIDATION", "AI isn't set up on this server (AI_URL)");
-    const body = await c.req.parseBody();
-    const photo = body.photo;
-    if (!(photo instanceof File)) throw new ApiError(400, "VALIDATION", "Expected a photo file");
-    if (photo.size > MAX_PHOTO_BYTES || !photo.type.startsWith("image/")) throw new ApiError(400, "VALIDATION", "Photo must be an image under 10 MB");
-    const b64 = Buffer.from(await photo.arrayBuffer()).toString("base64");
-    const t0 = Date.now();
-    const r = await researchItem(
-      { name: "", url: null, categoryName: null, fields: [], attributes: {}, supplier: null, supplierPn: null, notes: null, photos: ["glance"], categories: listCategories(db).map((cat) => cat.name) },
-      { ...aiDeps(ai, ai.model, () => {}), readPhoto: async () => b64 },
-      { quick: true, fast: true },
-    );
-    const name = r.suggestions.find((s) => s.field === "name")?.value ?? null;
-    const category = r.suggestions.find((s) => s.field === "category")?.value ?? null;
-    const partNumbers = partNumberCandidates(r.markings);
-    console.log(`[ai] glance (${((Date.now() - t0) / 1000).toFixed(1)}s): ${r.markings.length} markings, numbers ${partNumbers.join(", ") || "none"}, name ${name ?? "none"}`);
-    return c.json<GlanceResult>({ markings: r.markings, partNumbers, name, category });
-  });
   // The queue (DEC-055): parts captured with "look it up with AI" are looked up one at a time in
   // the background; its own writes bump the change version so open screens refresh.
   const queue = opts.ai ? new AiQueue(db, (id) => lookUp(id, {}), () => changes.bump(null), (line) => console.log(`[ai] queue: ${line}`)) : null;

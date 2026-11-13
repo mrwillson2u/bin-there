@@ -42,7 +42,7 @@ console.log(
     : "AI data fill off: set AI_URL to enable",
 );
 
-// Load the model now rather than on the first glance (DEC-061); Ollama keeps it loaded (compose.yaml).
+// Load the model now rather than on the first look-up (DEC-061); every call asks Ollama to keep it loaded.
 if (ai) void ollamaWarm(ai.url, ai.model).then((ok) => console.log(ok ? `AI model ${ai.model} loaded and ready` : `AI model ${ai.model} couldn't be loaded ahead; it loads on first use`));
 
 const app = new Hono();

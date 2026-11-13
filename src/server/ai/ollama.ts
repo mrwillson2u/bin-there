@@ -4,11 +4,10 @@
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string; images?: string[] };
 
-/** `fast` (DEC-061): no thinking first, for a glance at capture; a thinking model answers in a third of the time. */
-export type Chat = (opts: { messages: ChatMessage[]; schema?: object; temperature?: number; fast?: boolean }) => Promise<string>;
+export type Chat = (opts: { messages: ChatMessage[]; schema?: object; temperature?: number }) => Promise<string>;
 
 export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch = fetch): Chat {
-  return async ({ messages, schema, temperature = 0, fast = false }) => {
+  return async ({ messages, schema, temperature = 0 }) => {
     const res = await fetchImpl(`${url.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -18,11 +17,9 @@ export function ollamaChat(url: string, model: string, fetchImpl: typeof fetch =
         stream: false,
         ...(schema ? { format: schema } : {}),
         // Qwen 3 models think out loud for a minute before answering; the answer is what's wanted.
-        // Gemma 4 thinks too, usefully for the full look-up, but a glance (DEC-061) can't wait for it.
-        // Only models that can think take the flag: Ollama refuses it for the others.
-        ...(/^qwen3/i.test(model) || (fast && /^gemma4/i.test(model)) ? { think: false } : {}),
+        ...(/^qwen3/i.test(model) ? { think: false } : {}),
         // Keep the model loaded (DEC-061): Ollama otherwise drops it after five idle minutes, and
-        // a cold load is most of a minute, past what a phone browser waits for a glance. A model
+        // a cold load is most of a minute on every first look-up after a quiet spell. A model
         // that needs the room still gets it (Ollama unloads this one and reloads it next call).
         keep_alive: -1,
         options: { temperature, num_ctx: 8192, num_predict: 1500 },
@@ -49,7 +46,7 @@ export async function ollamaHasModel(url: string, model: string, fetchImpl: type
 }
 
 /**
- * Load the model now, so the first glance of the day doesn't wait for it (DEC-061): Ollama
+ * Load the model now, so the first look-up of the day doesn't wait for it (DEC-061): Ollama
  * loads on demand, and a cold load of a 6 GB model is most of a minute. Loaded with
  * `keep_alive: -1`, as every call is, so it stays; at boot the model server may still be
  * waiting for the card, so this tries a few times over a few minutes and then gives up quietly.

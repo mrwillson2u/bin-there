@@ -238,10 +238,6 @@ export const createItemSchema = z.object({
   locationId: id.optional(),
   qty: qty.optional(),
   level: z.enum(stockLevels).optional(),
-  /** A part number confirmed at capture (DEC-061): read off the photo, or typed. */
-  supplierPn: optText(100),
-  /** Which of these came from the photo's glance (DEC-061), so the part shows the AI mark. */
-  aiFields: aiFieldsSchema.optional(),
 });
 export type CreateItem = z.infer<typeof createItemSchema>;
 
@@ -308,13 +304,6 @@ export const researchSchema = z.object({
   supplierPn: z.string().trim().max(200).nullable().optional(),
 });
 export type ResearchRequest = z.infer<typeof researchSchema>;
-
-/**
- * A glance at a photo just taken (DEC-061): the photo step alone, before the part exists.
- * `partNumbers` is what on the label could be a part number, longest first; the screen offers
- * each as a chip to confirm. `name` and `category` are the model's quick guesses, or null.
- */
-export type GlanceResult = { markings: string[]; partNumbers: string[]; name: string | null; category: string | null };
 
 /** A part's place in the AI look-up queue (DEC-055). */
 export type AiJob = { state: "queued" | "running" | "failed"; at: string | null; error: string | null };

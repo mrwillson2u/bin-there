@@ -17,7 +17,7 @@ You are the **facilitator**. Guide the user through structured discovery questio
 Project-specific rules. These override the generic kit rules below where they differ.
 
 - **Fresh start.** Colin tried a garage inventory app years ago and it failed. Never search for, read or reuse the old version; only its *lessons* carry over (they're in `framework/01-Concept.md` and `03-UX-Framework.md`).
-- **One question at a time.** Colin often answers by voice. Ask a single short question per message that's easy to answer aloud; number them (the count was at Q108 on 2026-11-12). Don't offer question batches.
+- **One question at a time.** Colin often answers by voice. Ask a single short question per message that's easy to answer aloud; number them (the count was at Q111 on 2026-11-12). Don't offer question batches.
 - **Plain language.** Explain in everyday terms; Colin is technical but not reading code.
 - **Log every decision** as a DEC in `framework/08-Decision-Log.md` and keep docs true as you go.
 - **Protect the live data.** Before restarting or redeploying the real app, take a backup (`curl -X POST localhost:3000/api/backup` on the server). Never run destructive commands against `~/bin-there-prod/data` on ubuntubot.

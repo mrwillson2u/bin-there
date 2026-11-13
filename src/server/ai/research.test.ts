@@ -377,19 +377,6 @@ describe("researchItem", () => {
     expect(f.searched).toEqual([]);
   });
 
-  it("a glance (DEC-061) asks the model for the photo step without thinking; the full look-up doesn't", async () => {
-    const seen: (boolean | undefined)[] = [];
-    const f = fakes({ look: { markings: ["LP103450"], description: "", likelyPart: "LiPo", name: "LiPo battery", queries: [] }, extract: {} });
-    const chat = f.deps.chat;
-    f.deps.chat = async (o) => {
-      seen.push(o.fast);
-      return chat(o);
-    };
-    await researchItem({ ...input, name: "" }, f.deps, { quick: true, fast: true });
-    await researchItem({ ...input, name: "" }, f.deps, { quick: true });
-    expect(seen).toEqual([true, undefined]);
-  });
-
   it("picks what could be a part number out of the markings", () => {
     expect(partNumberCandidates(["NooPixel Diffused", "5mm LED x5", "http://adafru.it/1938", "P1938", "C2483-003", "2021-6-18", "1528-1938-ND", "KYCON KPPX-4P", "303"])).toEqual([
       "1528-1938-ND",
