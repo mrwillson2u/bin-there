@@ -169,6 +169,15 @@ await page.getByRole("button", { name: "Suggest names with AI" }).click();
 await page.locator("[data-ai-guess]").nth(1).waitFor({ timeout: 30000 });
 check((await page.locator("[data-ai-guess]").count()) === 2, "a guess under each part with a photo: " + (await page.locator("[data-ai-guess]").count()));
 check((await page.getByText("AI thinks:").count()) === 2 && (await page.locator("[data-ai-guess]").first().textContent()).includes("LM2596 buck module") && (await page.locator("[data-ai-guess]").first().textContent()).includes("Modules & boards"), "the guess names the part and its category");
+// On a desktop the row is a grid: the guess strip must not push the counting toggle into the photo column.
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.waitForTimeout(300);
+const wideRow = page.getByRole("listitem").filter({ has: page.locator("[data-ai-guess]") }).first();
+const toggleBox = await wideRow.getByRole("radio", { name: "Exact count" }).boundingBox();
+const stripBox = await wideRow.locator("[data-ai-guess]").boundingBox();
+check(toggleBox && toggleBox.width > 120 && stripBox && stripBox.y > toggleBox.y, "on a desktop the counting toggle keeps its column and the guess strip sits under the row: " + JSON.stringify({ toggle: toggleBox?.width, strip: stripBox?.y, toggleY: toggleBox?.y }));
+await page.screenshot({ path: `${shots}/ai-5a-wide.png`, fullPage: true });
+await page.setViewportSize({ width: 390, height: 844 });
 await page.locator("[data-ai-guess]").first().getByRole("button", { name: /^Use the AI's guess/ }).click();
 await page.getByRole("listitem", { name: "LM2596 buck module, done" }).waitFor({ timeout: 10000 });
 const quickSaved = await api("GET", `/items/${quick1.id}`);

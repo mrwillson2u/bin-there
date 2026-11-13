@@ -259,7 +259,7 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
       />
 
       {item.aiJob ? (
-        <div data-ai-job={item.aiJob.state} className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:col-span-5" aria-live="polite">
+        <div data-ai-job={item.aiJob.state} className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:order-last lg:col-start-2 lg:col-span-3" aria-live="polite">
           {item.aiJob.state === "failed" ? (
             <>
               <Sparkles size={16} className="shrink-0 text-danger" />
@@ -279,7 +279,7 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
           )}
         </div>
       ) : guess ? (
-        <div data-ai-guess className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:col-span-5">
+        <div data-ai-guess className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent/5 px-3 py-1.5 text-sm lg:order-last lg:col-start-2 lg:col-span-3">
           <Sparkles size={16} className="shrink-0 text-accent" />
           {guess.name || guess.category ? (
             <>
