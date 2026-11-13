@@ -13,7 +13,7 @@ export const scanMethodLabels: Record<ScanMethod, string> = {
 export const scanMethodHints: Record<ScanMethod, string> = {
   both: "Scan buttons open the camera, and the hardware scanner works on every screen too.",
   camera: "A phone without a scanner: scan buttons open the camera.",
-  scanner: "A station with a scanner and no camera: the camera never opens for scanning, and every screen says when a pull of the trigger will do something.",
+  scanner: "A station with a scanner and no camera: the camera never opens for scanning, and every screen says when a scan will do something.",
 };
 
 const SCAN_KEY = "bin-there:scan-method";
@@ -46,4 +46,3 @@ export function useScanMethod(): ScanMethod {
 }
 
 export const cameraAllowed = (m: ScanMethod) => m !== "scanner";
-export const scannerExpected = (m: ScanMethod) => m !== "camera";

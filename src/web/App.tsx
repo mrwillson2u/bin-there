@@ -5,7 +5,7 @@ import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
 import { useLiveUpdates } from "./live";
-import { cameraAllowed, scannerExpected, useScanMethod } from "./settings";
+import { cameraAllowed, useScanMethod } from "./settings";
 import { InventoryPage } from "./pages/InventoryPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PrintStickersPage } from "./pages/PrintStickersPage";
@@ -84,7 +84,6 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
   // becomes a status, since there's nothing to open.
   const method = useScanMethod();
   const camera = cameraAllowed(method);
-  const scanner = scannerExpected(method);
   const location = useLocation();
   // Visual confirmation of each scan. Restart the CSS animation without remounting the page,
   // so forms keep their state when a scan fills them in.
@@ -160,7 +159,6 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
               Scan with camera
             </button>
           )}
-          {scanner && <p className="text-xs text-muted">{camera ? "…or pull the scanner's trigger." : "Pull the scanner's trigger."}</p>}
         </div>
       </nav>
     </div>

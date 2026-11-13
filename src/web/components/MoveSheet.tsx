@@ -49,7 +49,8 @@ function Sheet({ item, start, onClose }: { item: ItemDetail; start: MoveStart; o
   const startPlace = start.kind === "place" ? item.places.find((p) => p.locationId === start.locationId) : undefined;
   const placeName = startPlace?.path.at(-1)?.name ?? "";
   const here = start.kind === "nowhere" ? active.filter((u) => u.locationId === null) : start.kind === "place" ? active.filter((u) => u.locationId === start.locationId) : [];
-  const [picked, setPicked] = useState<Set<number>>(() => new Set(startUnit ? [startUnit.id] : here.map((u) => u.id)));
+  // Pick which starts empty (tick or scan the ones to move), or with the unit whose row opened it.
+  const [picked, setPicked] = useState<Set<number>>(() => new Set(startUnit ? [startUnit.id] : []));
   const [some, setSome] = useState("");
   const [to, setTo] = useState<Dest | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -148,8 +149,11 @@ function Sheet({ item, start, onClose }: { item: ItemDetail; start: MoveStart; o
       return true;
     }
     setError(null);
+    // The first sticker scanned starts the selection (with the unit whose row opened the sheet);
+    // more scans add to it. A second read of the same sticker never unticks it.
+    if (chosen?.key !== "pick") setPicked(new Set([...(startUnit ? [startUnit.id] : []), u.id]));
+    else setPicked((p) => new Set(p).add(u.id));
     setChoice("pick");
-    setPicked((p) => new Set(p).add(u.id));
     return true;
   };
   useScanHandler((code) => {
@@ -184,11 +188,16 @@ function Sheet({ item, start, onClose }: { item: ItemDetail; start: MoveStart; o
             role="radio"
             aria-checked={o.key === chosen.key}
             tabIndex={0}
-            onClick={() => setChoice(o.key)}
+            onClick={(e) => {
+              setChoice(o.key);
+              // A tap doesn't leave keyboard focus behind: a hardware scan types like a keyboard,
+              // and the browser would then outline this choice as if it were a second selection.
+              if (e.detail > 0) e.currentTarget.blur();
+            }}
             onKeyDown={(e) => {
               if (e.key === " " || e.key === "Enter") setChoice(o.key);
             }}
-            className={`flex cursor-pointer gap-3 rounded-xl border px-3 py-2.5 ${o.key === chosen.key ? "border-accent bg-accent/10" : "border-border bg-bg"}`}
+            className={`flex cursor-pointer gap-3 rounded-xl border px-3 py-2.5 outline-none focus-visible:ring-2 focus-visible:ring-accent ${o.key === chosen.key ? "border-accent bg-accent/10" : "border-border bg-bg"}`}
           >
             <span className={`mt-0.5 h-[18px] w-[18px] shrink-0 rounded-full border-2 ${o.key === chosen.key ? "border-accent bg-accent shadow-[inset_0_0_0_3px_var(--color-bg)]" : "border-muted"}`} aria-hidden />
             <div className="min-w-0 flex-1">
@@ -222,7 +231,16 @@ function Sheet({ item, start, onClose }: { item: ItemDetail; start: MoveStart; o
           </button>
         </div>
       ) : (
-        <PickLocation title="Scan where it's going, or pick it" onPick={(l) => { setError(null); setTo(l); }} onCancel={onClose} near={near} onOtherScan={onUnitScan} />
+        <PickLocation
+          title={active.length > 1 ? "Scan where they're going, or scan the ones you want to move" : "Scan where it's going"}
+          onPick={(l) => {
+            setError(null);
+            setTo(l);
+          }}
+          onCancel={onClose}
+          near={near}
+          onOtherScan={onUnitScan}
+        />
       )}
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
@@ -232,7 +250,7 @@ function Sheet({ item, start, onClose }: { item: ItemDetail; start: MoveStart; o
         disabled={!ready}
         onClick={() => to && move.mutate({ option: chosen, dest: to }, { onSuccess: onClose })}
       >
-        Move {chosen.what()} to {to ? to.name : "…"}
+        {chosen.key === "pick" && picked.size === 0 ? "Tick or scan the ones to move" : `Move ${chosen.what()} to ${to ? to.name : "…"}`}
       </Button>
     </div>
   );

@@ -164,6 +164,31 @@ await moveButton().click();
 await toast("Moved all of it to Nano Tote").waitFor();
 check((await api("GET", `/items/${loose.id}`)).places.map((p) => p.locationId).join() === String(tote.id), "it's in the tote");
 
+// Scanning to choose: the prompt says a scan picks the ones to move too; Pick which starts empty;
+// a sticker scanned while All is chosen starts a selection of just that one.
+await page.goto(`${base}/items/${pack.id}`);
+await page.getByRole("button", { name: "Move: Nano Tote" }).click();
+await sheet().waitFor();
+check((await sheet().getByText("Scan where they're going, or scan the ones you want to move").count()) === 1, "the prompt says scanning picks the ones to move too");
+await sheet().getByRole("radio", { name: /^Pick which/ }).click();
+check((await sheet().getByRole("checkbox", { checked: true }).count()) === 0, "Pick which starts with none ticked");
+check((await sheet().getByRole("button", { name: "Tick or scan the ones to move" }).isDisabled()), "with none ticked the button says to tick or scan them");
+await sheet().getByRole("radio", { name: /^All 7 stickered ones/ }).click();
+await scan("BAT005");
+await page.waitForTimeout(300);
+check(await checked(/^Pick which/), "a sticker scanned while All is chosen switches to Pick which");
+check((await sheet().getByRole("checkbox", { checked: true }).count()) === 1 && (await sheet().getByRole("checkbox", { name: "Move BAT005" }).isChecked()), "with just the scanned one ticked");
+await scan("BAT006");
+await page.waitForTimeout(300);
+check((await sheet().getByRole("checkbox", { checked: true }).count()) === 2, "a second scan adds to it");
+await scan("BAT006");
+await page.waitForTimeout(300);
+check((await sheet().getByRole("checkbox", { checked: true }).count()) === 2, "scanning the same one again doesn't untick it");
+check((await moveButton().textContent()).trim() === "Move 2 to …", "Move 2 to …");
+await page.screenshot({ path: `${shots}/move-6-scan-to-pick.png` });
+await page.keyboard.press("Escape");
+await sheet().waitFor({ state: "detached" });
+
 // The same sheet on a computer: a centred panel.
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.goto(`${base}/items/${pack.id}`);

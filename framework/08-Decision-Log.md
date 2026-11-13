@@ -1678,8 +1678,8 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:**
 - **One Move sheet** (`MoveSheet.tsx`) for every move of a part's things: each place card on the part's page, each stickered unit's row, the new "No place yet" card, and the bin sheet's Move all open it, each worded "Move…". "Add another place" is gone: moving some of a part to a new spot covers it.
-- **It always asks what's moving, then where.** For stickered units: all of them (or all here), just this one, or Pick which (a checklist that opens when chosen; scanning a unit's sticker ticks it and switches to Pick which). For a counted part: all of its count from that place, or Some (a number). For an uncounted part: all of it, or some of it (it'll be in both places). When a part is in two or more places, Everything it has (the bulk move, DEC-057, now on the part's page too). Where it was opened only decides which choice starts ticked (a unit's row starts on Just this one); the choices and wording are the same from everywhere.
-- **Where to:** scan the place or pick it from the list; scanning a place's sticker sets or changes it.
+- **It always asks what's moving, then where.** For stickered units: all of them (or all here), just this one, or Pick which (a checklist that opens when chosen and starts empty, or with the unit whose row opened it; the first unit sticker scanned switches to Pick which with just that one, and more scans add to it; with none ticked the button reads "Tick or scan the ones to move"). For a counted part: all of its count from that place, or Some (a number). For an uncounted part: all of it, or some of it (it'll be in both places). When a part is in two or more places, Everything it has (the bulk move, DEC-057, now on the part's page too). Where it was opened only decides which choice starts ticked (a unit's row starts on Just this one); the choices and wording are the same from everywhere.
+- **Where to:** scan the place or pick it from the list; scanning a place's sticker sets or changes it. With several stickered units the prompt says both things a scan does ("Scan where they're going, or scan the ones you want to move", Colin's wording, after the first version said only "or pick it"); otherwise "Scan where it's going".
 - **The button says exactly what will happen:** "Move 7 to Nano Tote", "Move 10 to Bin 0043", "Move some to Workbench", "Move everything to Nano Tote". Nothing moves until it's pressed; the toast says the same and offers Undo.
 - **Many units, one step:** `POST /units/move` moves any of a part's stickered units in one undoable event. A unit with no home gets the place as its home, and so does the part if it has none; a checked-out unit is refused (check it in first).
 - **Stickered units count themselves:** where stickered ones land, an empty "not counted" entry for the part goes (so Colin's part fixes itself when he moves its seven units into Nano Tote), and moving everything a stickered-only part has makes none.
@@ -1687,6 +1687,21 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - **The part's ID** ("ID 24", the database's own number, never reused) sits by the name on the part's page and nowhere else.
 
 **Consequences:** Every move now takes the extra step of the sheet, even when there's one choice; seeing the same screen every time is the point. The old single-unit route (`POST /units/:id/move`) stays for the API. Not done: the same sheet for check out (it stays its own), for moving many parts at once (Select's bar, DEC-057, which already says how many parts), and for moving bins and boxes themselves. Checked in `move-check.mjs` (Colin's case end to end, a unit's row with a scanned sticker, some of a count, some of an uncounted part, a part with no place, Everything, Undo, the ID) and the API tests. Shipped to the live app on 2026-11-13 (backup `2026-11-13_121901`, `main` at f64913a); Colin's part was left for him to move with the new sheet, and the same move on a copy of the live data put the seven in Nano Tote as their home with the empty entry gone.
+
+### DEC-068: The app never tells you how to work a scanner
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin's instruction) |
+| **Deciders** | Colin |
+| **Category** | UX / Wording |
+
+**Context:** Every scan box said "Pull the scanner's trigger" (or "…or pull the scanner's trigger" under the camera button), and so did the scan panel in the sidebar and the Stickers screen's hint. Colin: it never needs saying, since it's a given, and some scanners have no trigger; on the Move sheet the line sat right under a heading that already said "Scan…", which made the grammar awkward.
+
+**Decision:** No screen tells you how to work a scanner. A scan box says what a scan does now ("Scan where it's going") and offers the camera button on devices that use one; where there's another way to do the same thing, the words before it are just "or you can" ("or you can Pick from list"). The sidebar's scan panel says what a scan does and nothing more. The Stickers screen's hint for scanner mode reads "Scan the sticker for the chosen bin."; the Settings description says "every screen says when a scan will do something".
+
+**Consequences:** The scanning setting (DEC-044) still decides whether the camera button shows; it no longer adds any words. New screens follow the same rule. Checked in `stickers-check.mjs` (no "trigger" anywhere on the screen in scanner-only mode) and the Move and bin-sheet checks.
 
 ## Decision Index
 
@@ -1759,6 +1774,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-065 | Names follow one rule and the owner's own names | Product / AI | Accepted | 2026-11-13 |
 | DEC-066 | Finding pages again: search engines that answer, off-topic hits dropped, part numbers read by the model | Architecture / AI | Accepted | 2026-11-13 |
 | DEC-067 | One Move sheet: it asks what's moving, then where, and says what it will do; each part shows its ID | UX | Accepted | 2026-11-13 |
+| DEC-068 | The app never tells you how to work a scanner | UX / Wording | Accepted | 2026-11-13 |
 
 ---
 

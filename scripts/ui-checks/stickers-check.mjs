@@ -162,7 +162,7 @@ check((await page.getByRole("button", { name: /^Scanner ready/ }).count()) === 1
 await page.getByRole("button", { name: "Stickers" }).click();
 await sheet().waitFor();
 check((await sheet().getByRole("group", { name: "Scan with" }).count()) === 0 && (await page.locator("video").count()) === 0 && (await sheet().getByText(`Scan the sticker for ${b4.name}`).count()) === 1, "scanner only: Stickers has no camera and no switch, just the scan target");
-check((await sheet().getByRole("button", { name: "Scan with camera" }).count()) === 0 && (await sheet().getByText("Pull the scanner's trigger").count()) >= 1, "…and the target says to pull the trigger, with no camera button");
+check((await sheet().getByRole("button", { name: "Scan with camera" }).count()) === 0 && (await sheet().locator("[data-scan-target]").count()) >= 1 && (await page.getByText(/trigger/i).count()) === 0, "…and the target shows with no camera button, and nothing says to pull a trigger");
 await sheet().getByRole("button", { name: "Done" }).click();
 await page.goto(`${base}/settings`);
 await scanning().getByRole("radio", { name: "Camera and scanner" }).click();

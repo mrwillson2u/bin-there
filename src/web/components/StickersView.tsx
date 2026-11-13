@@ -172,7 +172,7 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
     }
   };
 
-  // The hardware scanner's trigger is as deliberate as the Scan button, so on a chosen
+  // A hardware scan is as deliberate as the Scan button, so on a chosen
   // bin a scan goes straight on. With no bin chosen it just shows whose sticker it is,
   // and switches the screen to scanner mode with the first bare bin chosen (DEC-042).
   useScanHandler((code) => {
@@ -309,7 +309,7 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
               {status?.text ??
                 (mode === "camera"
                   ? "Tap a bin, aim at its sticker, then tap Scan. A dashed outline marks the bin that has the sticker you're aiming at."
-                  : "Pull the scanner's trigger on the sticker. A dashed outline marks the bin that already has a scanned sticker.")}
+                  : "Scan the sticker for the chosen bin. A dashed outline marks the bin that already has a scanned sticker.")}
             </p>
             {last && (
               <Button variant="ghost" onClick={() => undo.mutate(last)} disabled={undo.isPending} className="shrink-0">

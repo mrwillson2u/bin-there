@@ -53,7 +53,13 @@ export function PickLocation({
       what={title}
       actions={
         <>
-          {!browsing && <Button onClick={() => setBrowsing(true)}>Pick from list</Button>}
+          {!browsing && (
+            // Kept together, so "or you can" never breaks away from its button.
+            <span className="inline-flex items-center gap-2">
+              <span className="text-sm text-muted">or you can</span>
+              <Button onClick={() => setBrowsing(true)}>Pick from list</Button>
+            </span>
+          )}
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
         </>
       }

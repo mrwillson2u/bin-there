@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { ScanLine } from "lucide-react";
 import { useScan, useScanTarget, type CameraOptions } from "./ScanProvider";
-import { cameraAllowed, scannerExpected, useScanMethod } from "../settings";
+import { cameraAllowed, useScanMethod } from "../settings";
 import { Button, Card } from "../components/ui";
 
 // The one way the app says "a scan goes here" (DEC-044): a box outlined in the scan colour, the
 // scan icon, and a line saying what a scan does right now. What's inside follows the device's
-// scanning setting: a camera button, a word about the scanner's trigger, or both. While it's on
+// scanning setting: a camera button or not. Nothing tells you how to work a scanner (Colin,
+// 2026-11-13: it goes without saying, and some scanners have no trigger). While it's on
 // screen the bar says the same thing, so a glance at the same corner always tells you whether a
 // scan will do something or just open something. A scan writes only where one of these shows.
 
@@ -30,17 +31,14 @@ export function ScanTarget({ what, camera, actions, compact, big, children, clas
   const method = useScanMethod();
   useScanTarget(what);
   const withCamera = cameraAllowed(method);
-  const withScanner = scannerExpected(method);
-  const trigger = withScanner ? (withCamera ? "or pull the scanner's trigger" : "Pull the scanner's trigger") : null;
 
   if (compact) {
     return (
       <div className={`flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-scan/60 px-3 py-1.5 ${className}`} data-scan-target>
-        {/* The words keep a sensible width on a phone, so the trigger note and the button wrap under them instead of squeezing them to a word a line. */}
+        {/* The words keep a sensible width on a phone, so the buttons wrap under them instead of squeezing them to a word a line. */}
         <span className="flex min-w-[12rem] flex-1 items-center gap-2 text-sm font-semibold text-scan">
           <ScanLine size={18} className="shrink-0" /> {what}
         </span>
-        {trigger && <span className="text-[13px] text-muted">{trigger}</span>}
         {withCamera && (
           <Button variant="scan" onClick={() => openCamera(camera)} className="min-h-9 px-3 text-sm" aria-label={`${what}: open the camera`}>
             Camera
@@ -56,14 +54,13 @@ export function ScanTarget({ what, camera, actions, compact, big, children, clas
         <ScanLine size={big ? 24 : 20} className="shrink-0" /> {what}
       </p>
       {children}
-      {/* On a phone the big button takes the row and the trigger note sits under it, so the button's words never wrap. */}
+      {/* On a phone the big button takes the row, so its words never wrap. */}
       <div className={`flex flex-wrap items-center gap-2 ${big ? "flex-col items-stretch sm:flex-row sm:items-center" : ""}`}>
         {withCamera && (
           <Button variant="scan" onClick={() => openCamera(camera)} className={`whitespace-nowrap ${big ? "min-h-14 text-lg sm:flex-1" : ""}`}>
             <ScanLine size={big ? 22 : 18} /> Scan with camera
           </Button>
         )}
-        {trigger && <span className={`text-sm text-muted ${big ? "text-center sm:text-left" : ""} ${big && !withCamera ? "text-base" : ""}`}>{trigger}</span>}
         {actions}
       </div>
     </Card>

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, ImageOff } from "lucide-react";
@@ -58,8 +58,13 @@ export function Breadcrumbs({ path }: { path: Crumb[] }) {
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-2xl border border-border bg-surface ${className}`}>{children}</div>;
+/** Other attributes (a `data-` marker, a role) pass through to the box. */
+export function Card({ children, className = "", ...rest }: HTMLAttributes<HTMLDivElement> & { children: ReactNode; className?: string }) {
+  return (
+    <div {...rest} className={`rounded-2xl border border-border bg-surface ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {

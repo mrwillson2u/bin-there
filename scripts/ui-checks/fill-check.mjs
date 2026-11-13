@@ -172,7 +172,7 @@ check(!(await sheet().textContent()).includes("BIN0001"), "the pane doesn't show
 // The pane's Move opens the one Move sheet (DEC-067): what's moving, then where, then the button that says it.
 await sheet().getByRole("button", { name: "Move M3 washers" }).click();
 const mover = page.getByRole("dialog", { name: "Move M3 washers" });
-await mover.getByText("Scan where it's going, or pick it").waitFor();
+await mover.getByText("Scan where it's going", { exact: true }).waitFor();
 check((await mover.getByRole("radio", { name: /^All (\d+|of it) from Bin 0001/ }).getAttribute("aria-checked")) === "true", "the Move sheet starts on all of it from this bin");
 await mover.getByRole("button", { name: "Pick from list" }).click();
 await mover.getByText("Inside Screws box").waitFor();
