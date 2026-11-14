@@ -76,19 +76,17 @@ export const categories = sqliteTable("categories", {
 
 /**
  * A field in a category's template. `key` is the field's ID ("f12", DEC-071), never its name.
- * `perUnit` (DEC-062): each stickered unit holds its own value, not the part. `universal`
- * (DEC-071): the one field is used by several categories and its value follows the part.
+ * `perUnit` (DEC-062): each stickered unit holds its own value, not the part.
  */
-export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean; universal?: boolean };
+export type FieldDef = { key: string; label: string; type: "text" | "number" | "choice"; options?: string[]; perUnit?: boolean };
 
 /**
- * Every category field, once (DEC-071). Universal: used by any number of categories. Otherwise
- * category-only, owned by `categoryId`. A part's custom fields aren't here: `items.custom`.
+ * Every category field, once (DEC-071), owned by its one category (DEC-072). A part's custom
+ * fields aren't here: `items.custom`.
  */
 export const fields = sqliteTable("fields", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
-  universal: integer("universal", { mode: "boolean" }).notNull().default(false),
   categoryId: integer("category_id").references((): AnySQLiteColumn => categories.id),
 });
 

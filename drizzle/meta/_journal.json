@@ -155,6 +155,13 @@
       "when": 1794608584506,
       "tag": "0021_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1794619393796,
+      "tag": "0022_fields_one_category",
+      "breakpoints": true
     }
   ]
 }

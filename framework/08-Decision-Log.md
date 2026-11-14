@@ -1763,6 +1763,31 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** The same-named fields across Colin's categories (Voltage, Package, Type, Size, Length, Current, Part number, ID) are separate until he makes the ones that are really one universal, on the Categories screen. Per choice field, each category keeps its own options, also for a universal field. Search finds a part by the labels and values of the fields its page shows, and by its custom fields. Not done: a list of all fields in one place; making a field universal before a second category uses it; un-merging. Checked in the API tests (the three kinds through category changes, merge, the migration from the live database's shape) and `categories-check.mjs`, and the migration was run on a copy of the live data first. Shipped to the live app on 2026-11-13 (backup `2026-11-13_143450`, `main` at 55931d1, migration 0021 and the re-keying applied on the live database: every value and AI mark kept, the bearing's Width a custom field). A field's same-named twins in other categories show as one line with a button per category and All.
 
+### DEC-072: A field belongs to one category; a category change asks what to do with the old values
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, Q125) |
+| **Deciders** | Colin |
+| **Category** | Data / UX |
+| **Supersedes** | DEC-071's universal fields, the merge, and values left behind unseen |
+
+**Context:** With DEC-071 live, Colin looked at the Categories screen and said the universal-field controls didn't feel right. He had pictured a universal field as universal across every category or not at all; one shared by a chosen few categories was more complicated than the problem. He asked whether it was worth the trouble at all, or simpler to make nothing universal and ask, only when a part with category values changes category, what to do with those values. A field on every category makes no sense for most fields (a Voltage on hammers), the fields every part really has (part number, supplier) are already built in, and the only real gain of sharing was a value surviving a category change, which is rare and can be handled at that moment. Nothing on the live app had been made universal yet.
+
+**Decision:**
+- **Every field belongs to exactly one category.** Two categories can each have a Voltage; they are separate fields. Adding a field never asks about other categories. The Categories screen shows only each category's fields: the "universal / category-only" line, the "same field?" buttons and the "already exists" question are gone, with `POST /fields/merge`, `shareKey`, `FieldDef.universal`, `fields.universal` (migration 0022) and `ItemDetail.carried`.
+- **Changing the category of a part that holds values in its category's fields opens a dialog** (`CategoryChange.tsx`), on the part's form and on Fill in details. It lists each value and what keeping it means, and has three buttons that say their result: "Change category, keep these N values", "Change category, delete these N values", "Cancel, stay in <category>". A part with no such values changes category with no dialog. Taking a part out of its category altogether asks the same way.
+- **Kept**, a value goes into the new category's field of the same name when it fits (a choice field only takes one of its options; the AI's mark goes with it), and otherwise becomes a custom field of the part, named after its field (with the old category's name added when that name is taken, for example by the new category's own field). A stickered unit's own value (DEC-062) goes into the new category's same-named per-unit field, or becomes a custom field named with the unit's sticker ("Wear (BAT003)").
+- **Nothing stays hidden on the part.** After a category change a part holds values only under its new category's fields. (A field removed from a category still keeps its values unseen and gets them back when re-added, as before.)
+- **The rule lives in one place** (`leavingValues` in `src/shared/fields.ts`), used by the dialog and by `updateItem`. `PATCH /items/:id` takes `categoryValues: "keep" | "delete"`; left out it keeps, so bulk category changes and anything else that doesn't ask never lose a value.
+- **The one-time tidy** (`settleFields`, run when the database opens): a field several categories shared stays with the first and becomes a field of its own in each of the others, their parts' values re-keyed; a value a part held under another category's field, left behind unseen by an earlier category change, becomes one of its custom fields.
+- Field IDs, the naming convention, custom fields and the form's "Custom fields · only on this part" section stay as DEC-071 made them.
+
+**Consequences:** Simpler to explain and to use: fields are per category, custom fields are per part, and a category change says what it does. The same-named fields across Colin's categories need no decision any more. A value that doesn't fit the new category survives as a custom field, to be retyped where it belongs or removed. A bulk category change keeps values without asking. Checked in the API tests (keep, delete, a choice that fits and one that doesn't, unit values, the tidy from DEC-071's shape) and `categories-check.mjs` (the dialog on the form and on Fill in details, Cancel, no dialog when there's nothing to lose).
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1837,7 +1862,8 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-068 | The app never tells you how to work a scanner | UX / Wording | Accepted | 2026-11-13 |
 | DEC-069 | A part's own fields named like its category's become them; the category editor groups each field | Data / UX | Name matching superseded by DEC-071 | 2026-11-13 |
 | DEC-070 | Categories and Print stickers in the sidebar and the phone's Menu, not at the bottom of Locations | UX / Navigation | Accepted | 2026-11-13 |
-| DEC-071 | Fields have IDs; universal, category-only and custom fields | Data / UX | Accepted | 2026-11-13 |
+| DEC-071 | Fields have IDs; universal, category-only and custom fields | Data / UX | Accepted; universal fields superseded by DEC-072 | 2026-11-13 |
+| DEC-072 | A field belongs to one category; a category change asks what to do with the old values | Data / UX | Accepted | 2026-11-13 |
 
 ---
 

@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import type { Db } from "./db/client";
 import { categories, events, fields, itemHomes, items, locations, photos, pins, stock, units, type FieldDef, type StockRow } from "./db/schema";
-import { bare, createField, fieldName, fieldRow, isFieldKey, makeUniversal, renameField, universalFields } from "./fields";
+import { bare, createField, fieldName, isFieldKey, renameField } from "./fields";
+import { keptName, leavingValues } from "../shared/fields";
 import { ApiError } from "./errors";
 import { listEvents } from "./events";
 import { locationPath, outOf } from "./locations";
@@ -175,7 +176,6 @@ export function getItem(db: Db, id: number): ItemDetail {
     fieldDefs: cat?.fieldDefs ?? [],
     attributes: Object.fromEntries(Object.entries(item.attributes).map(([k, v]) => [k, String(v)])),
     custom: item.custom ?? {},
-    carried: carriedFields(db, item.attributes, cat?.fieldDefs ?? []),
     price: item.price,
     supplier: item.supplier,
     supplierPn: item.supplierPn,
@@ -213,8 +213,8 @@ export function indexItem(db: Db, id: number) {
   if (!item || item.archived) return;
   const cat = item.categoryId ? db.select({ name: categories.name, fieldDefs: categories.fieldDefs }).from(categories).where(eq(categories.id, item.categoryId)).get() : undefined;
   const codes = db.select({ code: units.code }).from(units).where(eq(units.itemId, id)).all().map((u) => u.code);
-  // What the part's page shows (DEC-071): its category's fields and the universal ones it carries, by label, and its custom fields.
-  const shown = [...(cat?.fieldDefs ?? []), ...carriedFields(db, item.attributes, cat?.fieldDefs ?? [])];
+  // What the part's page shows (DEC-071): its category's fields, by label, and its custom fields.
+  const shown = cat?.fieldDefs ?? [];
   const fieldWords = shown.flatMap((f) => (item.attributes[f.key] ? [f.label, item.attributes[f.key]] : []));
   const details = [item.notes, item.supplier, item.supplierPn, ...fieldWords, ...Object.entries(item.custom ?? {}).flat(), ...codes]
     .filter(Boolean)
@@ -527,7 +527,7 @@ export function updateItem(db: Db, id: number, input: UpdateItem): ItemDetail {
     const cat = db.select({ id: categories.id }).from(categories).where(eq(categories.id, input.categoryId)).get();
     if (!cat) throw new ApiError(400, "VALIDATION", `Category ${input.categoryId} does not exist`);
   }
-  const { needsDetails, attributes, custom, ...rest } = input;
+  const { needsDetails, attributes, custom, categoryValues, ...rest } = input;
   // A part comes off the Needs details list once it has a name and a category (DEC-007, Q47).
   const name = input.name ?? before.name;
   const categoryId = input.categoryId !== undefined ? input.categoryId : before.categoryId;
@@ -535,13 +535,12 @@ export function updateItem(db: Db, id: number, input: UpdateItem): ItemDetail {
   const bad = Object.keys(attributes ?? {}).find((k) => !isFieldKey(k));
   if (bad) throw new ApiError(400, "VALIDATION", `${bad} isn't a field; a field of the part's own goes in custom`);
   const values: Record<string, string | number> = attributes ? Object.fromEntries(Object.entries(attributes).filter(([, v]) => v !== "")) : { ...before.attributes };
+  const template = categoryId ? (db.select({ f: categories.fieldDefs }).from(categories).where(eq(categories.id, categoryId)).get()?.f ?? []) : [];
   let customNext: Record<string, string> | undefined;
   if (custom) {
-    // A custom field named like one of the category's fields, or like a universal field, is that
-    // field: names are checked here, once, so the two never sit side by side.
-    const template = categoryId ? (db.select({ f: categories.fieldDefs }).from(categories).where(eq(categories.id, categoryId)).get()?.f ?? []) : [];
+    // A custom field named like one of the category's fields is that field: names are checked
+    // here, once, so the two never sit side by side.
     const known = new Map<string, { key: string; label: string }>();
-    for (const [key, label] of universalFields(db)) known.set(bare(label), { key, label });
     for (const f of template) if (!f.perUnit) known.set(bare(f.label), { key: f.key, label: f.label });
     customNext = {};
     for (const [rawName, value] of Object.entries(custom)) {
@@ -553,18 +552,62 @@ export function updateItem(db: Db, id: number, input: UpdateItem): ItemDetail {
       else throw new ApiError(400, "VALIDATION", `${match.label} is already one of this part's fields; change it there`);
     }
   }
-  const writeAttributes = !!attributes || !!custom;
+  // A field belongs to one category (DEC-072): on a category change, what the part held in the
+  // old category's fields is kept (in the new category's same-named field if it fits, else as a
+  // custom field) or deleted. Nothing of another category stays on the part.
+  const unitWrites = new Map<number, Record<string, string>>();
+  let marks: Record<string, unknown> | undefined;
+  const movedMarks = new Map<string, string>();
+  if (categoryId !== before.categoryId) {
+    const old = before.categoryId ? db.select().from(categories).where(eq(categories.id, before.categoryId)).get() : undefined;
+    const unitRows = db.select({ id: units.id, code: units.code, attributes: units.attributes }).from(units).where(eq(units.itemId, id)).all();
+    const leaving = leavingValues(old?.fieldDefs ?? [], template, values, unitRows);
+    const kept = customNext ?? { ...(before.custom ?? {}) };
+    const taken = (n: string) => n in kept || template.some((f) => bare(f.label) === bare(n));
+    for (const l of leaving) {
+      const own = l.unitId ? (unitWrites.get(l.unitId) ?? { ...(unitRows.find((u) => u.id === l.unitId)!.attributes ?? {}) }) : null;
+      if (own) unitWrites.set(l.unitId!, own);
+      if (categoryValues !== "delete") {
+        if (l.into) (own ?? values)[l.into] = l.value;
+        else kept[keptName(l, old?.name ?? "old", taken)] = l.value;
+        if (l.into && !own) movedMarks.set(`attributes.${l.key}`, `attributes.${l.into}`);
+      }
+    }
+    // Nothing under a field the new category doesn't have goes with the part.
+    const stays = new Set(template.map((f) => f.key));
+    for (const k of Object.keys(values)) if (!stays.has(k)) delete values[k];
+    for (const u of unitRows) {
+      const own = unitWrites.get(u.id) ?? { ...(u.attributes ?? {}) };
+      const gone = Object.keys(own).filter((k) => !stays.has(k));
+      if (gone.length === 0 && !unitWrites.has(u.id)) continue;
+      for (const k of gone) delete own[k];
+      unitWrites.set(u.id, own);
+    }
+    const aiNow = (input.aiFields ?? before.aiFields ?? {}) as Record<string, unknown>;
+    if (Object.keys(aiNow).some((k) => k.startsWith("attributes.") && !stays.has(k.slice(11)))) {
+      // The AI's mark follows a value into its new field; the marks of values that left go.
+      marks = Object.fromEntries(
+        Object.entries(aiNow)
+          .map(([k, v]) => [movedMarks.get(k) ?? k, v] as [string, unknown])
+          .filter(([k]) => !k.startsWith("attributes.") || stays.has(k.slice(11))),
+      );
+    }
+    if (leaving.length > 0 || custom) customNext = kept;
+  }
+  const writeAttributes = !!attributes || !!custom || categoryId !== before.categoryId;
   db.transaction(() => {
     db.update(items)
       .set({
         ...rest,
         ...(writeAttributes ? { attributes: values } : {}),
         ...(customNext ? { custom: customNext } : {}),
+        ...(marks ? { aiFields: marks as typeof before.aiFields } : {}),
         needsDetails: needsDetails ?? !(name && categoryId),
         updatedAt: sql`(datetime('now'))`,
       })
       .where(eq(items.id, id))
       .run();
+    for (const [unitId, own] of unitWrites) db.update(units).set({ attributes: own }).where(eq(units.id, unitId)).run();
     // Switching tracking mode converts the stock so nothing is lost.
     if (input.tracking && input.tracking !== before.tracking) {
       const rows = db.select().from(stock).where(eq(stock.itemId, id)).all();
@@ -689,15 +732,6 @@ function toCategory(c: typeof categories.$inferSelect): Category {
   return { id: c.id, name: c.name, defaultKind: c.defaultKind, defaultTracking: c.defaultTracking, fieldDefs: c.fieldDefs };
 }
 
-/** Universal fields a part holds a value for that its category's template doesn't have (DEC-071). */
-function carriedFields(db: Db, attributes: Record<string, string | number>, template: FieldDef[]): { key: string; label: string }[] {
-  const inTemplate = new Set(template.map((f) => f.key));
-  const held = Object.keys(attributes).filter((k) => !inTemplate.has(k) && String(attributes[k]).trim());
-  if (held.length === 0) return [];
-  const universal = universalFields(db);
-  return held.filter((k) => universal.has(k)).map((k) => ({ key: k, label: universal.get(k)! }));
-}
-
 export function createCategory(
   db: Db,
   input: { name: string; defaultKind?: "consumable" | "returnable"; defaultTracking?: "exact" | "level"; fields?: string[] },
@@ -722,9 +756,9 @@ export function createCategory(
 
 /**
  * Edit a category (DEC-056, DEC-071). A field is known by its key, its ID, so renaming or moving
- * it keeps the parts' values; renaming renames the one field, in every category that uses it.
- * A new entry makes a category-only field, or with `shareKey` uses an existing field, which
- * becomes universal. A field left out leaves the template; its values stay with the parts. Two
+ * it keeps the parts' values.
+ * A new entry makes a field of this category's own, whatever other categories call theirs
+ * (DEC-072). A field left out leaves the template; its values stay with the parts. Two
  * fields of one name can't be in one category. The category's parts are re-indexed for search.
  */
 export function updateCategory(db: Db, id: number, input: UpdateCategory): Category {
@@ -739,29 +773,19 @@ export function updateCategory(db: Db, id: number, input: UpdateCategory): Categ
   if (input.defaultKind !== undefined) changes.defaultKind = input.defaultKind;
   if (input.defaultTracking !== undefined) changes.defaultTracking = input.defaultTracking;
   const renames: [string, string][] = [];
-  const shared: string[] = [];
   if (input.fieldDefs !== undefined) {
     const names = new Set<string>();
     const next: FieldDef[] = [];
     for (const f of input.fieldDefs) {
       const existing = f.key ? current.fieldDefs.find((d) => d.key === f.key) : undefined;
-      let label = fieldName(f.label);
+      const label = fieldName(f.label);
       let key: string;
-      let universal = existing?.universal ?? false;
       if (existing) {
         key = existing.key;
         if (label !== existing.label) renames.push([key, label]);
-      } else if (f.shareKey) {
-        // An existing field, another category's: the same field here too, so it's universal now.
-        const row = fieldRow(db, f.shareKey);
-        if (!row) throw new ApiError(400, "VALIDATION", "That field doesn't exist any more");
-        key = f.shareKey;
-        label = row.name;
-        universal = true;
-        shared.push(key);
       } else {
         // A field this category had before and dropped comes back as itself, with the parts' values.
-        const old = db.select().from(fields).where(and(eq(fields.categoryId, id), eq(fields.universal, false))).all().find((r) => bare(r.name) === bare(label) && !current.fieldDefs.some((d) => d.key === `f${r.id}`));
+        const old = db.select().from(fields).where(eq(fields.categoryId, id)).all().find((r) => bare(r.name) === bare(label) && !current.fieldDefs.some((d) => d.key === `f${r.id}`));
         if (old) {
           key = `f${old.id}`;
           if (old.name !== label) renames.push([key, label]);
@@ -773,17 +797,12 @@ export function updateCategory(db: Db, id: number, input: UpdateCategory): Categ
       // A choice field's options, each once (DEC-059); turning a field back to text drops them.
       const options = type === "choice" ? [...new Set(f.options ?? existing?.options ?? [])] : undefined;
       const perUnit = f.perUnit ?? existing?.perUnit ?? false;
-      next.push({ key, label, type, ...(options ? { options } : {}), ...(perUnit ? { perUnit } : {}), ...(universal ? { universal } : {}) });
+      next.push({ key, label, type, ...(options ? { options } : {}), ...(perUnit ? { perUnit } : {}) });
     }
     changes.fieldDefs = next;
   }
   if (Object.keys(changes).length > 0) db.update(categories).set(changes).where(eq(categories.id, id)).run();
   for (const [key, name] of renames) renameField(db, key, name);
-  for (const key of shared) makeUniversal(db, key);
-  if (renames.length > 0 || shared.length > 0) {
-    // Other categories' parts show the field too: their search words follow.
-    for (const row of db.select({ id: items.id }).from(items).where(ne(items.categoryId, id)).all()) indexItem(db, row.id);
-  }
   if (changes.fieldDefs || changes.name) {
     for (const row of db.select({ id: items.id }).from(items).where(eq(items.categoryId, id)).all()) indexItem(db, row.id);
   }
@@ -795,9 +814,7 @@ export function deleteCategory(db: Db, id: number): void {
   if (!db.select({ id: categories.id }).from(categories).where(eq(categories.id, id)).get()) throw new ApiError(404, "NOT_FOUND", "Category not found");
   const used = db.select({ n: sql<number>`count(*)` }).from(items).where(and(eq(items.categoryId, id), eq(items.archived, false))).get()!.n;
   if (used > 0) throw new ApiError(409, "CONFLICT", `${used} ${used === 1 ? "part uses" : "parts use"} this category; move them first`);
-  // Its category-only fields go with it; a universal one it happened to own stays.
-  db.delete(fields).where(and(eq(fields.categoryId, id), eq(fields.universal, false))).run();
-  db.update(fields).set({ categoryId: null }).where(eq(fields.categoryId, id)).run();
+  db.delete(fields).where(eq(fields.categoryId, id)).run();
   db.delete(categories).where(eq(categories.id, id)).run();
 }
 

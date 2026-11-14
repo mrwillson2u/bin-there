@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Plus, Tags, Trash2, X } from "lucide-react";
 import { fieldTypeLabels, fieldTypes, itemKindLabels, itemKinds, trackingLabels, trackingModes, type Category, type CategoryUsage, type FieldDef, type UpdateCategory } from "../../shared/api";
-import { bare, fieldName } from "../../shared/fields";
+import { fieldName } from "../../shared/fields";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
 import { Button, inputClass } from "../components/ui";
@@ -14,7 +14,8 @@ import { Button, inputClass } from "../components/ui";
 // stored on the parts, unseen, and come back if the field is added again under the same name.
 // A category parts still use can't be deleted (bulk editing moves them). A field is Text or
 // Choice (DEC-059): a choice field lists its options, which the part's form offers in a drop-down
-// and the AI picks from.
+// and the AI picks from. A field belongs to its one category (DEC-072): two categories can each
+// have a Voltage, and they are separate fields.
 
 export function CategoriesPage() {
   const qc = useQueryClient();
@@ -59,7 +60,7 @@ export function CategoriesPage() {
 
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start">
         {categories.map((c) => (
-          <CategoryCard key={c.id} category={c} all={categories} usage={usage[c.id] ?? { items: 0, fields: {} }} />
+          <CategoryCard key={c.id} category={c} usage={usage[c.id] ?? { items: 0, fields: {} }} />
         ))}
       </div>
       <p className="text-[13px] text-muted">
@@ -69,7 +70,7 @@ export function CategoriesPage() {
   );
 }
 
-function CategoryCard({ category: c, all, usage }: { category: Category; all: Category[]; usage: CategoryUsage }) {
+function CategoryCard({ category: c, usage }: { category: Category; usage: CategoryUsage }) {
   const qc = useQueryClient();
   const toast = useToast();
   const [name, setName] = useState(c.name);
@@ -81,33 +82,6 @@ function CategoryCard({ category: c, all, usage }: { category: Category; all: Ca
   const [perUnitTapped, setPerUnitTapped] = useState<Record<string, boolean>>({});
   const [newField, setNewField] = useState("");
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
-  // A new field whose name other categories already use (DEC-071): the same field, or a separate one?
-  const [asking, setAsking] = useState<string | null>(null);
-  // A universal field renamed from another category's card shows its new name here too.
-  const namesNow = c.fieldDefs.map((f) => `${f.key}=${f.label}`).join("|");
-  useEffect(() => {
-    setLabels(Object.fromEntries(c.fieldDefs.map((f) => [f.key, f.label])));
-  }, [namesNow]);
-  // The other categories' fields, by key: what a field here is shared with, or could be.
-  const others = all.filter((x) => x.id !== c.id);
-  const usedIn = (key: string) => others.filter((x) => x.fieldDefs.some((d) => d.key === key)).map((x) => x.name);
-  const sameNamed = (label: string) => {
-    const mine = new Set(c.fieldDefs.map((f) => f.key));
-    const found = new Map<string, { key: string; label: string; in: string[] }>();
-    for (const x of others)
-      for (const d of x.fieldDefs)
-        if (bare(d.label) === bare(label) && !mine.has(d.key)) found.set(d.key, { key: d.key, label: d.label, in: [...(found.get(d.key)?.in ?? []), x.name] });
-    return [...found.values()];
-  };
-  const merge = useMutation({
-    mutationFn: (v: { key: string; withKey: string }) => api<Category[]>("/fields/merge", { method: "POST", body: v }),
-    onSuccess: (cats) => {
-      qc.setQueryData<Category[]>(["categories"], cats);
-      for (const key of ["item", "items", "categories"]) qc.invalidateQueries({ queryKey: [key] });
-    },
-    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
-  });
-
   const patch = useMutation({
     mutationFn: (body: UpdateCategory) => api<Category>(`/categories/${c.id}`, { method: "PATCH", body }),
     onSuccess: (updated) => {
@@ -129,7 +103,7 @@ function CategoryCard({ category: c, all, usage }: { category: Category; all: Ca
   });
 
   const fields = c.fieldDefs.map((f) => ({ key: f.key, label: labels[f.key] ?? f.label, type: f.type === "choice" ? ("choice" as const) : ("text" as const), options: f.options, perUnit: f.perUnit }));
-  type FieldIn = { key?: string; label: string; type?: "text" | "choice"; options?: string[]; perUnit?: boolean; shareKey?: string };
+  type FieldIn = { key?: string; label: string; type?: "text" | "choice"; options?: string[]; perUnit?: boolean };
   const saveFields = (next: FieldIn[]) => patch.mutate({ fieldDefs: next });
   const parseOptions = (text: string) => text.split(/[,\n]/).map((o) => o.trim()).filter(Boolean);
   const setPerUnit = (key: string, perUnit: boolean) => {
@@ -158,15 +132,8 @@ function CategoryCard({ category: c, all, usage }: { category: Category; all: Ca
   const addField = () => {
     const label = fieldName(newField);
     if (!label) return;
-    // Another category already has a field of this name: ask whether it's the same field (DEC-071).
-    if (sameNamed(label).length > 0) return setAsking(label);
     setNewField("");
     saveFields([...fields, { label }]);
-  };
-  const addAs = (label: string, shareKey?: string) => {
-    setAsking(null);
-    setNewField("");
-    saveFields([...fields, { label, ...(shareKey ? { shareKey } : {}) }]);
   };
 
   return (
@@ -254,63 +221,6 @@ function CategoryCard({ category: c, all, usage }: { category: Category; all: Ca
                   Each stickered one has its own
                 </label>
               </div>
-              {/* What kind of field it is (DEC-071), and the offer to make two same-named fields one. */}
-              {(() => {
-                const def = c.fieldDefs.find((d) => d.key === f.key);
-                const shared = usedIn(f.key);
-                const twins = def?.universal ? [] : sameNamed(f.label);
-                return (
-                  <div className="flex flex-col gap-1 pl-1 text-[13px] text-muted" data-field-kind={def?.universal ? "universal" : "category-only"}>
-                    <span>
-                      {def?.universal ? (
-                        <>
-                          <span className="font-medium text-info">Universal field</span>
-                          {shared.length > 0 ? ` · also in ${shared.join(", ")}` : ""}. Its value follows a part into any category.
-                        </>
-                      ) : (
-                        <>
-                          <span className="font-medium text-text">Category-only field</span>. Its value stays with {c.name}.
-                        </>
-                      )}
-                    </span>
-                    {twins.length > 0 && (
-                      <span className="flex flex-wrap items-center gap-1.5" data-same-name>
-                        <span>
-                          {twins.length === 1 ? `${twins[0]!.in.join(", ")} has` : `${twins.length} other categories have`} a separate field named {f.label}. Same field? Make it universal with:
-                        </span>
-                        {twins.map((t) => (
-                          <button
-                            key={t.key}
-                            type="button"
-                            disabled={merge.isPending}
-                            onClick={() => {
-                              if (window.confirm(`Make ${f.label} one universal field shared by ${c.name} and ${t.in.join(", ")}? Parts keep their values, and the value will follow a part between these categories. This can't be undone.`)) merge.mutate({ key: f.key, withKey: t.key });
-                            }}
-                            className="rounded-lg border border-accent/50 px-2 py-0.5 font-medium text-accent"
-                            aria-label={`Make ${f.label} of ${c.name} the same field as in ${t.in.join(", ")}`}
-                          >
-                            {t.in.join(", ")}
-                          </button>
-                        ))}
-                        {twins.length > 1 && (
-                          <button
-                            type="button"
-                            disabled={merge.isPending}
-                            onClick={async () => {
-                              if (!window.confirm(`Make ${f.label} one universal field shared by ${c.name} and all ${twins.length} of these categories? Parts keep their values. This can't be undone.`)) return;
-                              for (const t of twins) await merge.mutateAsync({ key: f.key, withKey: t.key });
-                            }}
-                            className="rounded-lg border border-accent bg-accent/10 px-2 py-0.5 font-semibold text-accent"
-                            aria-label={`Make ${f.label} of ${c.name} the same field in all ${twins.length} other categories`}
-                          >
-                            All {twins.length}
-                          </button>
-                        )}
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
               {confirmRemove === f.key && (
                 <p className="rounded-lg bg-warn/10 px-3 py-2 text-[13px] text-warn" role="alert">
                   {usage.fields[f.key]} {usage.fields[f.key] === 1 ? "part has" : "parts have"} a value in {f.label}. Removing the field hides those values; they come back if
@@ -338,24 +248,6 @@ function CategoryCard({ category: c, all, usage }: { category: Category; all: Ca
             <Plus size={18} /> Add
           </Button>
         </form>
-        {asking && (
-          <div className="flex flex-col gap-2 rounded-xl border border-accent/50 bg-accent/5 p-3 text-sm" role="group" aria-label={`${asking} already exists`}>
-            <p>
-              <span className="font-semibold">{asking}</span> is already a field in another category. Is this the same field?
-            </p>
-            {sameNamed(asking).map((t) => (
-              <Button key={t.key} type="button" onClick={() => addAs(t.label, t.key)} className="justify-start text-left">
-                Use the {t.label} of {t.in.join(", ")} (universal: its value follows a part between them)
-              </Button>
-            ))}
-            <Button type="button" onClick={() => addAs(asking)} className="justify-start text-left">
-              Make a separate {asking}, only for {c.name}
-            </Button>
-            <Button type="button" variant="ghost" className="self-start" onClick={() => setAsking(null)}>
-              Cancel
-            </Button>
-          </div>
-        )}
       </div>
 
       <div className="flex items-center gap-2">

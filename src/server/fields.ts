@@ -2,16 +2,13 @@ import { eq } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "./db/schema";
 import { categories, fields, items, units, type FieldDef } from "./db/schema";
-import { ApiError } from "./errors";
 import { bare, fieldName } from "../shared/fields";
 
-// Fields (DEC-071). Every category field is one row in `fields` with its own ID; its key
+// Fields (DEC-071, DEC-072). Every category field is one row in `fields` with its own ID; its key
 // everywhere else ("f12" in a category's template, a part's values, a unit's values, the AI
-// marks) is that ID, never its name. Three kinds:
-//   universal      one field used by any number of categories; its value follows the part
-//   category-only  belongs to one category; its value stays behind when the part leaves
-//   custom         on one part only: `items.custom`, by name, a separate store
-// Names are compared in one place only, when a field is made, to offer an existing one.
+// marks) is that ID, never its name. A field belongs to exactly one category. A part can also
+// have custom fields of its own: `items.custom`, by name, a separate store. When a part changes
+// category, what it held in the old category's fields is kept or deleted (`updateItem`).
 
 type Db = BetterSQLite3Database<typeof schema>;
 
@@ -30,11 +27,6 @@ export function createField(db: Db, name: string, categoryId: number | null): st
   return keyOf(db.insert(fields).values({ name, categoryId }).returning({ id: fields.id }).get().id);
 }
 
-/** Every universal field: key to name. */
-export function universalFields(db: Db): Map<string, string> {
-  return new Map(db.select().from(fields).where(eq(fields.universal, true)).all().map((f) => [keyOf(f.id), f.name]));
-}
-
 /** Change a field's entry in every category's template that has it. */
 function rewriteEverywhere(db: Db, key: string, change: (d: FieldDef) => FieldDef) {
   for (const c of db.select({ id: categories.id, fieldDefs: categories.fieldDefs }).from(categories).all()) {
@@ -49,64 +41,121 @@ export function renameField(db: Db, key: string, name: string) {
   rewriteEverywhere(db, key, (d) => ({ ...d, label: name }));
 }
 
-export function makeUniversal(db: Db, key: string) {
-  db.update(fields).set({ universal: true, categoryId: null }).where(eq(fields.id, idOf(key))).run();
-  rewriteEverywhere(db, key, (d) => ({ ...d, universal: true }));
-}
-
 const rekeyMap = <V>(map: Record<string, V>, from: string, to: string): Record<string, V> | null => {
   if (!(from in map)) return null;
   const { [from]: moved, ...rest } = map;
-  return to in rest && String(rest[to] ?? "").trim() ? rest : { ...rest, [to]: moved! };
+  return { ...rest, [to]: moved! };
 };
 
 /**
- * Two fields are really one (the Voltage of Capacitors and the Voltage of Resistors): `other`
- * becomes `keep` everywhere, and `keep` is universal. A part or unit holding a value under both
- * keeps the one under `keep`. Refused when one category has both. Returns the parts changed.
+ * Bring a database to "a field belongs to one category" (DEC-072), once. A field several
+ * categories shared (DEC-071's universal fields) stays with the first and becomes a field of its
+ * own in each of the others, their parts' values re-keyed. A value a part holds under another
+ * category's field, left behind by an earlier category change, becomes one of its custom fields.
+ * Values under a field its own category dropped are left alone (they come back with the field).
+ * Safe to run again. Returns the parts changed, for re-indexing.
  */
-export function mergeFields(db: Db, keep: string, other: string): number[] {
-  const a = fieldRow(db, keep);
-  const b = fieldRow(db, other);
-  if (!a || !b || keep === other) throw new ApiError(400, "VALIDATION", "Those aren't two different fields");
-  const cats = db.select({ id: categories.id, name: categories.name, fieldDefs: categories.fieldDefs }).from(categories).all();
-  const both = cats.find((c) => c.fieldDefs.some((d) => d.key === keep) && c.fieldDefs.some((d) => d.key === other));
-  if (both) throw new ApiError(400, "VALIDATION", `${both.name} has both of those fields; remove one there first`);
-  const changed: number[] = [];
+export function settleFields(db: Db): number[] {
+  const changed = new Set<number>();
   db.transaction((tx) => {
+    const cats = tx.select().from(categories).all();
+    const owner = new Map<string, number>();
     for (const c of cats) {
-      if (!c.fieldDefs.some((d) => d.key === other)) continue;
-      tx.update(categories).set({ fieldDefs: c.fieldDefs.map((d) => (d.key === other ? { ...d, key: keep, label: a.name } : d)) }).where(eq(categories.id, c.id)).run();
+      let touched = false;
+      const next: FieldDef[] = [];
+      for (const d of c.fieldDefs) {
+        const { universal, ...def } = d as FieldDef & { universal?: boolean };
+        if (universal !== undefined) touched = true;
+        if (!owner.has(def.key)) {
+          owner.set(def.key, c.id);
+          next.push(def);
+          continue;
+        }
+        const key = keyOf(tx.insert(fields).values({ name: def.label, categoryId: c.id }).returning({ id: fields.id }).get().id);
+        owner.set(key, c.id);
+        touched = true;
+        next.push({ ...def, key });
+        for (const i of tx.select().from(items).where(eq(items.categoryId, c.id)).all()) {
+          const attributes = rekeyMap(i.attributes, def.key, key);
+          const aiFields = rekeyMap(i.aiFields ?? {}, `attributes.${def.key}`, `attributes.${key}`);
+          const hit = i.aiResult?.suggestions.some((s) => s.field === `attributes.${def.key}`);
+          if (attributes || aiFields || hit) {
+            tx.update(items)
+              .set({
+                ...(attributes ? { attributes } : {}),
+                ...(aiFields ? { aiFields } : {}),
+                ...(hit ? { aiResult: { ...i.aiResult!, suggestions: i.aiResult!.suggestions.map((s) => (s.field === `attributes.${def.key}` ? { ...s, field: `attributes.${key}` } : s)) } } : {}),
+              })
+              .where(eq(items.id, i.id))
+              .run();
+            changed.add(i.id);
+          }
+          for (const u of tx.select({ id: units.id, attributes: units.attributes }).from(units).where(eq(units.itemId, i.id)).all()) {
+            const own = rekeyMap(u.attributes ?? {}, def.key, key);
+            if (own) tx.update(units).set({ attributes: own }).where(eq(units.id, u.id)).run();
+          }
+        }
+      }
+      if (touched) {
+        tx.update(categories).set({ fieldDefs: next }).where(eq(categories.id, c.id)).run();
+        c.fieldDefs = next;
+      }
     }
-    for (const i of tx.select({ id: items.id, attributes: items.attributes, aiFields: items.aiFields, aiResult: items.aiResult }).from(items).all()) {
-      const attributes = rekeyMap(i.attributes, other, keep);
-      const aiFields = rekeyMap(i.aiFields ?? {}, `attributes.${other}`, `attributes.${keep}`);
-      const hit = i.aiResult?.suggestions.some((s) => s.field === `attributes.${other}`);
-      if (!attributes && !aiFields && !hit) continue;
+    const rows = new Map(tx.select().from(fields).all().map((f) => [keyOf(f.id), f]));
+    for (const [key, row] of rows) {
+      const cat = owner.get(key);
+      if (cat !== undefined && row.categoryId !== cat) {
+        tx.update(fields).set({ categoryId: cat }).where(eq(fields.id, row.id)).run();
+        row.categoryId = cat;
+      }
+    }
+    const catName = new Map(cats.map((c) => [c.id, c.name]));
+    const template = new Map(cats.map((c) => [c.id, c.fieldDefs]));
+    // Whose field a stored key is: a value under another category's field is a leftover.
+    const foreign = (key: string, categoryId: number | null) => rows.get(key)?.categoryId !== categoryId || categoryId === null;
+    for (const i of tx.select().from(items).all()) {
+      const defs = i.categoryId ? (template.get(i.categoryId) ?? []) : [];
+      const mine = new Set(defs.map((d) => d.key));
+      const custom = { ...(i.custom ?? {}) };
+      const taken = (name: string) => name in custom || defs.some((d) => bare(d.label) === bare(name));
+      const place = (key: string, value: string, suffix: string) => {
+        const row = rows.get(key);
+        const from = row?.categoryId ? catName.get(row.categoryId) : undefined;
+        const name = `${row?.name ?? key}${suffix}`;
+        custom[taken(name) ? `${name} (${from ?? "old"})` : name] ??= value;
+      };
+      const loose = Object.keys(i.attributes).filter((k) => !mine.has(k) && foreign(k, i.categoryId));
+      for (const k of loose) if (String(i.attributes[k]).trim()) place(k, String(i.attributes[k]), "");
+      let unitMoved = false;
+      for (const u of tx.select({ id: units.id, code: units.code, attributes: units.attributes }).from(units).where(eq(units.itemId, i.id)).all()) {
+        const own = u.attributes ?? {};
+        const out = Object.keys(own).filter((k) => !mine.has(k) && foreign(k, i.categoryId));
+        if (out.length === 0) continue;
+        for (const k of out) if (String(own[k]).trim()) place(k, String(own[k]), ` (${u.code})`);
+        tx.update(units).set({ attributes: Object.fromEntries(Object.entries(own).filter(([k]) => !out.includes(k))) }).where(eq(units.id, u.id)).run();
+        unitMoved = true;
+      }
+      if (loose.length === 0 && !unitMoved) continue;
       tx.update(items)
         .set({
-          ...(attributes ? { attributes } : {}),
-          ...(aiFields ? { aiFields } : {}),
-          ...(hit ? { aiResult: { ...i.aiResult!, suggestions: i.aiResult!.suggestions.map((s) => (s.field === `attributes.${other}` ? { ...s, field: `attributes.${keep}` } : s)) } } : {}),
+          attributes: Object.fromEntries(Object.entries(i.attributes).filter(([k]) => !loose.includes(k))),
+          custom,
+          aiFields: Object.fromEntries(Object.entries(i.aiFields ?? {}).filter(([k]) => !loose.some((l) => k === `attributes.${l}`))),
         })
         .where(eq(items.id, i.id))
         .run();
-      changed.push(i.id);
+      changed.add(i.id);
     }
-    for (const u of tx.select({ id: units.id, attributes: units.attributes }).from(units).all()) {
-      const attributes = rekeyMap(u.attributes ?? {}, other, keep);
-      if (attributes) tx.update(units).set({ attributes }).where(eq(units.id, u.id)).run();
-    }
-    tx.delete(fields).where(eq(fields.id, idOf(other))).run();
+    // A field no category has and none owns (a universal one nothing used any more) is gone.
+    for (const [key, row] of rows) if (row.categoryId === null && !owner.has(key)) tx.delete(fields).where(eq(fields.id, row.id)).run();
   });
-  makeUniversal(db, keep);
-  return changed;
+  return [...changed];
 }
 
 /**
  * Bring a database from name-derived keys ("voltage", made from the field's name) to field IDs
  * (DEC-071), once: each category's fields become rows of their own, same-named fields in
- * different categories staying separate (the owner says which are really one, with Merge), and
+ * different categories staying separate, and
  * every stored value, AI mark and stored AI suggestion is re-keyed. A part's values that aren't
  * its category's fields become its custom fields. Safe to run again: field-ID keys are left
  * alone. Returns the parts changed, for re-indexing.

@@ -390,10 +390,8 @@ function Details({ item }: { item: ItemDetail }) {
       </span>
     );
   };
-  // The category's fields first, in its order, then the universal fields the part carries from
-  // elsewhere, then its custom fields (DEC-071), as on the form. Another category's own fields stay unseen.
-  for (const f of item.carried) labels.set(f.key, f.label);
-  const ordered = [...item.fieldDefs.filter((f) => !f.perUnit).map((f) => f.key), ...item.carried.map((f) => f.key)].filter((k) => item.attributes[k]);
+  // The category's fields first, in its order, then the part's custom fields (DEC-071), as on the form.
+  const ordered = item.fieldDefs.filter((f) => !f.perUnit).map((f) => f.key).filter((k) => item.attributes[k]);
   const rows: [string, React.ReactNode][] = [
     ...ordered.map((k) => [labels.get(k) ?? k, mark(`attributes.${k}`, item.attributes[k])] as [string, React.ReactNode]),
     ...Object.entries(item.custom).map(([k, v]) => [k, v] as [string, React.ReactNode]),

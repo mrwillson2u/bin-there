@@ -51,7 +51,6 @@ import {
   updateCategory,
   updateItem,
 } from "./items";
-import { mergeFields } from "./fields";
 import { adjustStock, checkInUnit, checkOutUnit, createUnit, moveEverything, moveStock, moveUnit, moveUnits, recountStock, retireUnit, updateUnit } from "./stock";
 import { listEvents, undoEvent } from "./events";
 import { bulkItems } from "./bulk";
@@ -81,7 +80,6 @@ import {
   photoCropSchema,
   moveStockSchema,
   moveUnitSchema,
-  mergeFieldsSchema,
   moveUnitsSchema,
   checkInSchema,
   checkOutSchema,
@@ -476,12 +474,6 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     return c.json(result(eventId, itemId));
   });
 
-  // Two fields are really one (DEC-071): merged, and universal from then on. Every category back.
-  api.post("/fields/merge", async (c) => {
-    const { key, withKey } = parseBody(mergeFieldsSchema, await c.req.json());
-    for (const id of mergeFields(db, key, withKey)) indexItem(db, id);
-    return c.json(listCategories(db));
-  });
 
   // ── Categories ──
   api.get("/categories", (c) => c.json(listCategories(db)));

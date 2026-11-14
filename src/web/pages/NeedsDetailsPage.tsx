@@ -6,6 +6,7 @@ import { trackingLabels, trackingModes, type Category, type ItemDetail, type Pla
 import { api } from "../api";
 import { useAiStatus } from "../components/AiSuggestions";
 import { CategoryPicker, useCreateCategory } from "../components/CategoryPicker";
+import { CategoryChangeDialog, leavingFor } from "../components/CategoryChange";
 import { StockControl, useStockMutation } from "../components/StockControl";
 import { useToast } from "../components/Toast";
 import { Button, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
@@ -175,8 +176,15 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
     if (c.defaultKind !== item.kind && item.unitList.length === 0) body.kind = c.defaultKind;
     return body;
   };
+  // A change of category that would leave values behind asks first (DEC-072); the save waits for the answer.
+  const [asking, setAsking] = useState<{ to: Category; body: UpdateItem } | null>(null);
+  const current = categories.find((x) => x.id === item.categoryId);
+  const changeCategory = (c: Category, body: UpdateItem) => {
+    if (leavingFor(current, c, item.attributes, item.unitList).length > 0) setAsking({ to: c, body });
+    else patch.mutate(body);
+  };
   const pickCategory = (c: Category | null) => {
-    if (c) patch.mutate(categoryBody(c));
+    if (c && c.id !== item.categoryId) changeCategory(c, categoryBody(c));
   };
 
   // The AI's stored guess (DEC-055): its name, category and that category's field values (DEC-064),
@@ -207,7 +215,8 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
       body.attributes = { ...item.attributes, ...Object.fromEntries(guess.fields.map((s) => [s.field.slice(11), s.value])) };
       body.aiFields = { ...item.aiFields, ...Object.fromEntries(guess.fields.map((s) => [s.field, { source: s.source, at }])) };
     }
-    if (Object.keys(body).length > 0) patch.mutate(body);
+    if (c && c.id !== item.categoryId) changeCategory(c, body);
+    else if (Object.keys(body).length > 0) patch.mutate(body);
   };
   const dismiss = useMutation({
     mutationFn: () => api<ItemDetail>(`/items/${item.id}/research`, { method: "DELETE" }),
@@ -267,6 +276,19 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
         </button>
       </div>
 
+      {asking && current && (
+        <CategoryChangeDialog
+          partName={itemName(item.name)}
+          from={current}
+          to={asking.to}
+          leaving={leavingFor(current, asking.to, item.attributes, item.unitList)}
+          onChoose={(categoryValues) => {
+            patch.mutate({ ...asking.body, categoryValues });
+            setAsking(null);
+          }}
+          onCancel={() => setAsking(null)}
+        />
+      )}
       <CategoryPicker
         categories={categories}
         value={item.categoryId}

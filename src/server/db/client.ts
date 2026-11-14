@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "./schema";
 import { createCategory, indexItem, STARTER_CATEGORIES } from "../items";
-import { migrateFields } from "../fields";
+import { migrateFields, settleFields } from "../fields";
 
 export type Db = ReturnType<typeof openDb>;
 
@@ -15,6 +15,8 @@ export function openDb(file: string, migrationsFolder = "drizzle") {
   migrate(db, { migrationsFolder });
   // Name-derived field keys become field IDs, once (DEC-071); the parts touched are re-indexed for search.
   for (const id of migrateFields(db)) indexItem(db, id);
+  // Every field belongs to one category (DEC-072): shared fields split, leftovers become custom fields.
+  for (const id of settleFields(db)) indexItem(db, id);
   if (!db.select({ id: schema.categories.id }).from(schema.categories).get()) {
     for (const c of STARTER_CATEGORIES) createCategory(db, c);
   }

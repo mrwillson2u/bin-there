@@ -255,78 +255,113 @@ describe("categories (DEC-056)", () => {
     expect(values).toEqual({ [gauge!.key]: ["20 AWG"] });
   });
 
-  it("universal, category-only and custom fields (DEC-071): what follows a part through a category change and what stays", async () => {
-    const cats = await ok<Category[]>("GET", "/categories");
+  it("a field belongs to one category; a category change keeps or deletes the old category's values (DEC-071, DEC-072)", async () => {
     const caps = await ok<Category>("POST", "/categories", { name: "Caps" });
     const res = await ok<Category>("POST", "/categories", { name: "Res" });
     // Names follow the convention: first letter a capital, the rest as typed, spaces tidied. Keys are IDs.
-    const resF = (await ok<Category>("PATCH", `/categories/${res.id}`, { fieldDefs: [{ label: "  voltage " }, { label: "type" }, { label: "ID" }] })).fieldDefs;
-    expect(resF.map((f) => f.label)).toEqual(["Voltage", "Type", "ID"]);
-    expect(resF.every((f) => /^f\d+$/.test(f.key) && !f.universal)).toBe(true);
-    const [rV, rT] = resF;
+    const resF = (await ok<Category>("PATCH", `/categories/${res.id}`, { fieldDefs: [{ label: "  voltage " }, { label: "type" }, { label: "ID" }, { label: "wear", perUnit: true }] })).fieldDefs;
+    expect(resF.map((f) => f.label)).toEqual(["Voltage", "Type", "ID", "Wear"]);
+    expect(resF.every((f) => /^f\d+$/.test(f.key))).toBe(true);
+    const [rV, rT, , rW] = resF;
     // Two fields of one name can't be in one category.
     expect((await call("PATCH", `/categories/${res.id}`, { fieldDefs: [...resF, { label: "VOLTAGE" }] })).status).toBe(400);
-    // Caps uses Res's Voltage (now universal, in both) and makes a Type of its own (same name, a different field).
-    const capF = (await ok<Category>("PATCH", `/categories/${caps.id}`, { fieldDefs: [{ label: "Voltage", shareKey: rV!.key }, { label: "Type" }] })).fieldDefs;
-    expect(capF[0]).toMatchObject({ key: rV!.key, label: "Voltage", universal: true });
-    expect(capF[1]!.key).not.toBe(rT!.key);
-    expect((await ok<Category[]>("GET", "/categories")).find((c) => c.id === res.id)!.fieldDefs[0]!.universal).toBe(true);
-    // A resistor with a voltage, a type and a custom field.
-    const part = await item({ name: "Resistor", categoryId: res.id });
-    const set = await ok<ItemDetail>("PATCH", `/items/${part.id}`, { attributes: { [rV!.key]: "50 V", [rT!.key]: "Metal film" }, custom: { "lead spacing": "5 mm" } });
+    // Caps has a Voltage and a Type of its own: same names, separate fields.
+    const capF = (await ok<Category>("PATCH", `/categories/${caps.id}`, { fieldDefs: [{ label: "Voltage" }, { label: "Type", type: "choice", options: ["Ceramic", "Film"] }] })).fieldDefs;
+    const [cV, cT] = capF;
+    expect(cV!.key).not.toBe(rV!.key);
+    expect(cT!.key).not.toBe(rT!.key);
+    // Renaming one leaves the other alone.
+    await ok<Category>("PATCH", `/categories/${caps.id}`, { fieldDefs: [{ key: cV!.key, label: "Rated voltage" }, { key: cT!.key, label: "Type" }] });
+    expect((await ok<Category[]>("GET", "/categories")).find((c) => c.id === res.id)!.fieldDefs[0]!.label).toBe("Voltage");
+    await ok<Category>("PATCH", `/categories/${caps.id}`, { fieldDefs: [{ key: cV!.key, label: "Voltage" }, { key: cT!.key, label: "Type" }] });
+
+    // A resistor with a voltage (the AI's), a type, a custom field and a stickered unit with its own wear.
+    const part = await item({ name: "Resistor", categoryId: res.id, code: "RES001" });
+    const set = await ok<ItemDetail>("PATCH", `/items/${part.id}`, {
+      attributes: { [rV!.key]: "50 V", [rT!.key]: "Metal film" },
+      custom: { "lead spacing": "5 mm" },
+      aiFields: { [`attributes.${rV!.key}`]: { source: "photo", at: "2026-11-13" }, [`attributes.${rT!.key}`]: { source: "photo", at: "2026-11-13" } },
+    });
     expect(set.custom).toEqual({ "Lead spacing": "5 mm" });
-    expect(set.carried).toEqual([]);
+    await ok("PATCH", `/units/${set.unitList[0]!.id}`, { attributes: { [rW!.key]: "new" } });
     // A name isn't a key: field values go by ID.
     expect((await call("PATCH", `/items/${part.id}`, { attributes: { Voltage: "5" } })).status).toBe(400);
-    // To no category: the universal Voltage follows and shows with the custom ones; Type stays behind, kept.
-    const none = await ok<ItemDetail>("PATCH", `/items/${part.id}`, { categoryId: null });
-    expect(none.carried).toEqual([{ key: rV!.key, label: "Voltage" }]);
-    expect(none.attributes[rV!.key]).toBe("50 V");
-    expect(none.custom).toEqual({ "Lead spacing": "5 mm" });
-    // To Caps: Voltage is in the template with its value; Caps's own Type is empty.
+
+    // To Caps, kept (the default): Voltage fits Caps's Voltage and goes there with its AI mark; Type isn't
+    // one of Caps's options, so it's a custom field, named apart from Caps's own Type; the unit's wear too.
     const cap = await ok<ItemDetail>("PATCH", `/items/${part.id}`, { categoryId: caps.id });
-    expect(cap.carried).toEqual([]);
-    expect(cap.attributes[rV!.key]).toBe("50 V");
-    expect(cap.attributes[capF[1]!.key]).toBeUndefined();
-    // Back to Res: its Type is still there.
-    expect((await ok<ItemDetail>("PATCH", `/items/${part.id}`, { categoryId: res.id })).attributes[rT!.key]).toBe("Metal film");
-    // Renaming the universal field renames it in both categories.
-    await ok<Category>("PATCH", `/categories/${caps.id}`, { fieldDefs: [{ key: rV!.key, label: "Rated voltage" }, { key: capF[1]!.key, label: "Type" }] });
-    expect((await ok<Category[]>("GET", "/categories")).find((c) => c.id === res.id)!.fieldDefs[0]!.label).toBe("Rated voltage");
+    expect(cap.attributes).toEqual({ [cV!.key]: "50 V" });
+    expect(cap.custom).toEqual({ "Lead spacing": "5 mm", "Type (Res)": "Metal film", "Wear (RES001)": "new" });
+    expect(Object.keys(cap.aiFields)).toEqual([`attributes.${cV!.key}`]);
+    expect(cap.unitList[0]!.attributes).toEqual({});
+    // Out of Caps, deleted: the value goes, the custom fields stay.
+    const none = await ok<ItemDetail>("PATCH", `/items/${part.id}`, { categoryId: null, categoryValues: "delete" });
+    expect(none.attributes).toEqual({});
+    expect(none.aiFields).toEqual({});
+    expect(none.custom).toEqual(cap.custom);
+    // Back in Res nothing comes back by itself: the old values were kept or deleted, not hidden.
+    expect((await ok<ItemDetail>("PATCH", `/items/${part.id}`, { categoryId: res.id })).attributes).toEqual({});
+    // A choice value that is one of the new category's options goes into it.
+    const film = await item({ name: "Film", categoryId: res.id });
+    await ok("PATCH", `/items/${film.id}`, { attributes: { [rT!.key]: "Film" } });
+    expect((await ok<ItemDetail>("PATCH", `/items/${film.id}`, { categoryId: caps.id, categoryValues: "keep" })).attributes).toEqual({ [cT!.key]: "Film" });
+
     // A custom field named like a field the part has is that field: filled if empty, refused if it would clash.
     const other = await item({ name: "Bare resistor", categoryId: res.id });
-    expect((await ok<ItemDetail>("PATCH", `/items/${other.id}`, { custom: { "rated VOLTAGE": "25 V" } })).attributes[rV!.key]).toBe("25 V");
-    expect((await call("PATCH", `/items/${other.id}`, { custom: { "Rated voltage": "99 V" } })).status).toBe(400);
+    expect((await ok<ItemDetail>("PATCH", `/items/${other.id}`, { custom: { VOLTAGE: "25 V", "lead spacing": "2 mm" } })).attributes[rV!.key]).toBe("25 V");
+    expect((await call("PATCH", `/items/${other.id}`, { custom: { Voltage: "99 V" } })).status).toBe(400);
     // A field dropped from a category and added again by name is the same field, values and all.
-    await ok<Category>("PATCH", `/categories/${res.id}`, { fieldDefs: [{ key: rV!.key, label: "Rated voltage" }] });
-    const again = await ok<Category>("PATCH", `/categories/${res.id}`, { fieldDefs: [{ key: rV!.key, label: "Rated voltage" }, { label: "type" }] });
-    expect(again.fieldDefs[1]!.key).toBe(rT!.key);
+    await ok<Category>("PATCH", `/categories/${res.id}`, { fieldDefs: [{ key: rT!.key, label: "Type" }] });
+    const again = await ok<Category>("PATCH", `/categories/${res.id}`, { fieldDefs: [{ key: rT!.key, label: "Type" }, { label: "voltage" }] });
+    expect(again.fieldDefs[1]!.key).toBe(rV!.key);
+    expect((await ok<ItemDetail>("GET", `/items/${other.id}`)).attributes[rV!.key]).toBe("25 V");
     // Search finds a part by a field's label and value, and by a custom field.
+    expect((await ok<ItemSummary[]>("GET", "/items?q=25+V")).map((i) => i.id)).toEqual([other.id]);
     expect((await ok<ItemSummary[]>("GET", "/items?q=metal+film")).map((i) => i.id)).toEqual([part.id]);
-    expect((await ok<ItemSummary[]>("GET", "/items?q=lead+spacing")).map((i) => i.id)).toEqual([part.id]);
-    expect(cats.length).toBeGreaterThan(0);
   });
 
-  it("merging two same-named fields into one universal field (DEC-071)", async () => {
-    const a = await ok<Category>("POST", "/categories", { name: "A", fields: ["Voltage", "Package"] });
-    const b = await ok<Category>("POST", "/categories", { name: "B", fields: ["Voltage"] });
+  it("a database with shared (universal) fields settles to one category per field, leftovers becoming custom fields (DEC-072)", async () => {
+    const db = openDb(":memory:");
+    const own = createApi(db, { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")) });
+    const send = async <T>(method: string, path: string, body?: unknown) => {
+      const res = await own.request(path, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+      expect(res.status, path).toBeLessThan(300);
+      return (await res.json()) as T;
+    };
+    const a = await send<Category>("POST", "/categories", { name: "A", fields: ["Voltage", "Package"] });
+    const b = await send<Category>("POST", "/categories", { name: "B", fields: ["Size"] });
     const [aV, aP] = a.fieldDefs;
-    const bV = b.fieldDefs[0]!;
-    expect(aV!.key).not.toBe(bV.key);
-    const pa = await item({ name: "In A", categoryId: a.id });
-    const pb = await item({ name: "In B", categoryId: b.id, code: "UNIT01" });
-    await ok("PATCH", `/items/${pa.id}`, { attributes: { [aV!.key]: "5 V" } });
-    await ok("PATCH", `/items/${pb.id}`, { attributes: { [bV.key]: "12 V" }, aiFields: { [`attributes.${bV.key}`]: { source: "photo", at: "2026-11-13" } } });
-    const merged = await ok<Category[]>("POST", "/fields/merge", { key: aV!.key, withKey: bV.key });
-    expect(merged.find((c) => c.id === b.id)!.fieldDefs[0]).toMatchObject({ key: aV!.key, universal: true });
-    expect(merged.find((c) => c.id === a.id)!.fieldDefs[0]).toMatchObject({ key: aV!.key, universal: true });
-    const after = await ok<ItemDetail>("GET", `/items/${pb.id}`);
-    expect(after.attributes).toEqual({ [aV!.key]: "12 V" });
-    expect(Object.keys(after.aiFields)).toEqual([`attributes.${aV!.key}`]);
-    // Not with itself, not two fields of one category, not a field that's gone.
-    expect((await call("POST", "/fields/merge", { key: aV!.key, withKey: aV!.key })).status).toBe(400);
-    expect((await call("POST", "/fields/merge", { key: aV!.key, withKey: aP!.key })).status).toBe(400);
-    expect((await call("POST", "/fields/merge", { key: aV!.key, withKey: bV.key })).status).toBe(400);
+    const bS = b.fieldDefs[0]!;
+    const pa = await send<ItemDetail>("POST", "/items", { name: "In A", categoryId: a.id });
+    const pb = await send<ItemDetail>("POST", "/items", { name: "In B", categoryId: b.id, code: "UNIT01" });
+    const loose = await send<ItemDetail>("POST", "/items", { name: "No category" });
+    // As DEC-071 left it: A's Voltage universal and in B's template too, owned by no category; a part in B
+    // holding a value under A's Package from before it changed category; a part with no category carrying one.
+    const shared = JSON.stringify({ ...aV, universal: true });
+    db.run(sql`UPDATE categories SET field_defs = ${`[${shared},${JSON.stringify(aP)}]`} WHERE id = ${a.id}`);
+    db.run(sql`UPDATE categories SET field_defs = ${`[${JSON.stringify(bS)},${shared}]`} WHERE id = ${b.id}`);
+    db.run(sql`UPDATE fields SET category_id = NULL WHERE id = ${Number(aV!.key.slice(1))}`);
+    db.run(sql`UPDATE items SET attributes = ${JSON.stringify({ [aV!.key]: "5 V" })} WHERE id = ${pa.id}`);
+    db.run(sql`UPDATE items SET attributes = ${JSON.stringify({ [aV!.key]: "12 V", [aP!.key]: "0805" })}, ai_fields = ${JSON.stringify({ [`attributes.${aV!.key}`]: { source: "photo", at: "x" }, [`attributes.${aP!.key}`]: { source: "photo", at: "x" } })} WHERE id = ${pb.id}`);
+    db.run(sql`UPDATE items SET attributes = ${JSON.stringify({ [aV!.key]: "3 V" })} WHERE id = ${loose.id}`);
+    const { settleFields } = await import("./fields");
+    expect(settleFields(db).sort()).toEqual([pb.id, loose.id].sort());
+    const cats = await send<Category[]>("GET", "/categories");
+    const aNow = cats.find((c) => c.id === a.id)!.fieldDefs;
+    const bNow = cats.find((c) => c.id === b.id)!.fieldDefs;
+    expect(aNow).toEqual([{ key: aV!.key, label: "Voltage", type: "text" }, aP]);
+    expect(bNow[1]).toMatchObject({ label: "Voltage", type: "text" });
+    expect(bNow[1]!.key).not.toBe(aV!.key);
+    expect("universal" in bNow[1]!).toBe(false);
+    expect((await send<ItemDetail>("GET", `/items/${pa.id}`)).attributes).toEqual({ [aV!.key]: "5 V" });
+    const inB = await send<ItemDetail>("GET", `/items/${pb.id}`);
+    expect(inB.attributes).toEqual({ [bNow[1]!.key]: "12 V" });
+    expect(inB.custom).toEqual({ Package: "0805" });
+    expect(Object.keys(inB.aiFields)).toEqual([`attributes.${bNow[1]!.key}`]);
+    expect((await send<ItemDetail>("GET", `/items/${loose.id}`)).custom).toEqual({ Voltage: "3 V" });
+    expect((await send<ItemDetail>("GET", `/items/${loose.id}`)).attributes).toEqual({});
+    // Once: a second run changes nothing.
+    expect(settleFields(db)).toEqual([]);
   });
 
   it("an old database's name-derived keys become field IDs once, values, AI marks and units with them (DEC-071)", async () => {

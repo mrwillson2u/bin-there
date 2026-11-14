@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { bare, fieldName } from "../../shared/fields";
+import { bare, fieldName, keptName } from "../../shared/fields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Sparkles, Trash2, X } from "lucide-react";
 import {
@@ -22,6 +22,7 @@ import {
 } from "../../shared/api";
 import { api } from "../api";
 import { CategoryPicker, useCreateCategory } from "../components/CategoryPicker";
+import { CategoryChangeDialog, leavingFor, type CategoryValuesChoice } from "../components/CategoryChange";
 import { LevelButtons } from "../components/StockControl";
 import { useToast } from "../components/Toast";
 import { Button, Field, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
@@ -95,7 +96,7 @@ export function ItemForm({
     else if (s.field === "category") {
       const c = categories.find((x) => x.name === s.value);
       if (!c) return;
-      setCategoryId(c.id);
+      if (!pickCategory(c, s)) return;
     } else if (s.field === "supplier") setSupplier(s.value);
     else if (s.field === "supplierPn") setSupplierPn(s.value);
     else if (s.field === "price") setPrice(s.value);
@@ -148,22 +149,48 @@ export function ItemForm({
   const value = (key: string) => attrs.find(([k]) => k === key)?.[1] ?? "";
   const setValue = (key: string, v: string) =>
     setAttrs((a) => (a.some(([k]) => k === key) ? a.map(([k, old]) => [k, k === key ? v : old]) : [...a, [key, v]]));
-  // Universal fields the part holds a value for that this category's template doesn't have: they
-  // follow the part, so they show with its custom fields (DEC-071). Worked out against the category
-  // chosen on the form, so changing it here shows what will happen before saving.
-  const universal = new Map<string, string>(item.carried.map((f) => [f.key, f.label]));
-  for (const c of categories) for (const f of c.fieldDefs) if (f.universal) universal.set(f.key, f.label);
-  const carried = attrs.filter(([k, v]) => universal.has(k) && !fieldKeys.includes(k) && (v.trim() || item.carried.some((f) => f.key === k))).map(([k]) => ({ key: k, label: universal.get(k)! }));
-  // A custom name that is already one of the part's fields, or a universal field: the form says so.
-  const shownNames = new Map<string, string>([...(category?.fieldDefs.filter((f) => !f.perUnit) ?? []), ...carried].map((f) => [bare(f.label), f.label]));
-  const universalNames = new Map<string, string>([...universal.values()].map((n) => [bare(n), n]));
+  // A custom name that is already one of the category's fields: the form says so.
+  const shownNames = new Map<string, string>((category?.fieldDefs.filter((f) => !f.perUnit) ?? []).map((f) => [bare(f.label), f.label]));
   const customNote = (name: string) => {
     const b = bare(name);
-    if (!b) return null;
-    if (shownNames.has(b)) return `${shownNames.get(b)} is already one of this part's fields above. Set it there.`;
-    if (universalNames.has(b)) return `${universalNames.get(b)} is a universal field: it will be saved as that field and follow this part into any category.`;
-    return null;
+    return b && shownNames.has(b) ? `${shownNames.get(b)} is already one of this part's fields above. Set it there.` : null;
   };
+
+  // Changing the category (DEC-072): the values held in the old category's fields are kept or
+  // deleted, asked in a dialog; the form shows the result straight away and Save makes it so.
+  // The stickered units' own values follow the same answer when the part is saved.
+  const [asking, setAsking] = useState<{ to: Category | null; ai?: Suggestion } | null>(null);
+  const [categoryValues, setCategoryValues] = useState<CategoryValuesChoice | undefined>(undefined);
+  const leavingTo = (to: Category | null) =>
+    leavingFor(category, to, Object.fromEntries(attrs), category?.id === item.categoryId ? item.unitList : []);
+  const applyCategory = (to: Category | null, choice?: CategoryValuesChoice) => {
+    if (choice && category) {
+      const leaving = leavingTo(to).filter((l) => !l.unitId);
+      const gone = new Set(leaving.map((l) => l.key));
+      const into = leaving.filter((l) => choice === "keep" && l.into);
+      setAttrs((a) => [...a.filter(([k]) => !gone.has(k) && !into.some((l) => l.into === k)), ...into.map((l) => [l.into!, l.value] as [string, string])]);
+      if (choice === "keep") {
+        setCustom((rows) => {
+          const next = [...rows];
+          const taken = (n: string) => next.some(([k]) => k.trim() === n) || (to?.fieldDefs ?? []).some((f) => bare(f.label) === bare(n));
+          for (const l of leaving) if (!l.into) next.push([keptName(l, category.name, taken), l.value]);
+          return next;
+        });
+      }
+      setCategoryValues(choice);
+    }
+    setCategoryId(to?.id ?? null);
+  };
+  /** False when the change waits on the dialog. */
+  function pickCategory(to: Category | null, ai?: Suggestion): boolean {
+    if ((to?.id ?? null) === categoryId) return true;
+    if (leavingTo(to).length > 0) {
+      setAsking({ to, ai });
+      return false;
+    }
+    applyCategory(to);
+    return true;
+  }
 
   const save = useMutation({
     mutationFn: async () => {
@@ -174,6 +201,7 @@ export function ItemForm({
         tracking,
         attributes: Object.fromEntries(attrs.filter(([k, v]) => k.trim() && v.trim()).map(([k, v]) => [k.trim(), v.trim()])),
         custom: Object.fromEntries(custom.filter(([k, v]) => k.trim() && v.trim()).map(([k, v]) => [k.trim(), v.trim()])),
+        ...(categoryValues ? { categoryValues } : {}),
         price: price.trim() ? Number(price) : null,
         supplier: supplier.trim() || null,
         supplierPn: supplierPn.trim() || null,
@@ -281,10 +309,26 @@ export function ItemForm({
         <CategoryPicker
           categories={categories}
           value={categoryId}
-          onChange={(c) => { setCategoryId(c?.id ?? null); byHand("category"); }}
+          onChange={(c) => { if (pickCategory(c)) byHand("category"); }}
           onCreate={(n) => createCategory(n, { defaultKind: kind, defaultTracking: tracking })}
           allowNone
         />
+        {asking && category && (
+          <CategoryChangeDialog
+            partName={itemName(name || item.name)}
+            from={category}
+            to={asking.to}
+            leaving={leavingTo(asking.to)}
+            onChoose={(choice) => {
+              applyCategory(asking.to, choice);
+              const s = asking.ai;
+              if (s) setAiFields((f) => ({ ...f, [s.field]: { source: s.source, at: new Date().toISOString() } }));
+              else byHand("category");
+              setAsking(null);
+            }}
+            onCancel={() => setAsking(null)}
+          />
+        )}
         {!categoryId && <span className="text-[13px] text-warn">Without a category it stays on the Needs details list.</span>}
         <Link to="/categories" className="self-start text-[13px] text-accent">Manage categories and their fields</Link>
       </div>
@@ -370,19 +414,6 @@ export function ItemForm({
           These belong to this one part. To change the fields every {category ? `${category.name} part` : "part of a category"} has, edit the category on the{" "}
           <Link to="/categories" className="text-accent underline">Categories</Link> screen.
         </p>
-        {/* A universal field's value follows the part (DEC-071): this category doesn't have the field, so it shows here. */}
-        {carried.map((f) => (
-          <div key={f.key} className="flex items-center gap-2" data-carried={f.label}>
-            <span className="flex w-2/5 min-w-0 flex-col px-1">
-              <span className="truncate">{f.label}</span>
-              <span className="text-[12px] text-muted">Universal field{category ? `, not in ${category.name}` : ""}</span>
-            </span>
-            <input aria-label={f.label} value={value(f.key)} onChange={(e) => { setValue(f.key, e.target.value); byHand(`attributes.${f.key}`); }} className={`${inputClass} min-w-0 flex-1`} />
-            <button type="button" onClick={() => setAttrs((a) => a.filter(([k]) => k !== f.key))} className="flex min-h-11 w-11 items-center justify-center text-muted" aria-label={`Remove ${f.label}`}>
-              <X size={18} />
-            </button>
-          </div>
-        ))}
         {custom.map(([n, v], i) => (
           <div key={i} className="flex flex-col gap-1">
             <div className="flex gap-2">
@@ -393,7 +424,6 @@ export function ItemForm({
                 onBlur={() => setCustom((a) => a.map((row, j) => (j === i ? [fieldName(row[0]), row[1]] : row)))}
                 className={`${inputClass} w-2/5`}
                 placeholder="Name"
-                list={`${listId}-universal`}
                 autoComplete="off"
               />
               <input
@@ -410,11 +440,6 @@ export function ItemForm({
             {customNote(n) && <p className="px-1 text-[13px] text-warn" role="note">{customNote(n)}</p>}
           </div>
         ))}
-        <datalist id={`${listId}-universal`}>
-          {[...universal].filter(([k]) => !fieldKeys.includes(k) && !carried.some((f) => f.key === k)).map(([k, label]) => (
-            <option key={k} value={label} />
-          ))}
-        </datalist>
         <Button type="button" variant="ghost" className="self-start" onClick={() => setCustom((a) => [...a, ["", ""]])}>
           <Plus size={18} /> Add a custom field
         </Button>
