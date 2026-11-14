@@ -1887,7 +1887,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - A shop bag's barcode in the photo (DEC-074) fills the part number on the part; the form's empty Supplier and Supplier part # boxes take it too, so Save doesn't wipe it.
 - Cropping, choosing the main photo and deleting stay on the part's page.
 
-**Consequences:** One upload path (`useAddPhoto`) for the part's page, the bin sheet and the form. Checked in `extras-check.mjs`.
+**Consequences:** One upload path (`useAddPhoto`) for the part's page, the bin sheet and the form. Checked in `extras-check.mjs`. Shipped to the live app on 2026-11-13 (backup `2026-11-13_185057`, `main` at 0c89da3).
 
 ---
 
