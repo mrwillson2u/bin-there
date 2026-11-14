@@ -1908,7 +1908,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - **The order is this device's**, like the theme: kept in `localStorage`, never on the server. Settings has "Put the menu back in the usual order".
 - **Phone:** the bottom bar is unchanged. The Menu lists the entries the bar doesn't hold in the menu's order (Search, Categories, Print stickers, Settings by default); there is no dragging on a phone.
 
-**Consequences:** A menu entry added later takes its usual place in a saved order (`menuOrder`). Checked in `menu.test.ts`, `stickers-print-check.mjs` (usual order, two drags, reload, the keyboard, Settings' reset) and `stickers-check.mjs` (the phone Menu).
+**Consequences:** A menu entry added later takes its usual place in a saved order (`menuOrder`). Checked in `menu.test.ts`, `stickers-print-check.mjs` (usual order, two drags, reload, the keyboard, Settings' reset) and `stickers-check.mjs` (the phone Menu). Shipped to the live app on 2026-11-13 (backup `2026-11-13_194425`, `main` at f22d6de).
 
 ---
 
@@ -1929,7 +1929,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - A name that already exists can't be added again: Add is off.
 - It has a search icon, the placeholder "Find a category, or type a new name to add it", and a clear button.
 
-**Consequences:** One box, no mode to pick. Checked in `categories-check.mjs`.
+**Consequences:** One box, no mode to pick. Checked in `categories-check.mjs`. Shipped to the live app on 2026-11-13 (backup `2026-11-13_194425`, `main` at f22d6de).
 
 ---
 
