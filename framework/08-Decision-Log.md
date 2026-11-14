@@ -1928,6 +1928,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - When the text isn't already a category's name, the line also says "Press Add to create a new category named …" and Add lights up; Add (or Enter) creates it, clears the box and shows every category again.
 - A name that already exists can't be added again: Add is off.
 - It has a search icon, the placeholder "Find a category, or type a new name to add it", and a clear button.
+- **After Add** (Colin's follow-up): the new category's card is scrolled into view and outlined, with a line saying it's new, and its name is selected so it can be retyped straight away. Everything on the card (name, how it's counted, fields) stays editable as on any category.
 
 **Consequences:** One box, no mode to pick. Checked in `categories-check.mjs`. Shipped to the live app on 2026-11-13 (backup `2026-11-13_194425`, `main` at f22d6de).
 

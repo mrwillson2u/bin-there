@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Plus, Search, Sparkles, Tags, Trash2, X } from "lucide-react";
@@ -25,10 +25,14 @@ export function CategoriesPage() {
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: () => api<Category[]>("/categories") });
   const { data: usage } = useQuery({ queryKey: ["categories", "usage"], queryFn: () => api<Record<number, CategoryUsage>>("/categories/usage") });
   const [newName, setNewName] = useState("");
+  const [fresh, setFresh] = useState<number | null>(null);
   const add = useMutation({
     mutationFn: (name: string) => api<Category>("/categories", { method: "POST", body: { name } }),
-    onSuccess: () => {
+    onSuccess: (made) => {
       setNewName("");
+      // The new category's card comes into view with its name ready to edit (issue #4).
+      setFresh(made.id);
+      qc.setQueryData<Category[]>(["categories"], (old) => (old && !old.some((x) => x.id === made.id) ? [...old, made].sort((a, b) => a.name.localeCompare(b.name)) : old));
       qc.invalidateQueries({ queryKey: ["categories"] });
     },
     onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
@@ -97,7 +101,7 @@ export function CategoriesPage() {
 
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start">
         {shown.map((c) => (
-          <CategoryCard key={c.id} category={c} usage={usage[c.id] ?? { items: 0, fields: {} }} />
+          <CategoryCard key={c.id} category={c} usage={usage[c.id] ?? { items: 0, fields: {} }} fresh={c.id === fresh} />
         ))}
       </div>
       <p className="text-[13px] text-muted">
@@ -107,7 +111,16 @@ export function CategoriesPage() {
   );
 }
 
-function CategoryCard({ category: c, usage }: { category: Category; usage: CategoryUsage }) {
+function CategoryCard({ category: c, usage, fresh = false }: { category: Category; usage: CategoryUsage; fresh?: boolean }) {
+  // Just added from the box at the top: scrolled into view, outlined, its name selected for a quick fix.
+  const cardRef = useRef<HTMLElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!fresh) return;
+    cardRef.current?.scrollIntoView({ block: "center" });
+    nameRef.current?.focus();
+    nameRef.current?.select();
+  }, [fresh]);
   const qc = useQueryClient();
   const toast = useToast();
   const [name, setName] = useState(c.name);
@@ -177,7 +190,14 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
   };
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4" data-category={c.name} aria-label={`Category ${c.name}`}>
+    <section
+      ref={cardRef}
+      className={`flex flex-col gap-3 rounded-2xl border bg-surface p-4 ${fresh ? "border-accent ring-2 ring-accent/40" : "border-border"}`}
+      data-category={c.name}
+      data-fresh={fresh || undefined}
+      aria-label={`Category ${c.name}`}
+    >
+      {fresh && <p className="text-[13px] font-medium text-accent">New category. Rename it here, set how it's counted, and add its fields.</p>}
       <div className="flex items-center gap-2">
         <input
           value={name}
@@ -190,6 +210,7 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
           onKeyDown={(e) => {
             if (e.key === "Enter") e.currentTarget.blur();
           }}
+          ref={nameRef}
           className={`${inputClass} min-w-0 flex-1 font-semibold`}
           aria-label={`Name of ${c.name}`}
         />

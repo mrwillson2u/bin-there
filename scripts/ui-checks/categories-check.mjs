@@ -67,6 +67,19 @@ check((await page.locator("[data-category]").count()) === 0 && (await page.locat
 await page.screenshot({ path: `${shots}/cat-0-find-or-add.png` });
 await page.getByRole("button", { name: "Add Relays as a new category" }).click();
 await until(async () => (await page.locator("[data-category]").count()) === cats.length + 1, "Add creates it, clears the box and shows every category again");
+// The new category's card is in view, outlined, with its name ready to edit; a rename there sticks.
+const freshCard = page.locator("[data-fresh]");
+await freshCard.waitFor();
+check((await freshCard.getAttribute("data-category")) === "Relays" && (await freshCard.evaluate((el) => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.top < window.innerHeight; })), "the new category's card is scrolled into view and marked as new");
+check(await page.getByLabel("Name of Relays").evaluate((el) => el === document.activeElement), "its name is selected, ready to edit");
+// At a person's pace: keys with no gaps between them read as the hardware scanner.
+await page.keyboard.type("Relay modules", { delay: 70 });
+await page.keyboard.press("Enter");
+await until(async () => (await api("GET", "/categories")).some((c) => c.name === "Relay modules"), "typing straight away renames the new category");
+await page.screenshot({ path: `${shots}/cat-0b-new-category.png` });
+await page.getByLabel("Name of Relay modules").fill("Relays");
+await page.getByLabel("Name of Relay modules").press("Enter");
+await until(async () => (await api("GET", "/categories")).some((c) => c.name === "Relays"), "and it can be renamed again");
 const relays = page.locator('[data-category="Relays"]');
 await relays.waitFor();
 await relays.getByLabel("New field for Relays").fill("Coil voltage");
