@@ -1934,6 +1934,26 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-080: On a phone, what a scan does is a note pointing at the Scan button (issue #2)
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, GitHub issue #2; he picked option C of three drawn) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** While a screen takes scans for itself (DEC-044), the phone's bottom bar showed a magenta strip saying what a scan does, with the magenta Scan button rising into it. The two merged into one shape.
+
+**Decision:**
+- The strip is gone. The same words are a small note above the Scan button with a pointer down to it: a dark box with a scan-coloured edge and icon, so the button is the only solid magenta thing.
+- It keeps its role and label ("A scan now: …"), wraps on long wording, and never takes taps.
+- The button's two looks stay as DEC-044 made them for now: filled while a screen takes the scan, outlined when a scan just opens what was scanned. Whether one look is enough now that the note says it is asked of Colin (Q129).
+
+**Consequences:** The note floats over the bottom of the page, as the strip did; pages keep the extra bottom room. A screen's own scan box still says the same words above it, which is issue #1's subject and untouched here. Checked in `stickers-check.mjs` (the note above the button, centred, a dark box with a scan-coloured edge, inside the screen).
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -2017,6 +2037,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-077 | The edit form can take a photo | UX | Accepted | 2026-11-13 |
 | DEC-078 | The menu's usual order, and dragging it into your own (issue #3) | UX | Accepted | 2026-11-13 |
 | DEC-079 | The Categories screen's top box finds a category and adds a new one (issue #4) | UX | Accepted | 2026-11-13 |
+| DEC-080 | On a phone, what a scan does is a note pointing at the Scan button (issue #2) | UX | Accepted | 2026-11-13 |
 
 ---
 

@@ -150,6 +150,20 @@ await sheet().getByRole("button", { name: "Done" }).click();
 await sheet().waitFor({ state: "detached" });
 check((await page.locator("video").count()) === 0, "camera is off after Done");
 
+// 8a. The scan note on a phone (issue #2, DEC-080): a note that points at the Scan button, never a band the button merges into.
+await page.goto(`${base}/capture`);
+{
+  const note = page.locator("[data-scan-note]");
+  await note.waitFor();
+  const n = await note.boundingBox();
+  const b = await page.getByRole("button", { name: /^Scan with camera:/ }).boundingBox();
+  const colours = await note.evaluate((el) => { const c = getComputedStyle(el); return [c.backgroundColor, c.borderTopColor]; });
+  check(n.y + n.height < b.y && Math.abs(n.x + n.width / 2 - (b.x + b.width / 2)) < 3, "phone: the scan note sits above the Scan button, centred on it");
+  check(colours[0] !== colours[1] && n.x >= 8 && n.x + n.width <= 390 - 8, "phone: the note is a dark box with a scan-coloured edge, inside the screen: " + colours.join(" / "));
+  check((await note.textContent()).includes("Scan the bin it's going in"), "phone: it says what a scan does on this screen");
+  await page.screenshot({ path: `${shots}/s8a-scan-note.png` });
+}
+
 // 8b. Settings (DEC-043, DEC-044): scanning on this device decides what the Stickers screen offers.
 // Reached from the phone's Menu (DEC-070, Q119), not from the bottom of Locations.
 await page.goto(`${base}/locations`);

@@ -99,7 +99,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
 
   return (
     <div ref={shellRef} className="flex min-h-dvh flex-col lg:pl-56">
-      {/* Top: clear of the status bar and the Dynamic Island's blur, not just the inset edge. Bottom: room for the bar, and for the scan strip when one is up (DEC-044). */}
+      {/* Top: clear of the status bar and the Dynamic Island's blur, not just the inset edge. Bottom: room for the bar, and for the scan note when one is up (DEC-044, DEC-080). */}
       <main className={`mx-auto w-full max-w-2xl flex-1 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:max-w-6xl lg:px-8 lg:pb-10 lg:pt-6 ${target ? "pb-40" : "pb-28"}`}>
         {/* Phone: the menu for what the bar doesn't hold (DEC-070, Q119), in a row of its own so it
             never sits on a screen's own buttons (the part page's Pin and Edit). */}
@@ -117,9 +117,16 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
       {/* Phone: bottom bar with the big scan button in thumb reach. */}
       <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {target && (
-          /* The round button rises 24 px into whatever is above it, so the strip keeps its words above that. */
-          <p className="flex items-center justify-center gap-1.5 bg-scan px-3 pb-7 pt-1.5 text-center text-[13px] font-semibold text-white" role="status" aria-label={`A scan now: ${target}`}>
-            <ScanLine size={14} /> {target}
+          /* What a scan does right now (DEC-044), as a note that points at the Scan button (issue #2, DEC-080):
+             its own dark surface with a scan-coloured edge, so the button never merges into it. */
+          <p
+            className="pointer-events-none absolute bottom-[calc(100%+1.75rem)] left-1/2 z-10 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-scan bg-surface px-3 py-1.5 text-center text-[13px] font-semibold text-text shadow-lg"
+            role="status"
+            aria-label={`A scan now: ${target}`}
+            data-scan-note
+          >
+            <ScanLine size={14} className="shrink-0 text-scan" /> {target}
+            <span aria-hidden className="absolute -bottom-[7px] left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b-[1.5px] border-r-[1.5px] border-scan bg-surface" />
           </p>
         )}
         <div className="mx-auto flex max-w-2xl items-center justify-around">
