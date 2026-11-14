@@ -1950,7 +1950,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - It keeps its role and label ("A scan now: …"), wraps on long wording, and never takes taps.
 - The button's two looks stay as DEC-044 made them for now: filled while a screen takes the scan, outlined when a scan just opens what was scanned. Whether one look is enough now that the note says it is asked of Colin (Q129).
 
-**Consequences:** The note floats over the bottom of the page, as the strip did; pages keep the extra bottom room. A screen's own scan box still says the same words above it, which is issue #1's subject and untouched here. Checked in `stickers-check.mjs` (the note above the button, centred, a dark box with a scan-coloured edge, inside the screen).
+**Consequences:** The note floats over the bottom of the page, as the strip did; pages keep the extra bottom room. A screen's own scan box still says the same words above it, which is issue #1's subject and untouched here. Checked in `stickers-check.mjs` (the note above the button, centred, a dark box with a scan-coloured edge, inside the screen). Shipped to the live app on 2026-11-13 (backup `2026-11-13_204731`, `main` at d9c9f0e).
 
 ---
 
