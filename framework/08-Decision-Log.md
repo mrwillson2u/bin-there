@@ -1866,7 +1866,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - The dialog lists only the names that would change: the old name struck through, the new one in a box you can edit, each ticked. The button says the result ("Rename the 3 ticked parts"); "Cancel, rename nothing" closes it. The server renames nothing itself.
 - **Guard:** a suggested name may only use what the part's record holds. A number or model in it that isn't in the part's current name or field values drops the suggestion, so the AI can reorder and tidy but not invent.
 
-**Consequences:** A rename is an ordinary edit of the part's name, so it isn't in Activity's undo; the old name is visible in the dialog until the button is pressed. Large categories are sent 25 parts at a time. Checked in `tidy.test.ts` and `extras-check.mjs` with a fake model; the real model's suggestions are for Colin to judge on his own categories.
+**Consequences:** A rename is an ordinary edit of the part's name, so it isn't in Activity's undo; the old name is visible in the dialog until the button is pressed. Large categories are sent 25 parts at a time. Checked in `tidy.test.ts` and `extras-check.mjs` with a fake model; the real model's suggestions are for Colin to judge on his own categories. Tried with the real model on the dev copy before shipping: Batteries came back with nothing to change, Wire & connectors with 13 suggestions. DEC-073 to DEC-076 shipped to the live app on 2026-11-13 (backup `2026-11-13_180209`, `main` at 47c1d7f).
 
 ---
 
