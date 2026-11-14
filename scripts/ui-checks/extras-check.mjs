@@ -136,6 +136,22 @@ await page.locator('input[type="file"]').first().setInputFiles(`${shots}/bag.png
 await page.getByText(/Bag barcode read: Digi-Key 1528-1150-ND/).waitFor({ timeout: 20000 });
 check((await api("GET", `/items/${board.id}`)).supplierPn === "1528-1150-ND", "a photo added to a part fills its part number from the bag's barcode");
 
+// The edit form can take a photo too (DEC-077): it saves straight away, what's typed stays, and a bag's barcode fills the form's box.
+const formPart = await api("POST", "/items", { name: "Form part", locationId: tote.id, qty: 1 });
+await page.goto(`${base}/items/${formPart.id}/edit`);
+await page.getByPlaceholder("e.g. M3 × 10 socket cap screw").fill("Form part, renamed");
+await page.locator("[data-form-photo] input").setInputFiles(`${shots}/bag.png`);
+await page.locator("[data-photo-count]").waitFor({ timeout: 20000 });
+check((await page.locator("[data-photo-count]").textContent()).startsWith("1 photo"), "a photo taken on the edit form is saved straight away and counted");
+check((await api("GET", `/items/${formPart.id}`)).photos.length === 1 && (await api("GET", `/items/${formPart.id}`)).name === "Form part", "the photo is on the part; the rest of the form isn't saved yet");
+check((await page.getByPlaceholder("e.g. M3 × 10 socket cap screw").inputValue()) === "Form part, renamed", "what was typed in the form stays");
+await until(async () => (await page.getByLabel("Supplier part #").inputValue()) === "1528-1150-ND", "the bag's part number shows in the form's box");
+check((await page.locator("[data-form-photo]").textContent()).includes("Add photo"), "the button then offers another photo");
+await page.screenshot({ path: `${shots}/x5-form-photo.png` });
+await page.getByRole("button", { name: "Save" }).first().click();
+await until(async () => { const d = await api("GET", `/items/${formPart.id}`); return d.name === "Form part, renamed" && d.supplierPn === "1528-1150-ND"; }, "Save keeps the name typed and the part number from the bag");
+await api("DELETE", `/items/${formPart.id}`);
+
 // 4. Tidy names (DEC-076).
 await page.goto(`${base}/categories`);
 const card = page.locator('[data-category="Batteries"]');

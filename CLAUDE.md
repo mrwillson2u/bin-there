@@ -152,7 +152,7 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   changed, DEC-055) and "Look it up with AI after saving" queues the part; a shop bag's 2D barcode in the photo is read on the device (DEC-074: `src/shared/bagcode.ts` parses the text, `web/lib/bagcode.ts` finds it with zxing; also in `useAddPhoto` for photos added later) and gives the part number and count; after saving it says when the part looks like one on record (DEC-075). `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
   part needing details as rows that save as you go (each with its own "Look it up with AI" / "Look again", DEC-073, and the "You may already have this" hint with "Same part: add this to it", DEC-075); each row reads `["item", id]`, seeded from
   `GET /api/items/needs-details`, so stock toasts and Undo update it. It opens `ItemForm` (exported
-  from `ItemEditPage.tsx`) in a popup; the form lays itself out by its own width (`@container`: two columns from 48 rem, DEC-051). `CategoryPicker.tsx` is the type-to-find category box used there
+  from `ItemEditPage.tsx`) in a popup; the form has its own photo button (DEC-077: `useAddPhoto`, saved straight away, the rest waits for Save); the form lays itself out by its own width (`@container`: two columns from 48 rem, DEC-051). `CategoryPicker.tsx` is the type-to-find category box used there
   and in the form. A part leaves Needs details only with a name and a category (`updateItem`).
 - **Scanning** (`scan/`): `ScanProvider` installs one capture-phase `keydown` listener for the
   whole app. `detector.ts` (pure, unit-tested) tells scanner input from typing: a `Ctrl+B` prefix

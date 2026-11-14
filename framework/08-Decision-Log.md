@@ -1870,6 +1870,27 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-077: The edit form can take a photo
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, Q126) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Photos could only be added on the part's page. On Fill in details the form opens as a popup, so adding a photo of a part in hand (its label, its bag) meant leaving the list. Colin asked whether photos should be added on the edit screen only or in both places.
+
+**Decision:**
+- **Both places, the same behaviour.** The part's page keeps its photo block. The edit form (the page and the popup) has a "Take photo" / "Add photo" button beside its thumbnail, with the number of photos the part has.
+- **A photo saves straight away**, as on the part's page, and the form says so; the rest of the form still waits for Save, and what's typed stays.
+- A shop bag's barcode in the photo (DEC-074) fills the part number on the part; the form's empty Supplier and Supplier part # boxes take it too, so Save doesn't wipe it.
+- Cropping, choosing the main photo and deleting stay on the part's page.
+
+**Consequences:** One upload path (`useAddPhoto`) for the part's page, the bin sheet and the form. Checked in `extras-check.mjs`.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1950,6 +1971,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-074 | A shop bag's 2D barcode is read from the photo | Capture / Data | Accepted | 2026-11-13 |
 | DEC-075 | "You may already have this": a part captured again is added to the one on record | UX / Data | Accepted | 2026-11-13 |
 | DEC-076 | Tidy a category's names with the AI, each one approved | UX / AI | Accepted | 2026-11-13 |
+| DEC-077 | The edit form can take a photo | UX | Accepted | 2026-11-13 |
 
 ---
 

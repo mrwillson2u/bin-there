@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { bare, fieldName, keptName } from "../../shared/fields";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Sparkles, Trash2, X } from "lucide-react";
+import { Camera, Plus, Sparkles, Trash2, X } from "lucide-react";
 import {
   itemKindLabels,
   itemKinds,
@@ -25,6 +25,7 @@ import { CategoryPicker, useCreateCategory } from "../components/CategoryPicker"
 import { CategoryChangeDialog, leavingFor, type CategoryValuesChoice } from "../components/CategoryChange";
 import { LevelButtons } from "../components/StockControl";
 import { useToast } from "../components/Toast";
+import { useAddPhoto } from "../components/PhotoSpot";
 import { Button, Field, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
 import { AiSuggestions, useAiStatus } from "../components/AiSuggestions";
 
@@ -77,6 +78,14 @@ export function ItemForm({
   const [supplier, setSupplier] = useState(item.supplier ?? "");
   const [supplierPn, setSupplierPn] = useState(item.supplierPn ?? "");
   const [url, setUrl] = useState(item.url ?? "");
+  // A photo taken from the form (DEC-077) saves straight away, like on the part's page; the rest
+  // of the form waits for Save. A bag barcode in it (DEC-074) fills the part number on the part,
+  // so the form's empty boxes take that too, or Save would wipe it.
+  const photo = useAddPhoto(item.id);
+  useEffect(() => {
+    if (item.supplierPn) setSupplierPn((v) => v || item.supplierPn!);
+    if (item.supplier) setSupplier((v) => v || item.supplier!);
+  }, [item.supplierPn, item.supplier]);
   const [notes, setNotes] = useState(item.notes ?? "");
   const [lowThreshold, setLowThreshold] = useState(item.lowThreshold?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -272,8 +281,28 @@ export function ItemForm({
     >
       <div className="flex items-center gap-3">
         <Thumb url={item.thumbUrl} size={64} />
+        <label
+          className={`flex h-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-border px-2 text-[12px] leading-tight text-accent ${photo.busy ? "opacity-50" : ""}`}
+          data-form-photo
+        >
+          <Camera size={20} />
+          <span aria-hidden>{photo.busy ? "Saving…" : item.photos.length > 0 ? "Add photo" : "Take photo"}</span>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            aria-label={item.photos.length > 0 ? "Add another photo" : "Take a photo"}
+            disabled={photo.busy}
+            onChange={(e) => {
+              void photo.add(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </label>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">{item.needsDetails ? "Fill in details" : "Edit item"}</h1>
+          {item.photos.length > 0 && <p className="text-[13px] text-muted" data-photo-count>{item.photos.length === 1 ? "1 photo" : `${item.photos.length} photos`}. A new one saves straight away.</p>}
           {onClose && (
             <Link to={`/items/${item.id}`} className="text-sm text-accent">
               Open the part's page (photos, places, history)
