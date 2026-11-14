@@ -13,6 +13,19 @@ declare global {
   }
 }
 
+let reader: Promise<typeof import("zxing-wasm/reader")> | undefined;
+/** The WebAssembly decoder, loaded once and served from this app. */
+export function zxing() {
+  reader ??= import("zxing-wasm/reader").then((z) => {
+    z.prepareZXingModule({
+      overrides: { locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? wasmUrl : prefix + path) },
+      fireImmediately: true,
+    });
+    return z;
+  });
+  return reader;
+}
+
 /** A code found in the image, with its four corners in the image's pixels. */
 export type Found = { text: string; corners: Point[] };
 type Decode = (frame: ImageData) => Promise<Found[]>;
@@ -30,11 +43,7 @@ async function choose(): Promise<Decode> {
       // Not usable here; fall through to the WebAssembly decoder.
     }
   }
-  const z = await import("zxing-wasm/reader");
-  z.prepareZXingModule({
-    overrides: { locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? wasmUrl : prefix + path) },
-    fireImmediately: true,
-  });
+  const z = await zxing();
   const options = { formats: ["QRCode" as const], tryHarder: true, tryRotate: true, tryInvert: true, maxNumberOfSymbols: 4 };
   return async (frame) =>
     (await z.readBarcodes(frame, options))

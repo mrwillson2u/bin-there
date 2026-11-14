@@ -597,6 +597,8 @@ export type ItemDetail = ItemSummary & {
   /** Custom fields: on this part only, by name (DEC-071). */
   custom: Record<string, string>;
   price: number | null;
+  /** While it still needs details: parts already on record it looks like (DEC-075). */
+  similar: SimilarItem[];
   supplier: string | null;
   supplierPn: string | null;
   url: string | null;
@@ -629,4 +631,11 @@ export type BackupInfo = {
 };
 
 /** Returned by every stock action so the client can offer Undo. */
+/** A part already on record that a new one looks like (DEC-075): the same part number, or the same name. */
+export type SimilarItem = { id: number; name: string; thumbUrl: string | null; where: string | null; why: "number" | "name" };
+/** Add a part captured again to the one already on record (DEC-075). */
+export const mergeItemSchema = z.object({ intoId: id });
+/** A category's names tidied to the naming convention (DEC-076): only the ones that would change. */
+export type TidyNames = { suggestions: { id: number; name: string; suggestion: string }[]; looked: number };
+
 export type StockResult = { eventId: number | null; item: ItemDetail };

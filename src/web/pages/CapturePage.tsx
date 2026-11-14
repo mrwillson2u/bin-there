@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, MapPin, QrCode, Sparkles, X } from "lucide-react";
+import { Camera, MapPin, QrCode, ScanBarcode, Sparkles, X } from "lucide-react";
 import { trackingLabels, trackingModes, type CreateItem, type ItemDetail, type LocationDetail, type ScanResult, type StockLevel, type TrackingMode } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
+import { readBagCode } from "../lib/bagcode";
+import { bagPartNumber, bagText, type BagCode } from "../../shared/bagcode";
 import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
 import { useAiStatus } from "../components/AiSuggestions";
@@ -19,6 +21,8 @@ import { Button, Card, Field, inputClass, pathText } from "../components/ui";
  * How it's counted is chosen here (DEC-055): an exact count of 1 unless changed, or
  * Plenty / low / out; a choice made here is kept when a category is picked later.
  * "Look it up with AI after saving" queues each saved part for the AI (DEC-055).
+ * A shop bag's 2D barcode in the photo is read on the spot (DEC-074): its part number is saved
+ * with the part, and the bag's quantity becomes the count unless one was typed.
  */
 export function CapturePage() {
   const [params] = useSearchParams();
@@ -32,6 +36,8 @@ export function CapturePage() {
   const [name, setName] = useState("");
   const [tracking, setTracking] = useState<TrackingMode>("exact");
   const [qty, setQty] = useState("1");
+  const [qtyTyped, setQtyTyped] = useState(false);
+  const [bag, setBag] = useState<BagCode | null>(null);
   const [level, setLevel] = useState<StockLevel>("plenty");
   const ai = useAiStatus();
   const [aiAfter, setAiAfterState] = useState(() => localStorage.getItem("capture.ai") !== "off");
@@ -56,6 +62,21 @@ export function CapturePage() {
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [photo]);
+  // A shop bag's barcode in the photo (DEC-074), looked for as soon as the photo is taken.
+  useEffect(() => {
+    setBag(null);
+    if (!photo) return;
+    let current = true;
+    void readBagCode(photo).then((b) => {
+      if (current) setBag(b);
+    });
+    return () => {
+      current = false;
+    };
+  }, [photo]);
+  // The count the bag shipped with, unless a count was typed.
+  const bagQty = bag?.qty && !qtyTyped && !code && tracking === "exact" ? String(bag.qty) : null;
+  const count = bagQty ?? qty;
 
   useScanHandler((scanned) => {
     if (picking) return false; // PickLocation handles it
@@ -80,7 +101,7 @@ export function CapturePage() {
         code: code ?? undefined,
         locationId: locationId ?? undefined,
         tracking: code ? undefined : tracking,
-        qty: !code && tracking === "exact" && qty ? Number(qty) : undefined,
+        qty: !code && tracking === "exact" && count ? Number(count) : undefined,
         level: !code && tracking === "level" ? level : undefined,
       };
       let item = await api<ItemDetail>("/items", { method: "POST", body });
@@ -88,6 +109,9 @@ export function CapturePage() {
         const { photo: p, thumb } = await preparePhoto(photo);
         item = await uploadPhoto<ItemDetail>(item.id, p, thumb);
       }
+      // What the bag's barcode said goes on the part before the AI looks, so it starts from the exact number.
+      const pn = bag ? bagPartNumber(bag) : null;
+      if (bag && pn) item = await api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body: { supplierPn: pn, ...(bag.supplier ? { supplier: bag.supplier } : {}) } });
       // Queued for the AI (DEC-055): looked up in the background, the answer kept for review.
       if (aiAfter && ai?.enabled && (photo || name.trim())) {
         api(`/items/${item.id}/research/queue`, { method: "POST" }).catch((e: Error) => setError(`Saved, but couldn't queue it for the AI: ${e.message}`));
@@ -101,6 +125,7 @@ export function CapturePage() {
       setPhoto(null);
       setName("");
       setQty("1");
+      setQtyTyped(false);
       setLevel("plenty");
     } catch (e) {
       setError((e as Error).message);
@@ -122,6 +147,19 @@ export function CapturePage() {
           {saved.length > 1 && ` (${saved.length} this session)`}. Scan or snap the next one.
         </p>
       )}
+      {saved[0]?.similar[0] && (
+        <p className="rounded-xl border border-warn/50 bg-warn/10 px-4 py-3 text-sm" role="status" data-similar>
+          You may already have this:{" "}
+          <Link to={`/items/${saved[0].similar[0].id}`} className="font-semibold underline">
+            {saved[0].similar[0].name || "a part"}
+          </Link>
+          {saved[0].similar[0].where ? ` in ${saved[0].similar[0].where}` : ""} ({saved[0].similar[0].why === "number" ? "same part number" : "same name"}).{" "}
+          <Link to="/needs-details" className="text-accent underline">
+            Fill in details
+          </Link>{" "}
+          can add this one to it.
+        </p>
+      )}
 
       <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed border-border bg-surface text-muted active:bg-surface-2">
         {preview ? (
@@ -132,8 +170,23 @@ export function CapturePage() {
             <span className="font-semibold text-text">Take photo</span>
           </>
         )}
-        <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
+        <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => {
+            setPhoto(e.target.files?.[0] ?? null);
+            // So choosing the same picture again still counts as a new photo.
+            e.target.value = "";
+          }}
+        />
       </label>
+
+      {bag && (
+        <p className="flex items-center gap-2 rounded-xl border border-ok/40 bg-ok/10 px-3 py-2 text-sm" role="status" data-bag-code>
+          <ScanBarcode size={18} className="shrink-0 text-ok" />
+          <span>
+            Bag barcode read: <strong>{bagText(bag)}</strong>
+            {bag.qty ? ` · ${bag.qty} in the bag` : ""}. Its part number is saved with the part.
+          </span>
+        </p>
+      )}
 
       <Card className="flex flex-col divide-y divide-border">
         <Row icon={<QrCode size={18} />} label="Sticker">
@@ -194,7 +247,7 @@ export function CapturePage() {
           </div>
           {tracking === "exact" ? (
             <Field label="How many?">
-              <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} className={`${inputClass} text-center font-mono`} placeholder="—" aria-label="How many?" />
+              <input inputMode="numeric" value={count} onChange={(e) => { setQty(e.target.value.replace(/\D/g, "")); setQtyTyped(true); }} className={`${inputClass} text-center font-mono`} placeholder="—" aria-label="How many?" />
             </Field>
           ) : (
             <span />

@@ -7,7 +7,7 @@ import { ApiError } from "./errors";
 import { listEvents } from "./events";
 import { locationPath, outOf } from "./locations";
 import { isPinned } from "./pins";
-import { crumbLabel } from "../shared/api";
+import { crumbLabel, type SimilarItem } from "../shared/api";
 import type {
   Category,
   CategoryUsage,
@@ -176,6 +176,7 @@ export function getItem(db: Db, id: number): ItemDetail {
     fieldDefs: cat?.fieldDefs ?? [],
     attributes: Object.fromEntries(Object.entries(item.attributes).map(([k, v]) => [k, String(v)])),
     custom: item.custom ?? {},
+    similar: item.needsDetails ? similarItems(db, item) : [],
     price: item.price,
     supplier: item.supplier,
     supplierPn: item.supplierPn,
@@ -204,6 +205,31 @@ export function getItem(db: Db, id: number): ItemDetail {
     history: listEvents(db, { itemId: id, limit: 20 }),
     pinned: isPinned(db, "item", id),
   };
+}
+
+const squashPn = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Parts already on record that a new part looks like (DEC-075): one with the same part number, or
+ * the same name. The new part's own name and number count, and so do the AI's guesses at them,
+ * so the hint can come before anything is typed. Up to three, part-number matches first.
+ */
+export function similarItems(db: Db, item: typeof items.$inferSelect): SimilarItem[] {
+  const guess = (field: string) => item.aiResult?.suggestions.find((s) => s.field === field)?.value ?? "";
+  const names = [item.name, guess("name")].map(bare).filter((n) => n.length >= 4);
+  const numbers = [item.supplierPn ?? "", guess("supplierPn")].map(squashPn).filter((n) => n.length >= 4);
+  if (names.length === 0 && numbers.length === 0) return [];
+  const why = (r: typeof items.$inferSelect) => (r.supplierPn && numbers.includes(squashPn(r.supplierPn)) ? "number" : names.includes(bare(r.name)) ? "name" : null);
+  const rows = db.select().from(items).where(and(eq(items.archived, false), ne(items.id, item.id))).all().filter(why);
+  rows.sort((a, b) => Number(why(b) === "number") - Number(why(a) === "number") || a.id - b.id);
+  const top = rows.slice(0, 3);
+  return summaries(db, top).map((s, i) => ({
+    id: s.id,
+    name: s.name,
+    thumbUrl: s.thumbUrl,
+    where: s.places[0] ? s.places[0].path.map(crumbLabel).join(" › ") : null,
+    why: why(top[i]!)!,
+  }));
 }
 
 /** Rewrite the item's full-text search row (rowid = item id). */

@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { Db } from "./db/client";
-import { events, itemHomes, items, locations, stock, units } from "./db/schema";
+import { events, itemHomes, items, locations, photos, stock, units } from "./db/schema";
 import { ApiError } from "./errors";
 import { indexItem } from "./items";
 import { locationPath } from "./locations";
@@ -96,10 +96,20 @@ export function undoEvent(db: Db, id: number): { itemId: number } {
       const code = data.retire.code && !codeTaken(db, data.retire.code) ? data.retire.code : null;
       db.update(units).set({ status: data.retire.status, code, updatedAt: sql`(datetime('now'))` }).where(eq(units.id, data.retire.id)).run();
     }
+    if (data.merge) {
+      // The entry that was added in comes back with its units and photos (its counts came back with the stock rows above).
+      for (const u of data.merge.units) db.update(units).set({ itemId: data.merge.sourceId, attributes: u.attributes }).where(eq(units.id, u.id)).run();
+      for (const p of data.merge.photos) db.update(photos).set({ itemId: data.merge.sourceId, isMain: p.isMain }).where(eq(photos.id, p.id)).run();
+      db.update(items).set({ archived: false, updatedAt: sql`(datetime('now'))` }).where(eq(items.id, data.merge.sourceId)).run();
+    }
     const undo = db.insert(events).values({ type: "undo", itemId }).returning({ id: events.id }).get();
     db.update(events).set({ undoneBy: undo.id }).where(eq(events.id, id)).run();
   });
   if (data.archive || data.retire) indexItem(db, itemId);
+  if (data.merge) {
+    indexItem(db, itemId);
+    indexItem(db, data.merge.sourceId);
+  }
   return { itemId };
 }
 

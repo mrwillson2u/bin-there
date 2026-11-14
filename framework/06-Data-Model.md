@@ -131,7 +131,7 @@ The put-back bin is **physical only** (DEC-009): the app doesn't track what's in
 | Field | Type | Notes |
 |-------|------|-------|
 | id, at | | |
-| type | enum EventType | add, use, adjust, recount, move, check_out, check_in, put_back, create, assign_code, undo |
+| type | enum EventType | add, use, adjust, recount, move, check_out, check_in, put_back, create, assign_code, archive, retire, merge (DEC-075: another entry of the part added to it; `undo_data.merge` holds the entry and its units and photos as they were), undo |
 | item_id, unit_id, from_location_id, to_location_id | nullable | |
 | delta / level_after | nullable | |
 | undone_by | FK → Event, nullable | |

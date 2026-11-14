@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { Check, Copy, Loader2, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { trackingLabels, trackingModes, type Category, type ItemDetail, type Place, type ResearchResult, type StockResult, type TrackingMode, type UpdateItem } from "../../shared/api";
 import { api } from "../api";
 import { useAiStatus } from "../components/AiSuggestions";
@@ -18,6 +18,9 @@ import { ItemForm } from "./ItemEditPage";
 // "Suggest names with AI" (DEC-053) runs the quick look, photo only, over every part still
 // needing details, one at a time; the answer is kept on the part (DEC-055) and shown under the
 // row to Use. A part queued for the AI at capture shows its place in the queue and a Cancel.
+// Every row can ask the AI itself (DEC-073): "Look it up with AI", or "Look again" once it has
+// answered. A part that looks like one already on record says so (DEC-075), with a button that
+// adds it to that one.
 
 const fetchItem = (id: number) => api<ItemDetail>(`/items/${id}`);
 
@@ -223,6 +226,25 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
     onSuccess: (d) => qc.setQueryData(["item", d.id], d),
     onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
   });
+  // Ask the AI about this one part (DEC-073): into the same queue a capture uses, so it runs in the background.
+  const ai = useAiStatus();
+  const canLook = !!ai?.enabled && (item.photos.length > 0 || !!item.name.trim());
+  const look = useMutation({
+    mutationFn: () => api<ItemDetail>(`/items/${item.id}/research/queue`, { method: "POST" }),
+    onSuccess: (d) => qc.setQueryData(["item", d.id], d),
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
+  });
+  // "You already have this" (DEC-075): this entry's counts, stickered ones and photos go to the part on record.
+  const same = item.needsDetails ? item.similar[0] : undefined;
+  const merge = useMutation({
+    mutationFn: (intoId: number) => api<StockResult>(`/items/${item.id}/merge-into`, { method: "POST", body: { intoId } }),
+    onSuccess: (r) => {
+      qc.setQueryData(["item", r.item.id], r.item);
+      for (const key of ["item", "items", "stats", "location", "pins"]) qc.invalidateQueries({ queryKey: [key] });
+      toast.show({ message: `Added to ${itemName(r.item.name)}`, undoEventId: r.eventId });
+    },
+    onError: (e: Error) => toast.show({ message: e.message, tone: "error" }),
+  });
   const cancel = useMutation({
     mutationFn: () => api<ItemDetail>(`/items/${item.id}/research/queue`, { method: "DELETE" }),
     onSuccess: (d) => qc.setQueryData(["item", d.id], d),
@@ -339,12 +361,41 @@ function FillRow({ item, categories, onMore, onPhoto }: { item: ItemDetail; cate
           ) : (
             <span className="text-muted">The AI couldn't tell what it is{item.aiResult!.suggestions.length > 0 ? ", but has other details in More details" : ""}.</span>
           )}
+          {canLook && (
+            <Button type="button" variant="ghost" onClick={() => look.mutate()} disabled={look.isPending} aria-label={`Look again with AI for ${itemName(item.name)}`}>
+              Look again
+            </Button>
+          )}
           </span>
           <button type="button" onClick={() => dismiss.mutate()} aria-label={`Dismiss the AI's guess for ${itemName(item.name)}`} className="flex h-9 w-9 shrink-0 items-center justify-center text-muted">
             <X size={16} />
           </button>
         </div>
+      ) : canLook && item.needsDetails ? (
+        <div data-ai-look className="flex items-center lg:order-last lg:col-start-2 lg:col-span-3">
+          <Button type="button" variant="ghost" className="min-h-9 px-2 text-sm" onClick={() => look.mutate()} disabled={look.isPending} aria-label={`Look it up with AI for ${itemName(item.name)}`}>
+            <Sparkles size={16} /> {item.aiResult ? "Look again with AI" : "Look it up with AI"}
+          </Button>
+        </div>
       ) : null}
+
+      {same && (
+        <div data-similar className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-warn/50 bg-warn/10 px-3 py-1.5 text-sm lg:order-last lg:col-start-2 lg:col-span-3">
+          <Copy size={16} className="shrink-0 text-warn" />
+          <span className="min-w-0 flex-1">
+            You may already have this:{" "}
+            <Link to={`/items/${same.id}`} className="font-semibold underline">
+              {itemName(same.name)}
+            </Link>
+            <span className="text-muted">
+              {same.where ? ` · ${same.where}` : ""} · {same.why === "number" ? "same part number" : "same name"}
+            </span>
+          </span>
+          <Button type="button" className="min-h-9" onClick={() => merge.mutate(same.id)} disabled={merge.isPending} aria-label={`Add ${itemName(item.name)} to ${itemName(same.name)}`}>
+            Same part: add this to it
+          </Button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2.5">
         <TrackingToggle

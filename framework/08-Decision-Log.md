@@ -1788,6 +1788,88 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-073: Every Fill in details row can ask the AI itself
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin: "let's add those ideas") |
+| **Deciders** | Colin |
+| **Category** | UX / AI |
+
+**Context:** The AI's full look-up could be started from capture (queued) or from inside a part's More details popup. To have a part looked at again, for instance after the AI's rules improved, Colin had to open each popup.
+
+**Decision:**
+- Each row on Fill in details has its own button, shown when the AI is on and the part has a photo or a name: "Look it up with AI" before there is an answer, "Look again" beside Use once there is one.
+- It puts the part in the same background queue a capture uses (`POST /items/:id/research/queue`), so the row shows "Queued" / "looking it up" with Cancel, then the new answer. Nothing is saved until Use.
+
+**Consequences:** No new server code. "Suggest names with AI" (the quick, photo-only pass over every row) stays as it is. Checked in `extras-check.mjs`.
+
+---
+
+### DEC-074: A shop bag's 2D barcode is read from the photo
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin: "let's add those ideas") |
+| **Deciders** | Colin |
+| **Category** | Capture / Data |
+
+**Context:** The AI reads part numbers off a photo of a bag's small print and sometimes gets a digit wrong, while the same bag carries a 2D barcode with the order line as exact text. Digi-Key and Mouser print a Data Matrix in the industry's labelled-field format (ISO 15434: `[)>`, fields split by the GS character, `1P` the maker's part number, `30P` or `P` Digi-Key's own, `Q` the quantity); LCSC prints a QR code of `{pc:…,pm:…,qty:…}`.
+
+**Decision:**
+- `parseBagCode` (`src/shared/bagcode.ts`, unit-tested) turns that text into the shop (when the code says which: Digi-Key, LCSC), the shop's part number, the maker's part number and the quantity. Anything else (a storage sticker, a web link) is not a bag code.
+- `readBagCode` (`src/web/lib/bagcode.ts`) looks for one in a photo on the device, on the full photo before it is shrunk, with the same bundled decoder the camera scanner uses (Data Matrix, QR, PDF417). Finding nothing is normal and silent.
+- **At capture** (and when adding a part from a bin's sheet): a green line under the photo says what was read; the part number (the shop's own when there is one, else the maker's) and the shop are saved on the part before the AI is queued, so its look-up starts from the exact number; the bag's quantity becomes the count unless a count was typed.
+- **On a photo added to an existing part**: a part with no part number gets it, with a toast; a part that already has a different one is left as it is, and the toast says so.
+- Nothing extra to press: it is the photo you were taking anyway.
+
+**Consequences:** A bag that names only the maker's part number (Mouser) fills the part number but not the shop, since the code doesn't say whose bag it is. The bag's quantity is what shipped, not what's left; it's shown and editable before saving. The format knowledge is from the published label formats and was checked with generated codes, not yet with Colin's own bags; a bag that doesn't read is the thing to send. Checked in `bagcode.test.ts` and `extras-check.mjs` (a generated Data Matrix through the real decoder in the browser).
+
+---
+
+### DEC-075: "You may already have this": a part captured again is added to the one on record
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin: "let's add those ideas") |
+| **Deciders** | Colin |
+| **Category** | UX / Data |
+
+**Context:** Capturing a part that is already in the inventory made a second part. Nothing said so, and the only fix was to delete one and correct the other's count by hand.
+
+**Decision:**
+- **The hint.** While a part still needs details, the server lists up to three parts already on record that it looks like (`ItemDetail.similar`, `similarItems`): the same part number (letters and digits only, so "1528 1150 nd" is "1528-1150-ND"), or the same name (the same way). The part's own name and number count and so do the AI's guesses at them, so the hint can appear before anything is typed. Part-number matches come first.
+- **Where.** On the part's row on Fill in details: "You may already have this: <name> · <where it is> · same part number / same name", the name a link, and a button "Same part: add this to it". On Quick capture, right after saving, the same sentence with links (a bag's barcode makes this immediate).
+- **Adding it** (`POST /items/:id/merge-into`, `merge.ts`): the new entry's counts are added to the part on record place by place, its stickered units, photos and homes go to it, and the new entry is deleted. One `merge` event on the part that stays, with Undo on the toast and in Activity: Undo puts every row back and brings the entry back.
+- Counts follow the part on record's way of counting: a count adds to a count; into plenty/low/out a place that has a level keeps it.
+
+**Consequences:** It is a hint, never automatic: two parts can share a generic name. A finished part is not checked, so the list stays cheap. The entry's own name, category and details are not copied over; the part on record is taken as the good one. Checked in the API tests (both kinds of match, the merge, Undo) and `extras-check.mjs`.
+
+---
+
+### DEC-076: Tidy a category's names with the AI, each one approved
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin: "let's add those ideas") |
+| **Deciders** | Colin |
+| **Category** | UX / AI |
+
+**Context:** The naming rule (DEC-065) applies to new parts. Names typed before it read every which way ("3.7V 2000mAh lipo", "LiPo battery 3.7 V 1200 mAh"), and each new name is modelled on the existing ones.
+
+**Decision:**
+- A "Tidy names…" button on each category's card (when the AI is on and the category has parts) opens a dialog. The AI is given the naming rule and each part's name and field values, text only (`POST /categories/:id/tidy-names`, `ai/tidy.ts`).
+- The dialog lists only the names that would change: the old name struck through, the new one in a box you can edit, each ticked. The button says the result ("Rename the 3 ticked parts"); "Cancel, rename nothing" closes it. The server renames nothing itself.
+- **Guard:** a suggested name may only use what the part's record holds. A number or model in it that isn't in the part's current name or field values drops the suggestion, so the AI can reorder and tidy but not invent.
+
+**Consequences:** A rename is an ordinary edit of the part's name, so it isn't in Activity's undo; the old name is visible in the dialog until the button is pressed. Large categories are sent 25 parts at a time. Checked in `tidy.test.ts` and `extras-check.mjs` with a fake model; the real model's suggestions are for Colin to judge on his own categories.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1864,6 +1946,10 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-070 | Categories and Print stickers in the sidebar and the phone's Menu, not at the bottom of Locations | UX / Navigation | Accepted | 2026-11-13 |
 | DEC-071 | Fields have IDs; universal, category-only and custom fields | Data / UX | Accepted; universal fields superseded by DEC-072 | 2026-11-13 |
 | DEC-072 | A field belongs to one category; a category change asks what to do with the old values | Data / UX | Accepted | 2026-11-13 |
+| DEC-073 | Every Fill in details row can ask the AI itself | UX / AI | Accepted | 2026-11-13 |
+| DEC-074 | A shop bag's 2D barcode is read from the photo | Capture / Data | Accepted | 2026-11-13 |
+| DEC-075 | "You may already have this": a part captured again is added to the one on record | UX / Data | Accepted | 2026-11-13 |
+| DEC-076 | Tidy a category's names with the AI, each one approved | UX / AI | Accepted | 2026-11-13 |
 
 ---
 

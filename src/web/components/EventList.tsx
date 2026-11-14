@@ -30,6 +30,8 @@ function describe(e: EventView): string {
       return "Sticker assigned";
     case "retire":
       return `Stickered one removed${at}`;
+    case "merge":
+      return `Another entry of this part added to it${e.delta ? ` (+${e.delta})` : ""}`;
     case "archive":
       return e.itemId ? "Deleted" : "Location deleted";
     default:

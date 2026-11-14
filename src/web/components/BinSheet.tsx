@@ -5,6 +5,8 @@ import { Camera, ChevronRight, LogOut, MoveRight, Pencil, Plus, QrCode, X } from
 import type { CreateItem, ItemDetail, LocationDetail, LocationItem, LocationSummary, ScanResult, StockResult } from "../../shared/api";
 import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
+import { readBagCode } from "../lib/bagcode";
+import { bagPartNumber } from "../../shared/bagcode";
 import { useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl, useStockMutation } from "./StockControl";
@@ -338,8 +340,11 @@ function AddPart({ bin, first, onDone, onCancel }: { bin: LocationSummary; first
     mutationFn: async (body: CreateItem) => {
       let item = await api<ItemDetail>("/items", { method: "POST", body });
       if (photo) {
-        const { photo: p, thumb } = await preparePhoto(photo);
+        const [{ photo: p, thumb }, bag] = await Promise.all([preparePhoto(photo), readBagCode(photo)]);
         item = await uploadPhoto<ItemDetail>(item.id, p, thumb);
+        // A shop bag's barcode in the photo gives the part number (DEC-074).
+        const pn = bag ? bagPartNumber(bag) : null;
+        if (bag && pn) item = await api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body: { supplierPn: pn, ...(bag.supplier ? { supplier: bag.supplier } : {}) } });
       }
       return item;
     },

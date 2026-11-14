@@ -63,6 +63,8 @@ import { ollamaChat, ollamaHasModel } from "./ai/ollama";
 import { pageFetcher, pdfReader, searxng } from "./ai/search";
 import { researchItem, type Deps } from "./ai/research";
 import { AiQueue } from "./ai/queue";
+import { tidyNames } from "./ai/tidy";
+import { mergeItem } from "./merge";
 import { mouserReader } from "./ai/mouser";
 import { digikeyReader } from "./ai/digikey";
 import {
@@ -81,6 +83,7 @@ import {
   moveStockSchema,
   moveUnitSchema,
   moveUnitsSchema,
+  mergeItemSchema,
   checkInSchema,
   checkOutSchema,
   putBackSchema,
@@ -104,6 +107,7 @@ import {
   type StoredResearch,
   type ScanResult,
   type StockResult,
+  type TidyNames,
   type Stats,
 } from "../shared/api";
 
@@ -461,6 +465,12 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     const { eventId, itemId } = moveUnits(db, unitIds, toLocationId);
     return c.json(result(eventId, itemId));
   });
+  // A part captured again, added to the one already on record (DEC-075): one undoable event on the part that stays.
+  api.post("/items/:id/merge-into", async (c) => {
+    const { intoId } = parseBody(mergeItemSchema, await c.req.json());
+    const { eventId, itemId } = mergeItem(db, intParam(c.req.param("id")), intoId);
+    return c.json(result(eventId, itemId));
+  });
   api.post("/items/:id/move-everything", async (c) => {
     const itemId = intParam(c.req.param("id"));
     const { toLocationId } = parseBody(moveUnitSchema, await c.req.json());
@@ -479,6 +489,26 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
   api.get("/categories", (c) => c.json(listCategories(db)));
   api.get("/categories/usage", (c) => c.json(categoryUsage(db)));
   api.get("/categories/:id/values", (c) => c.json(categoryValues(db, intParam(c.req.param("id")))));
+  // The category's names rewritten to the naming convention (DEC-076): suggestions only; the screen renames what's approved.
+  api.post("/categories/:id/tidy-names", async (c) => {
+    const ai = opts.ai;
+    if (!ai) throw new ApiError(400, "VALIDATION", "AI isn't set up on this server (AI_URL)");
+    const cat = listCategories(db).find((x) => x.id === intParam(c.req.param("id")));
+    if (!cat) throw new ApiError(404, "NOT_FOUND", "Category not found");
+    const parts = db
+      .select()
+      .from(items)
+      .where(eq(items.categoryId, cat.id))
+      .all()
+      .filter((i) => !i.archived && i.name.trim())
+      .map((i) => ({
+        id: i.id,
+        name: i.name,
+        fields: Object.fromEntries(cat.fieldDefs.filter((f) => !f.perUnit && String(i.attributes[f.key] ?? "").trim()).map((f) => [f.label, String(i.attributes[f.key])])),
+      }));
+    const chat = aiDeps(ai, ai.model, (line) => console.log(`[ai] tidy ${cat.name}: ${line}`)).chat;
+    return c.json<TidyNames>({ suggestions: await tidyNames(chat, cat.name, parts), looked: parts.length });
+  });
   api.patch("/categories/:id", async (c) => c.json(updateCategory(db, intParam(c.req.param("id")), parseBody(updateCategorySchema, await c.req.json()))));
   api.delete("/categories/:id", (c) => {
     deleteCategory(db, intParam(c.req.param("id")));

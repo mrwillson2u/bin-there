@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Plus, Tags, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
 import { fieldTypeLabels, fieldTypes, itemKindLabels, itemKinds, trackingLabels, trackingModes, type Category, type CategoryUsage, type FieldDef, type UpdateCategory } from "../../shared/api";
 import { fieldName } from "../../shared/fields";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
+import { useAiStatus } from "../components/AiSuggestions";
+import { TidyNamesDialog } from "../components/TidyNames";
 import { Button, inputClass } from "../components/ui";
 
 // Categories (DEC-056): the list, and for each one its name, its usual kind and way of counting,
@@ -82,6 +84,9 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
   const [perUnitTapped, setPerUnitTapped] = useState<Record<string, boolean>>({});
   const [newField, setNewField] = useState("");
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  // Tidy names (DEC-076): the AI suggests new names for this category's parts; each is approved in the dialog.
+  const ai = useAiStatus();
+  const [tidying, setTidying] = useState(false);
   const patch = useMutation({
     mutationFn: (body: UpdateCategory) => api<Category>(`/categories/${c.id}`, { method: "PATCH", body }),
     onSuccess: (updated) => {
@@ -155,6 +160,15 @@ function CategoryCard({ category: c, usage }: { category: Category; usage: Categ
         />
         <span className="shrink-0 text-[13px] text-muted">{usage.items === 1 ? "1 part" : `${usage.items} parts`}</span>
       </div>
+      {ai?.enabled && usage.items > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" className="min-h-9 text-sm" onClick={() => setTidying(true)} aria-label={`Tidy the names in ${c.name}`}>
+            <Sparkles size={16} /> Tidy names…
+          </Button>
+          <span className="text-[13px] text-muted">The AI suggests names that read alike. You approve each.</span>
+        </div>
+      )}
+      {tidying && <TidyNamesDialog category={c} onClose={() => setTidying(false)} />}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Choices label={`Usual type for ${c.name}`} options={itemKinds} labels={itemKindLabels} value={c.defaultKind} onPick={(v) => patch.mutate({ defaultKind: v })} />

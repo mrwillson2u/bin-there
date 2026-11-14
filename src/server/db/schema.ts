@@ -188,6 +188,8 @@ export const EVENT_TYPES = [
   "archive",
   /** A stickered unit removed from its part (DEC-063): retired, its sticker freed. */
   "retire",
+  /** A part captured again added to the one already on record (DEC-075); the event is on the part that stays. */
+  "merge",
   "undo",
 ] as const;
 
@@ -208,6 +210,8 @@ export type UndoData = {
   archive?: { units: { id: number; code: string | null; status: (typeof UNIT_STATUSES)[number] }[] };
   /** For a unit removed from its part (DEC-063): as it was, so Undo can bring it back. */
   retire?: { id: number; code: string | null; status: (typeof UNIT_STATUSES)[number] };
+  /** For a merge (DEC-075): the entry that was added in, and its units and photos as they were. */
+  merge?: { sourceId: number; units: { id: number; attributes: Record<string, string> }[]; photos: { id: number; isMain: boolean }[] };
 };
 
 export const events = sqliteTable("events", {

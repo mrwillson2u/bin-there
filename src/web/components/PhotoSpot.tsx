@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Camera } from "lucide-react";
 import type { ItemDetail } from "../../shared/api";
-import { uploadPhoto } from "../api";
+import { api, uploadPhoto } from "../api";
+import { readBagCode } from "../lib/bagcode";
+import { bagPartNumber, bagText } from "../../shared/bagcode";
 import { preparePhoto } from "../lib/photo";
 import { useToast } from "./Toast";
 
-/** Resize a photo on the device (DEC-006) and attach it to an item; screens showing the item refresh. */
+/** Resize a photo on the device (DEC-006) and attach it to an item; screens showing the item refresh. A shop bag's barcode in it is read too (DEC-074). */
 export function useAddPhoto(itemId: number) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -16,8 +18,18 @@ export function useAddPhoto(itemId: number) {
     if (!file) return;
     setBusy(true);
     try {
-      const { photo, thumb } = await preparePhoto(file);
-      const updated = await uploadPhoto<ItemDetail>(itemId, photo, thumb);
+      const [{ photo, thumb }, bag] = await Promise.all([preparePhoto(file), readBagCode(file)]);
+      let updated = await uploadPhoto<ItemDetail>(itemId, photo, thumb);
+      // A shop bag's barcode in the photo (DEC-074) fills the part number when the part has none.
+      const pn = bag ? bagPartNumber(bag) : null;
+      if (bag && pn) {
+        if (!updated.supplierPn) {
+          updated = await api<ItemDetail>(`/items/${itemId}`, { method: "PATCH", body: { supplierPn: pn, ...(bag.supplier && !updated.supplier ? { supplier: bag.supplier } : {}) } });
+          toast.show({ message: `Bag barcode read: ${bagText(bag)} saved as its part number` });
+        } else if (updated.supplierPn !== pn) {
+          toast.show({ message: `Bag barcode read: ${bagText(bag)}. This part already has ${updated.supplierPn}, left as it is` });
+        }
+      }
       qc.setQueryData(["item", itemId], updated);
       qc.invalidateQueries({ queryKey: ["items"] });
       qc.invalidateQueries({ queryKey: ["location"] });

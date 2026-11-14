@@ -364,6 +364,45 @@ describe("categories (DEC-056)", () => {
     expect(settleFields(db)).toEqual([]);
   });
 
+  it("says when a new part looks like one already on record, and adds it to that one, undoably (DEC-075)", async () => {
+    const tote = await bin("Tote");
+    const drawer = await bin("Drawer");
+    const cats = await ok<Category[]>("GET", "/categories");
+    const have = await item({ name: "LiPo battery 3.7 V 2000 mAh", categoryId: cats[0]!.id, locationId: tote.id, qty: 4 });
+    await ok("PATCH", `/items/${have.id}`, { supplierPn: "1528-1150-ND" });
+    expect(have.similar).toEqual([]); // a finished part isn't checked
+    // A new capture with the same part number (a bag scanned), differently punctuated.
+    const again = await item({ locationId: tote.id, qty: 2 });
+    const byNumber = await ok<ItemDetail>("PATCH", `/items/${again.id}`, { supplierPn: "1528 1150 nd" });
+    expect(byNumber.similar).toEqual([{ id: have.id, name: "LiPo battery 3.7 V 2000 mAh", thumbUrl: null, where: "Garage › Tote", why: "number" }]);
+    // Another with the same name, typed differently, in another place, with its own sticker.
+    const third = await item({ name: "lipo battery 3.7V 2000mAh", locationId: drawer.id, code: "BAT009" });
+    expect(third.similar.map((s) => [s.id, s.why])).toEqual([[have.id, "name"]]);
+    // A different part isn't flagged; nor is a short name.
+    expect((await item({ name: "LiPo battery 3.7 V 500 mAh" })).similar).toEqual([]);
+
+    // Add the second to the first: the counts add up, the new entry is gone.
+    const merged = await ok<StockResult>("POST", `/items/${again.id}/merge-into`, { intoId: have.id });
+    expect(merged.item.id).toBe(have.id);
+    expect(merged.item.places.map((p) => [p.locationId, p.qty])).toEqual([[tote.id, 6]]);
+    expect((await call("GET", `/items/${again.id}`)).status).toBe(404);
+    // And the third: its stickered unit and its place come along.
+    const merged2 = await ok<StockResult>("POST", `/items/${third.id}/merge-into`, { intoId: have.id });
+    expect(merged2.item.unitList.map((u) => u.code)).toEqual(["BAT009"]);
+    expect(merged2.item.places.map((p) => p.locationId).sort()).toEqual([tote.id, drawer.id].sort());
+    expect(merged2.item.totalQty).toBe(7);
+    // Undo brings the entry back as it was and takes its things out of the part.
+    const undone = await ok<ItemDetail>("POST", `/events/${merged2.eventId}/undo`);
+    expect(undone.unitList).toEqual([]);
+    expect(undone.places.map((p) => [p.locationId, p.qty])).toEqual([[tote.id, 6]]);
+    const back = await ok<ItemDetail>("GET", `/items/${third.id}`);
+    expect(back.unitList.map((u) => u.code)).toEqual(["BAT009"]);
+    expect(back.name).toBe("lipo battery 3.7V 2000mAh");
+    // Not with itself, not with one that's gone.
+    expect((await call("POST", `/items/${third.id}/merge-into`, { intoId: third.id })).status).toBe(400);
+    expect((await call("POST", `/items/${third.id}/merge-into`, { intoId: again.id })).status).toBe(404);
+  });
+
   it("an old database's name-derived keys become field IDs once, values, AI marks and units with them (DEC-071)", async () => {
     const db = openDb(":memory:");
     const own = createApi(db, { photoDir: mkdtempSync(join(tmpdir(), "snt-photos-")) });
