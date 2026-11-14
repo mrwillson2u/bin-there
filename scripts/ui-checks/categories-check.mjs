@@ -27,6 +27,11 @@ const api = async (method, path, body) => {
   const j = await r.json(); if (!r.ok) throw new Error(`${method} ${path} ${r.status} ${JSON.stringify(j)}`); return j;
 };
 const check = (ok, msg) => { console.log((ok ? "PASS " : "FAIL ") + msg); if (!ok) process.exitCode = 1; };
+const until = async (fn, msg, ms = 8000) => {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { if (await fn()) return check(true, msg); await new Promise((r) => setTimeout(r, 150)); }
+  check(false, msg);
+};
 
 const site = await api("POST", "/locations", { name: "Garage", type: "site" });
 const tote = await api("POST", "/locations", { name: "Tote", type: "tote", parentId: site.id });
@@ -49,8 +54,19 @@ const wireCard = page.locator('[data-category="Wire & connectors"]');
 check((await wireCard.getByText("1 part").count()) === 1, "a category says how many parts use it");
 
 // Add a category with two fields.
-await page.getByLabel("New category").fill("Relays");
-await page.getByRole("button", { name: "Add", exact: true }).first().click();
+// The box at the top finds categories as you type and adds a new one (issue #4, DEC-079).
+const find = page.getByLabel("Find or add a category");
+check((await find.getAttribute("placeholder")) === "Find a category, or type a new name to add it", "the top box says it finds and adds");
+await find.fill("wire");
+check((await page.locator("[data-category]").count()) === 1 && (await wireCard.count()) === 1, "typing filters the categories by name as you type");
+check((await page.locator("[data-category-find]").textContent()).includes("Press Add to create a new category named “wire”"), "a name that isn't a category yet says Add will create it");
+await find.fill("WIRE & connectors");
+check((await page.getByRole("button", { name: "Add a new category" }).isDisabled()) === true && !(await page.locator("[data-category-find]").textContent()).includes("Press Add"), "a name that already exists can't be added again");
+await find.fill("Relays");
+check((await page.locator("[data-category]").count()) === 0 && (await page.locator("[data-category-find]").textContent()).includes("No category has “Relays” in its name"), "a name nothing matches shows no categories and says so");
+await page.screenshot({ path: `${shots}/cat-0-find-or-add.png` });
+await page.getByRole("button", { name: "Add Relays as a new category" }).click();
+await until(async () => (await page.locator("[data-category]").count()) === cats.length + 1, "Add creates it, clears the box and shows every category again");
 const relays = page.locator('[data-category="Relays"]');
 await relays.waitFor();
 await relays.getByLabel("New field for Relays").fill("Coil voltage");

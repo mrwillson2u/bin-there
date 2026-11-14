@@ -40,6 +40,24 @@ page.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
 // Reached from the sidebar on a computer (DEC-070), not from the bottom of Locations.
 await page.goto(`${base}/locations`);
 check((await page.locator("main").getByRole("link", { name: /Print stickers|Categories|Settings/ }).count()) === 0, "on a computer the Locations page carries no Print stickers, Categories or Settings links");
+// The sidebar's order (issue #3, DEC-078): the usual one, changed by dragging, kept on this device, and put back from Settings.
+const menuNames = async () => (await page.locator("[data-side-menu] a").allTextContents()).map((t) => t.trim()).join(", ");
+check((await menuNames()) === "Inventory, Locations, Search, Put-back, Activity, Categories, Print stickers, Settings", "the sidebar's usual order: " + (await menuNames()));
+await page.locator('[data-menu-item="settings"]').dragTo(page.locator('[data-menu-item="inventory"]'), { targetPosition: { x: 40, y: 6 } });
+check((await menuNames()).startsWith("Settings, Inventory, Locations"), "dragging Settings onto the top of Inventory puts it first: " + (await menuNames()));
+await page.locator('[data-menu-item="inventory"]').dragTo(page.locator('[data-menu-item="stickers"]'), { targetPosition: { x: 40, y: 38 } });
+check((await menuNames()).endsWith("Print stickers, Inventory"), "dragging onto the bottom half of the last entry puts it at the end: " + (await menuNames()));
+await page.reload();
+check((await menuNames()) === "Settings, Locations, Search, Put-back, Activity, Categories, Print stickers, Inventory", "the order is still there after a reload");
+await page.screenshot({ path: `${shots}/menu-reordered.png` });
+await page.locator('[data-menu-item="locations"] a').focus();
+await page.keyboard.press("Alt+ArrowUp");
+check((await menuNames()).startsWith("Locations, Settings"), "Alt and the up arrow moves the focused entry up");
+await page.goto(`${base}/settings`);
+await page.getByRole("button", { name: "Put the menu back in the usual order" }).click();
+check((await menuNames()) === "Inventory, Locations, Search, Put-back, Activity, Categories, Print stickers, Settings", "Settings puts the menu back in the usual order");
+check((await page.getByRole("button", { name: "Put the menu back in the usual order" }).isDisabled()) === true, "with the usual order there is nothing to put back");
+await page.goto(`${base}/locations`);
 await page.locator("nav").getByRole("link", { name: "Print stickers" }).click();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByRole("button", { name: /Sticker vinyl, Cricut/ }).getAttribute("aria-pressed")) === "true", "the Cricut vinyl is the first choice");

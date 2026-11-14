@@ -1891,6 +1891,48 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-078: The menu's usual order, and dragging it into your own (issue #3)
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, GitHub issue #3) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-070 put Categories next to Inventory and Print stickers next to Locations in the sidebar. Colin asked for the order Inventory, Locations, Search, Put-back, Activity, Categories, Print stickers, Settings, and to be able to reorder it by dragging. He wasn't sure reordering matters on a phone; the bottom bar stays as it is.
+
+**Decision:**
+- **The usual order** is his: Inventory, Locations, Search, Put-back, Activity, Categories, Print stickers, Settings (`MENU` in `src/web/menu.ts`).
+- **Dragging** an entry in the computer's sidebar moves it; a line shows where it will land. Alt with the up or down arrow moves the focused entry, for keyboards.
+- **The order is this device's**, like the theme: kept in `localStorage`, never on the server. Settings has "Put the menu back in the usual order".
+- **Phone:** the bottom bar is unchanged. The Menu lists the entries the bar doesn't hold in the menu's order (Search, Categories, Print stickers, Settings by default); there is no dragging on a phone.
+
+**Consequences:** A menu entry added later takes its usual place in a saved order (`menuOrder`). Checked in `menu.test.ts`, `stickers-print-check.mjs` (usual order, two drags, reload, the keyboard, Settings' reset) and `stickers-check.mjs` (the phone Menu).
+
+---
+
+### DEC-079: The Categories screen's top box finds a category and adds a new one (issue #4)
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-13 |
+| **Status** | Accepted (Colin, GitHub issue #4) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** The box at the top of Categories only added a category, but read as a search box, and finding a category among seventeen meant scrolling.
+
+**Decision:**
+- The box does both. Typing filters the categories to those with the text in their name, as you type; a line under it says how many are showing.
+- When the text isn't already a category's name, the line also says "Press Add to create a new category named …" and Add lights up; Add (or Enter) creates it, clears the box and shows every category again.
+- A name that already exists can't be added again: Add is off.
+- It has a search icon, the placeholder "Find a category, or type a new name to add it", and a clear button.
+
+**Consequences:** One box, no mode to pick. Checked in `categories-check.mjs`.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -1972,6 +2014,8 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-075 | "You may already have this": a part captured again is added to the one on record | UX / Data | Accepted | 2026-11-13 |
 | DEC-076 | Tidy a category's names with the AI, each one approved | UX / AI | Accepted | 2026-11-13 |
 | DEC-077 | The edit form can take a photo | UX | Accepted | 2026-11-13 |
+| DEC-078 | The menu's usual order, and dragging it into your own (issue #3) | UX | Accepted | 2026-11-13 |
+| DEC-079 | The Categories screen's top box finds a category and adds a new one (issue #4) | UX | Accepted | 2026-11-13 |
 
 ---
 

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { ScanLine, SunMoon, Volume2 } from "lucide-react";
+import { ListOrdered, ScanLine, SunMoon, Volume2 } from "lucide-react";
 import { getTheme, setTheme, themeLabels, themes, type Theme } from "../theme";
 import { getScanMethod, scanMethodHints, scanMethodLabels, scanMethods, setScanMethod, type ScanMethod } from "../settings";
 import { setSound, soundOn } from "../scan/feedback";
-import { Card } from "../components/ui";
+import { Button, Card } from "../components/ui";
+import { setMenuOrder, useMenuOrder } from "../menu";
 
 // Settings for this device (DEC-043): appearance, how the Stickers screen starts, the beep.
 // Reached from the sidebar and from the bottom of Locations. Nothing here is stored on the server.
@@ -12,6 +13,7 @@ export function SettingsPage() {
   const [theme, pickTheme] = useState<Theme>(getTheme);
   const [method, pickMethod] = useState<ScanMethod>(getScanMethod);
   const [sound, pickSound] = useState<boolean>(soundOn);
+  const menu = useMenuOrder();
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -43,6 +45,16 @@ export function SettingsPage() {
 
       <Section icon={<SunMoon size={18} />} title="Appearance">
         <Choices label="Appearance" options={themes} labels={themeLabels} value={theme} onPick={(t) => { setTheme(t); pickTheme(t); }} />
+      </Section>
+
+      {/* The sidebar's order (issue #3, DEC-078): dragged on a computer, kept on this device. */}
+      <Section icon={<ListOrdered size={18} />} title="Menu order">
+        <p className="text-sm text-muted">
+          On a computer, drag an entry in the menu on the left to move it. {menu.changed ? "This device has its own order." : "This device uses the usual order."}
+        </p>
+        <Button type="button" className="self-start" disabled={!menu.changed} onClick={() => setMenuOrder(null)}>
+          Put the menu back in the usual order
+        </Button>
       </Section>
     </div>
   );

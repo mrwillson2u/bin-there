@@ -157,7 +157,7 @@ check((await page.locator("main").getByRole("link", { name: /Print stickers|Cate
 await page.getByRole("button", { name: "Menu" }).click();
 const phoneMenu = page.getByRole("navigation", { name: "Menu" });
 await phoneMenu.waitFor();
-check((await phoneMenu.getByRole("link").allTextContents()).map((t) => t.trim()).join(", ") === "Categories, Print stickers, Search, Settings", "phone: Menu lists Categories, Print stickers, Search, Settings");
+check((await phoneMenu.getByRole("link").allTextContents()).map((t) => t.trim()).join(", ") === "Search, Categories, Print stickers, Settings", "phone: Menu lists Search, Categories, Print stickers, Search, Settings");
 await page.screenshot({ path: `${shots}/s8-phone-menu.png` });
 await page.keyboard.press("Escape");
 await phoneMenu.waitFor({ state: "detached" });

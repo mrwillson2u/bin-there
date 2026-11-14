@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Plus, Sparkles, Tags, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Search, Sparkles, Tags, Trash2, X } from "lucide-react";
 import { fieldTypeLabels, fieldTypes, itemKindLabels, itemKinds, trackingLabels, trackingModes, type Category, type CategoryUsage, type FieldDef, type UpdateCategory } from "../../shared/api";
 import { fieldName } from "../../shared/fields";
 import { api } from "../api";
@@ -35,6 +35,10 @@ export function CategoriesPage() {
   });
 
   if (!categories || !usage) return <p className="text-muted">Loading…</p>;
+  // The box at the top finds a category as you type, and adds one when the name is new (issue #4, DEC-079).
+  const typed = newName.trim();
+  const shown = typed ? categories.filter((c) => c.name.toLowerCase().includes(typed.toLowerCase())) : categories;
+  const exists = categories.some((c) => c.name.toLowerCase() === typed.toLowerCase());
   return (
     <div className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-5xl">
       <div>
@@ -48,20 +52,51 @@ export function CategoriesPage() {
       </div>
 
       <form
-        className="flex gap-2"
+        className="flex flex-col gap-1.5"
         onSubmit={(e) => {
           e.preventDefault();
-          if (newName.trim()) add.mutate(newName.trim());
+          if (typed && !exists) add.mutate(typed);
         }}
       >
-        <input value={newName} onChange={(e) => setNewName(e.target.value)} className={`${inputClass} min-w-0 flex-1`} placeholder="New category, e.g. Relays" aria-label="New category" />
-        <Button type="submit" disabled={!newName.trim() || add.isPending}>
-          <Plus size={18} /> Add
-        </Button>
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setNewName("");
+              }}
+              className={`${inputClass} w-full pl-10 ${typed ? "pr-10" : ""}`}
+              placeholder="Find a category, or type a new name to add it"
+              aria-label="Find or add a category"
+            />
+            {typed && (
+              <button type="button" onClick={() => setNewName("")} aria-label="Clear" className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-muted">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          <Button type="submit" variant={typed && !exists ? "primary" : "secondary"} disabled={!typed || exists || add.isPending} aria-label={typed && !exists ? `Add ${typed} as a new category` : "Add a new category"}>
+            <Plus size={18} /> Add
+          </Button>
+        </div>
+        {typed && (
+          <p className="px-1 text-[13px] text-muted" role="status" data-category-find>
+            {exists ? (
+              shown.length === 1 ? "Showing that category." : `Showing ${shown.length} categories with “${typed}” in the name.`
+            ) : (
+              <>
+                {shown.length === 0 ? `No category has “${typed}” in its name.` : `Showing ${shown.length === 1 ? "1 category" : `${shown.length} categories`} with “${typed}” in the name.`}{" "}
+                <span className="text-text">Press Add to create a new category named “{typed}”.</span>
+              </>
+            )}
+          </p>
+        )}
       </form>
 
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start">
-        {categories.map((c) => (
+        {shown.map((c) => (
           <CategoryCard key={c.id} category={c} usage={usage[c.id] ?? { items: 0, fields: {} }} />
         ))}
       </div>

@@ -6,6 +6,7 @@ import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
 import { useLiveUpdates } from "./live";
 import { cameraAllowed, useScanMethod } from "./settings";
+import { IN_PHONE_BAR, MENU, moveMenuItem, setMenuOrder, useMenuOrder, type MenuId } from "./menu";
 import { InventoryPage } from "./pages/InventoryPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { PrintStickersPage } from "./pages/PrintStickersPage";
@@ -143,15 +144,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
       {/* Desktop / Pi screen: sidebar. The hardware scanner works on any screen. */}
       <nav className="fixed inset-y-0 left-0 hidden w-56 flex-col gap-1 border-r border-border bg-surface px-3 py-5 lg:flex">
         <div className="mb-4 px-3 text-lg font-semibold">Bin→There</div>
-        {/* Categories by the parts they describe, Print stickers by the places they go on (DEC-070). */}
-        <SideItem to="/" icon={<Boxes size={20} />} label="Inventory" />
-        <SideItem to="/categories" icon={<Tags size={20} />} label="Categories" />
-        <SideItem to="/locations" end={false} icon={<Warehouse size={20} />} label="Locations" />
-        <SideItem to="/stickers/print" icon={<QrCode size={20} />} label="Print stickers" />
-        <SideItem to="/search" icon={<Search size={20} />} label="Search" />
-        <SideItem to="/putback" icon={<Archive size={20} />} label="Put-back" />
-        <SideItem to="/activity" icon={<History size={20} />} label="Activity" />
-        <SideItem to="/settings" icon={<Settings size={20} />} label="Settings" />
+        <SideMenu />
         <span className="flex-1" />
         {/* The same block in both states (DEC-044): filled magenta while a scan does what a screen says,
             outlined when a scan just opens what you scanned. The camera button only where the camera is allowed. */}
@@ -175,10 +168,11 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
 }
 
 /**
- * The phone's menu (DEC-070, Q119): Categories, Print stickers, Search and Settings, the sidebar's
- * entries the bottom bar doesn't hold. It closes on a pick, a tap outside, Escape or a new screen.
+ * The phone's menu (DEC-070, Q119): Search, Categories, Print stickers and Settings, the sidebar's
+ * entries the bottom bar doesn't hold, in the menu's order (DEC-078). It closes on a pick, a tap outside, Escape or a new screen.
  */
 function PhoneMenu() {
+  const { order } = useMenuOrder();
   const [open, setOpen] = useState(false);
   const location = useLocation();
   useEffect(() => {
@@ -207,13 +201,99 @@ function PhoneMenu() {
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />
           <nav aria-label="Menu" className="absolute right-0 top-full z-40 mt-2 flex w-56 flex-col gap-0.5 rounded-2xl border border-border bg-surface p-1.5 shadow-xl">
-            <SideItem to="/categories" icon={<Tags size={20} />} label="Categories" />
-            <SideItem to="/stickers/print" icon={<QrCode size={20} />} label="Print stickers" />
-            <SideItem to="/search" icon={<Search size={20} />} label="Search" />
-            <SideItem to="/settings" icon={<Settings size={20} />} label="Settings" />
+            {order
+              .filter((id) => !IN_PHONE_BAR.includes(id))
+              .map((id) => MENU.find((m) => m.id === id)!)
+              .map((m) => (
+                <SideItem key={m.id} to={m.to} end={m.end} icon={menuIcons[m.id]} label={m.label} />
+              ))}
           </nav>
         </>
       )}
+    </div>
+  );
+}
+
+const menuIcons: Record<MenuId, React.ReactNode> = {
+  inventory: <Boxes size={20} />,
+  locations: <Warehouse size={20} />,
+  search: <Search size={20} />,
+  putback: <Archive size={20} />,
+  activity: <History size={20} />,
+  categories: <Tags size={20} />,
+  stickers: <QrCode size={20} />,
+  settings: <Settings size={20} />,
+};
+
+/**
+ * The sidebar's entries (issue #3, DEC-078), in this device's order. Drag one to move it: a line
+ * shows where it will land. Alt with the up or down arrow moves the focused one, for keyboards.
+ * Settings has the way back to the usual order.
+ */
+function SideMenu() {
+  const { order } = useMenuOrder();
+  const [dragging, setDragging] = useState<MenuId | null>(null);
+  // Where the dragged entry would land: before this one, or "end".
+  const [over, setOver] = useState<MenuId | "end" | null>(null);
+  const drop = () => {
+    if (dragging && over) setMenuOrder(moveMenuItem(order, dragging, over === "end" ? null : over));
+    setDragging(null);
+    setOver(null);
+  };
+  return (
+    <div
+      className="flex flex-col gap-1"
+      data-side-menu
+      onDragOver={(e) => {
+        if (dragging) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        drop();
+      }}
+      onDragEnd={() => {
+        setDragging(null);
+        setOver(null);
+      }}
+    >
+      {order.map((id, i) => {
+        const m = MENU.find((x) => x.id === id)!;
+        return (
+          <div
+            key={id}
+            draggable
+            title="Drag to reorder"
+            data-menu-item={id}
+            className={`relative cursor-grab active:cursor-grabbing ${dragging === id ? "opacity-40" : ""}`}
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", id);
+              setDragging(id);
+            }}
+            onDragOver={(e) => {
+              if (!dragging) return;
+              e.preventDefault();
+              // The top half lands before this entry, the bottom half before the next.
+              const box = e.currentTarget.getBoundingClientRect();
+              const after = e.clientY > box.top + box.height / 2;
+              setOver(after ? (order[i + 1] ?? "end") : id);
+            }}
+            onKeyDown={(e) => {
+              if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+              e.preventDefault();
+              const j = e.key === "ArrowUp" ? i - 1 : i + 1;
+              if (j < 0 || j >= order.length) return;
+              const next = [...order];
+              [next[i], next[j]] = [next[j]!, next[i]!];
+              setMenuOrder(next);
+            }}
+          >
+            {dragging && over === id && dragging !== id && <span aria-hidden className="absolute inset-x-2 -top-[3px] h-0.5 rounded bg-accent" />}
+            <SideItem to={m.to} end={m.end} icon={menuIcons[id]} label={m.label} />
+            {dragging && over === "end" && i === order.length - 1 && dragging !== id && <span aria-hidden className="absolute inset-x-2 -bottom-[3px] h-0.5 rounded bg-accent" />}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -223,6 +303,7 @@ function SideItem({ to, icon, label, end = true }: { to: string; icon: React.Rea
     <NavLink
       to={to}
       end={end}
+      draggable={false}
       className={({ isActive }) => `flex min-h-11 items-center gap-3 rounded-xl px-3 ${isActive ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface-2 hover:text-text"}`}
     >
       {icon}
