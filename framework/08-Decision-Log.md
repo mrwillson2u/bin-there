@@ -2100,7 +2100,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - Menu opens upwards from its button and lists the rest in the menu's order: Activity (which gives up its place on the bar), Categories, Print stickers, Settings. It is lit while one of those screens is showing.
 - The row at the top of every page (the app's name and the Menu button) is gone, so pages start higher.
 
-**Consequences:** This replaces the Menu's place in DEC-070 and the bar's Activity button. Activity is two taps away on a phone instead of one. Checked in `stickers-check.mjs` (the bar's order, the menu's entries, opening above its button, closing on Escape, a tap outside and a pick).
+**Consequences:** This replaces the Menu's place in DEC-070 and the bar's Activity button. Activity is two taps away on a phone instead of one. Checked in `stickers-check.mjs` (the bar's order, the menu's entries, opening above its button, closing on Escape, a tap outside and a pick). Shipped to the live app on 2026-11-15 (backup `2026-11-15_111808`, `main` at 56236eb).
 
 ---
 
