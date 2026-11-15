@@ -2120,7 +2120,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - Either way it returns to Put away. With a place the part shows as put away and the tally counts it; without one a note says it is under No place in Inventory, and the tally doesn't move.
 - Inventory has a **No place** filter (with its count, like the other status filters): parts nothing says the whereabouts of, and parts with a stickered one that is in but has no place. The same rule as the part page's "No place yet" card.
 
-**Consequences:** The route (`/putback`), the API (`POST /api/putback`) and file names keep the old word. A part saved with no place still loses a count typed at capture (a count belongs to a place); the prompt makes that the exception. `GET /api/inventory` takes `noplace=1` and `GET /api/stats` returns `noPlace`. Checked in `putaway-check.mjs` and `items.test.ts`.
+**Consequences:** The route (`/putback`), the API (`POST /api/putback`) and file names keep the old word. A part saved with no place still loses a count typed at capture (a count belongs to a place); the prompt makes that the exception. `GET /api/inventory` takes `noplace=1` and `GET /api/stats` returns `noPlace`. Checked in `putaway-check.mjs` and `items.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_115826`, `main` at 0640629).
 
 ---
 
