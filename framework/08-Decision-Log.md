@@ -2063,7 +2063,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - The chooser (`PickLocation`) leads with "Instead of scanning, you can", with Pick from list and Cancel under it.
 - Desktop is unchanged ("or you can" after the words).
 
-**Consequences:** This replaces "a box with other buttons keeps its words" in DEC-083 and DEC-085. Put-back's opening box is its explanation only. Checked in `move-check.mjs` (the words visible once, the box's lead-in) and `fill-check.mjs`.
+**Consequences:** This replaces "a box with other buttons keeps its words" in DEC-083 and DEC-085. Put-back's opening box is its explanation only. Checked in `move-check.mjs` (the words visible once, the box's lead-in) and `fill-check.mjs`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_003859`, `main` at e480550).
 
 ---
 
