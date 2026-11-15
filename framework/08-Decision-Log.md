@@ -2024,7 +2024,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - On a desktop, and on a phone set to scanner only, nothing changes: the scan box with its Cancel stays.
 - In code: `ScanTarget` takes `cancel`; `CameraOptions.onClose` runs when the camera goes away.
 
-**Consequences:** A phone set to scanner only still shows the box with words and Cancel on these three screens. Choosers that offer another way (Pick from list) keep their box. Checked in `stickers-check.mjs` (bin sheet and bin page on a phone: camera opens at once, no box, closing ends the wait; desktop keeps the box).
+**Consequences:** A phone set to scanner only still shows the box with words and Cancel on these three screens. Choosers that offer another way (Pick from list) keep their box. Checked in `stickers-check.mjs` (bin sheet and bin page on a phone: camera opens at once, no box, closing ends the wait; desktop keeps the box). Shipped to the live app on 2026-11-14 (backup `2026-11-14_232204`, `main` at de6a649).
 
 ---
 
