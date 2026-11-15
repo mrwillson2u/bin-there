@@ -272,7 +272,7 @@ export function StickersView({ box, onExit }: { box: LocationDetail; onExit: () 
           ) : (
             <section className="flex flex-col gap-2" aria-label="Next up">
               {selected ? (
-                <ScanTarget big what={`Scan the sticker for ${selected.name}`}>
+                <ScanTarget big stay what={`Scan the sticker for ${selected.name}`}>
                   <p className="text-sm text-muted">
                     Each scan goes on the chosen bin, then the next bin without a sticker is chosen for you, left to right and top to bottom. Tap any bin to choose it instead.
                   </p>

@@ -7,7 +7,7 @@ import { api, uploadPhoto } from "../api";
 import { preparePhoto } from "../lib/photo";
 import { readBagCode } from "../lib/bagcode";
 import { bagPartNumber } from "../../shared/bagcode";
-import { useScanHandler } from "../scan/ScanProvider";
+import { useScanFloat, useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
 import { StockControl, useStockMutation } from "./StockControl";
 import { PickLocation } from "./PickLocation";
@@ -83,6 +83,7 @@ export function BinSheet({
   // The hardware scanner while the sheet is open: another bin's sticker opens that bin
   // here; an unused sticker asks whether it's this bin's (nothing is written until you
   // say so, DEC-024); anything else opens as usual.
+  const float = useScanFloat();
   useScanHandler((code) => {
     setError(null);
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
@@ -209,7 +210,7 @@ export function BinSheet({
         role="dialog"
         aria-label={`${bin.name} in ${box.name}`}
         data-sheet
-        className="fixed inset-x-0 bottom-0 z-20 flex max-h-[85dvh] flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl"
+        className={`fixed inset-x-0 bottom-0 z-20 flex max-h-[85dvh] flex-col gap-3 overflow-y-auto rounded-t-2xl border-t border-border bg-surface px-4 pt-2 shadow-2xl ${float ? "pb-44" : "pb-[max(1rem,env(safe-area-inset-bottom))]"}`}
       >
         {content}
       </section>

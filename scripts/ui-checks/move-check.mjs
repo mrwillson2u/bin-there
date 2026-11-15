@@ -95,6 +95,20 @@ await sheet().waitFor();
 check(await checked(/^Just this one BAT003/), "from a unit's row, just that one starts ticked");
 check((await sheet().getByRole("radio", { name: /^All 7 stickered ones/ }).count()) === 1, "and All 7 is still there");
 check((await moveButton().textContent()).trim() === "Move 1 to …", "Move 1 to …");
+// DEC-085: on a phone the Move sheet covers the bar, so the Scan button and its note float over it, bottom centre; the sheet has no camera button of its own.
+{
+  const float = page.locator("[data-scan-float]");
+  await float.waitFor();
+  const b = await float.getByRole("button").boundingBox();
+  const n = await float.locator("[data-scan-note]").boundingBox();
+  check(Math.abs(b.x + b.width / 2 - 195) < 3 && b.y + b.height > 844 - 60 && b.y + b.height <= 844 && n.y + n.height < b.y, "phone: over the Move sheet the Scan button floats bottom centre with its note above it");
+  check((await sheet().getByRole("button", { name: /Scan with camera|open the camera/ }).count()) === 0 && (await page.locator("[data-scan-note]").count()) === 1, "phone: the sheet has no camera button of its own, and there is one note");
+  const last = await moveButton().boundingBox();
+  await moveButton().scrollIntoViewIfNeeded();
+  const shown = await moveButton().boundingBox();
+  check(shown.y + shown.height <= n.y || shown.y >= b.y + b.height, "phone: the sheet leaves room, so its Move button isn't under the floating button: " + JSON.stringify({ move: Math.round(shown.y + shown.height), note: Math.round(n.y) }));
+  await page.screenshot({ path: `${shots}/m-float.png` });
+}
 await scan("BAT004");
 await page.waitForTimeout(300);
 check(await checked(/^Pick which/), "scanning another unit's sticker switches to Pick which");

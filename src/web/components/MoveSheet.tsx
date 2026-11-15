@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import type { ItemDetail, ScanResult, StockResult } from "../../shared/api";
 import { api } from "../api";
-import { useScanHandler } from "../scan/ScanProvider";
+import { useScanFloat, useScanHandler } from "../scan/ScanProvider";
 import { PickLocation } from "./PickLocation";
 import { useStockMutation } from "./StockControl";
 import { Button, inputClass, itemName } from "./ui";
@@ -258,6 +258,8 @@ function Sheet({ item, start, onClose }: { item: ItemDetail; start: MoveStart; o
 
 /** A sheet from the bottom on a phone, a centred panel on a computer; Escape or the backdrop closes it. */
 function Overlay({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
+  // Room at the bottom while the Scan button floats over the sheet on a phone (DEC-085).
+  const float = useScanFloat();
   useEffect(() => {
     const before = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -277,7 +279,7 @@ function Overlay({ label, onClose, children }: { label: string; onClose: () => v
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border-t border-border bg-surface p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:max-h-full lg:w-[34rem] lg:rounded-2xl lg:border lg:p-6"
+        className={`relative max-h-[92vh] w-full overflow-y-auto rounded-t-3xl border-t border-border bg-surface p-4 lg:max-h-full lg:w-[34rem] lg:rounded-2xl lg:border lg:p-6 ${float ? "pb-44" : "pb-[calc(1rem+env(safe-area-inset-bottom))]"}`}
       >
         <button type="button" onClick={onClose} aria-label="Close" className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl text-muted">
           <X size={20} />

@@ -15,8 +15,9 @@ import { useWide } from "../lib/useWide";
 // On a phone the bar's Scan button is the one camera button (issue #1, DEC-083): a target on a
 // page has no camera button of its own, and one that is only its words isn't drawn at all, since
 // the note above the Scan button says them. Inside a sheet that covers the bar (the bin sheet,
-// the Move sheet, the Stickers screen) the target keeps its words and its camera button, since
-// the bar can't be reached from there.
+// the Move sheet, a rack position's sheet) the same holds, and the Scan button and its note float
+// over the sheet where they always sit (DEC-085). `stay` keeps a target as it is on a desktop
+// (the Stickers screen, which has its own camera).
 
 type Props = {
   /** What a scan does now: "Scan where it's going", "Scan the sticker for Bin 0042". */
@@ -31,6 +32,8 @@ type Props = {
   cancel?: () => void;
   /** Other ways to do the same thing (Pick from list) and Cancel. */
   actions?: ReactNode;
+  /** Keep its own camera button on a phone too, and don't float the Scan button (a screen with its own camera). */
+  stay?: boolean;
   /** One line (inside a form) instead of a card. */
   compact?: boolean;
   /** Bigger, for a screen that is mostly about scanning (put-back). */
@@ -39,14 +42,14 @@ type Props = {
   className?: string;
 };
 
-export function ScanTarget({ what, camera, cancel, actions, compact, big, children, className = "" }: Props) {
+export function ScanTarget({ what, camera, cancel, actions, stay, compact, big, children, className = "" }: Props) {
   const { openCamera } = useScan();
   const method = useScanMethod();
-  useScanTarget(what, camera);
   const wide = useWide();
-  // Whether this target sits in something laid over the page (position: fixed), which covers the phone's bar.
+  // Whether this target sits in something laid over the page (position: fixed), which covers the phone's bar. Not known until it's drawn.
   const ref = useRef<HTMLElement | null>(null);
-  const [covered, setCovered] = useState(true);
+  const [covered, setCovered] = useState<boolean | null>(null);
+  useScanTarget(what, camera, !wide && !stay && covered === true);
   useLayoutEffect(() => {
     let over = false;
     for (let el = ref.current?.parentElement; el && el !== document.body; el = el.parentElement) {
@@ -57,7 +60,7 @@ export function ScanTarget({ what, camera, cancel, actions, compact, big, childr
     }
     setCovered(over);
   }, []);
-  const onBar = !wide && !covered;
+  const onBar = !wide && !stay && covered !== null;
   const direct = !!cancel && !wide && cameraAllowed(method);
   const cancelRef = useRef(cancel);
   cancelRef.current = cancel;

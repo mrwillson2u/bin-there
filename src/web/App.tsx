@@ -79,7 +79,7 @@ export function App() {
 }
 
 function Shell({ children, scanError }: { children: React.ReactNode; scanError: string | null }) {
-  const { openCamera: open, lastScan, target, targetCamera } = useScan();
+  const { openCamera: open, lastScan, target, targetCamera, floating, cameraOpen } = useScan();
   // The bar's Scan button opens the camera exactly as the screen's own button does (issue #1): the same title, and waiting for a tap where the scan writes.
   const openCamera = () => open(targetCamera ?? {});
   // The bar is the one place that always says what a scan does right now (DEC-044): a screen's
@@ -116,9 +116,33 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
         </ScreenErrorBoundary>
       </main>
 
+      {/* Phone, over a sheet that covers the bar (DEC-085): the same Scan button and note, floating where they always sit. */}
+      {floating && target && !cameraOpen && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex flex-col items-center gap-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] lg:hidden" data-scan-float>
+          <p
+            className="relative flex w-max max-w-[calc(100vw-2rem)] items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-scan bg-bg px-3 py-1.5 text-center text-[13px] font-semibold text-text shadow-lg"
+            role="status"
+            aria-label={`A scan now: ${target}`}
+            data-scan-note
+          >
+            <ScanLine size={14} className="shrink-0 text-scan" /> {target}
+            <span aria-hidden className="absolute -bottom-[7px] left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b-[1.5px] border-r-[1.5px] border-scan bg-bg" />
+          </p>
+          <button
+            onClick={openCamera}
+            disabled={!camera}
+            className="scan-armed pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full border-[5px] border-scan bg-surface text-scan shadow-lg"
+            aria-label={camera ? `Scan with camera: ${target}` : `Scanner: ${target}`}
+            title={camera ? undefined : "This device scans with the hardware scanner (Settings)"}
+          >
+            <ScanLine size={28} strokeWidth={2.6} />
+          </button>
+        </div>
+      )}
+
       {/* Phone: bottom bar with the big scan button in thumb reach. */}
       <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-        {target && (
+        {target && !floating && (
           /* What a scan does right now (DEC-044), as a note that points at the Scan button (issue #2, DEC-080):
              its own dark surface with a scan-coloured edge, so the button never merges into it. */
           <p

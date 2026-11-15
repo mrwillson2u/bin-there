@@ -5,7 +5,7 @@ import { ChevronRight, GripVertical, Minus, Plus, X } from "lucide-react";
 import { comparePlaces, rackLabel, type LocationDetail, type LocationSummary, type ScanResult } from "../../shared/api";
 import { rackMove, type RackRow } from "../../shared/rack";
 import { api } from "../api";
-import { useScanHandler } from "../scan/ScanProvider";
+import { useScanFloat, useScanHandler } from "../scan/ScanProvider";
 import { ScanTarget } from "../scan/ScanTarget";
 import { contents, LocationIcon } from "./LocationList";
 import { PickLocation } from "./PickLocation";
@@ -395,6 +395,7 @@ function FillSlot({ rack, slot, unplaced, onClose, place }: { rack: LocationDeta
     } else moveHere.mutate(l.id);
   };
   // This sheet says what a scan does here: the scanned box goes in this position (DEC-025).
+  const float = useScanFloat();
   useScanHandler((code) => {
     if (elsewhere) return false; // the picker below takes it
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
@@ -413,7 +414,7 @@ function FillSlot({ rack, slot, unplaced, onClose, place }: { rack: LocationDeta
         role="dialog"
         aria-label={`Position ${label} of ${rack.name}`}
         data-sheet
-        className="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-h-[85dvh] max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl border border-border bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 lg:rounded-3xl"
+        className={`fixed inset-x-0 bottom-0 z-30 mx-auto flex max-h-[85dvh] max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl border border-border bg-surface p-4 ${float ? "pb-44" : "pb-[max(1rem,env(safe-area-inset-bottom))]"} lg:bottom-auto lg:top-1/2 lg:-translate-y-1/2 lg:rounded-3xl`}
       >
         <div className="flex items-center gap-2">
           <PositionTag position={label} big />

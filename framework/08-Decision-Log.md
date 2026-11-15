@@ -2026,6 +2026,26 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** A phone set to scanner only still shows the box with words and Cancel on these three screens. Choosers that offer another way (Pick from list) keep their box. Checked in `stickers-check.mjs` (bin sheet and bin page on a phone: camera opens at once, no box, closing ends the wait; desktop keeps the box). Shipped to the live app on 2026-11-14 (backup `2026-11-14_232204`, `main` at de6a649).
 
+### DEC-085: Over a sheet on a phone, the Scan button floats where it always sits (issue #1)
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin, Q133/Q135: option A of three drawn, "lets try A for now") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-083 left the scan boxes inside sheets that cover the phone's bar (the bin sheet, the Move sheet, a rack position's sheet) with their own camera buttons, since the bar's Scan button can't be reached from there.
+
+**Decision:**
+- While a scan target sits in such a sheet on a phone, the Scan button and its note float over the sheet at the bottom centre, where they sit on every other screen, in the armed look (DEC-081). The bar's own note is not shown at the same time.
+- The scan boxes in those sheets follow DEC-083: no camera button, a words-only box isn't drawn, one with other buttons keeps its words.
+- The sheet leaves room at its bottom so its last row isn't under the button.
+- The Stickers screen is left as it was (`stay` on its `ScanTarget`): it has its own camera.
+- In code: a target registers as `floating` when it has a fixed-position ancestor on a phone; `Shell` draws `[data-scan-float]`; sheets read `useScanFloat()` for the bottom room.
+
+**Consequences:** One camera button on a phone everywhere but the Stickers screen. In the Move sheet the box still heads "Pick from list" and Cancel with the same words as the note. Colin is trying this; C (bottom corner) was the other one he weighed. Checked in `move-check.mjs` (the button bottom centre with the note above, no camera button in the sheet, one note, the Move button clear of it).
+
 ---
 
 ## Decision Index
@@ -2116,6 +2136,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-082 | The bar's Scan button opens the camera the same way as the screen's own button (issue #1, first part) | UX / Fix | Accepted | 2026-11-14 |
 | DEC-083 | On a phone's pages the bar's Scan button is the one camera button (issue #1) | UX | Accepted | 2026-11-14 |
 | DEC-084 | On a phone, a button that asks for a sticker opens the camera straight away | UX | Accepted | 2026-11-14 |
+| DEC-085 | Over a sheet on a phone, the Scan button floats where it always sits (issue #1) | UX | Accepted | 2026-11-15 |
 
 ---
 
