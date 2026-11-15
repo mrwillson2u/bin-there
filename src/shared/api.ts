@@ -471,7 +471,7 @@ export type ReviewEntry = {
   changesSinceCount: number;
 };
 
-export type Stats = { needsDetails: number; checkedOut: number; stale: number; low: number };
+export type Stats = { needsDetails: number; checkedOut: number; stale: number; low: number; /** Parts (or stickered ones of a part) that are in no place (DEC-089). */ noPlace: number };
 
 // ── Inventory: the home screen's list of every part ─────────────────────────
 
@@ -491,6 +491,8 @@ export const inventoryQuerySchema = z.object({
   low: flag,
   out: flag,
   stale: flag,
+  /** Parts with no place: nothing recorded anywhere, or a stickered one that is in but has no place (DEC-089). */
+  noplace: flag,
   sort: z.enum(inventorySorts).optional(),
   offset: z.coerce.number().int().min(0).default(0),
   limit: z.coerce.number().int().min(1).max(200).default(60),

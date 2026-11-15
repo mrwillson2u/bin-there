@@ -62,8 +62,8 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 ### Items
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/inventory?q=&cat=&kind=&needs=1&low=1&out=1&stale=1&sort=&offset=&limit=` | The Inventory screen (DEC-026). Every filter narrows: `cat` is a category id or `none`; `kind` is `consumable`/`returnable`; `needs`, `low` (as `/items/low`), `out` (a unit checked out), `stale` (as `/review`). `sort` is `name` (default; unnamed last), `recent` or `added`; with `q` and no `sort`, best match. Returns `{ pinned, items, total, next }`: pinned parts that pass the filters (first page only, newest pin first), then a page of the rest (`limit` default 60, max 200), `total` counting both, `next` the next offset or null |
-| GET | `/api/items?q=&needs=1` | Search (FTS) with total qty + every location path; without `q`, recently changed. Used by put-back and project kits (Inventory searches through `/api/inventory`, DEC-087) |
+| GET | `/api/inventory?q=&cat=&kind=&needs=1&low=1&out=1&stale=1&noplace=1&sort=&offset=&limit=` | The Inventory screen (DEC-026). Every filter narrows: `cat` is a category id or `none`; `kind` is `consumable`/`returnable`; `needs`, `low` (as `/items/low`), `out` (a unit checked out), `noplace` (in no place, DEC-089), `stale` (as `/review`). `sort` is `name` (default; unnamed last), `recent` or `added`; with `q` and no `sort`, best match. Returns `{ pinned, items, total, next }`: pinned parts that pass the filters (first page only, newest pin first), then a page of the rest (`limit` default 60, max 200), `total` counting both, `next` the next offset or null |
+| GET | `/api/items?q=&needs=1` | Search (FTS) with total qty + every location path; without `q`, recently changed. Used by Put away and project kits (Inventory searches through `/api/inventory`, DEC-087) |
 | GET | `/api/items/recently-used?days=30` | Items with a non-undone "use" in the last N days, most recent first (put-back suggestions) |
 | GET | `/api/items/needs-details` | Every part on the Needs details list, oldest first, as full `ItemDetail`s, for the Fill in details page (DEC-037) |
 | GET | `/api/items/low` | The shopping list: level items low/out anywhere, exact items at zero or at/below their `lowThreshold`; worst first (DEC-016) |
@@ -79,7 +79,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | PUT | `/api/photos/:id/main` | Make this the item's main photo, the one shown in lists, tiles and the bin pane. Returns the item; its `photos` come main first (DEC-031) |
 | DELETE | `/api/photos/:id` | Delete a photo and its files (backups keep their copies). Deleting the main one makes the next one main. Returns the item |
 | GET | `/api/photos/:file` | Serve a stored photo (immutable cache) |
-| GET | `/api/stats` | `{ needsDetails, checkedOut, stale, low }` counts for the Inventory filter chips |
+| GET | `/api/stats` | `{ needsDetails, checkedOut, stale, low, noPlace }` counts for the Inventory filter chips |
 
 ### Stock actions (each writes an Event in the same transaction and returns `{ eventId, item }` so the client can offer Undo)
 | Method | Path | Body | Purpose |

@@ -32,14 +32,16 @@ type View = "list" | "tiles";
 const VIEW_KEY = "bt.inventoryView";
 const readView = (): View => (localStorage.getItem(VIEW_KEY) === "tiles" ? "tiles" : "list");
 
-const FILTER_KEYS = ["q", "cat", "kind", "needs", "low", "out", "stale"] as const;
+const FILTER_KEYS = ["q", "cat", "kind", "needs", "low", "out", "stale", "noplace"] as const;
 
 type Tone = "warn" | "danger" | "info" | "accent";
-const statusFilters: { key: "needs" | "low" | "out" | "stale"; label: string; stat: keyof Stats; tone: Tone }[] = [
+type StatusKey = "needs" | "low" | "out" | "stale" | "noplace";
+const statusFilters: { key: StatusKey; label: string; stat: keyof Stats; tone: Tone }[] = [
   { key: "needs", label: "Needs details", stat: "needsDetails", tone: "warn" },
   { key: "low", label: "Running low", stat: "low", tone: "danger" },
   { key: "out", label: "Checked out", stat: "checkedOut", tone: "info" },
   { key: "stale", label: "Counts to check", stat: "stale", tone: "accent" },
+  { key: "noplace", label: "No place", stat: "noPlace", tone: "accent" },
 ];
 const chipOn: Record<Tone, string> = {
   warn: "border-warn bg-warn/15 text-warn",
@@ -115,7 +117,7 @@ export function InventoryPage() {
 
   // Filters that are on move to the front of the chip row; bring it back to the start so they're in sight.
   const chips = useRef<HTMLDivElement>(null);
-  const onKey = ["needs", "low", "out", "stale", "cat", "kind"].map((k) => params.get(k) ?? "").join("|");
+  const onKey = ["needs", "low", "out", "stale", "noplace", "cat", "kind"].map((k) => params.get(k) ?? "").join("|");
   // Braces matter: newer browsers' scrollTo returns a Promise, and an effect must return
   // nothing or a clean-up function (returning the Promise crashed the screen on the way out).
   useEffect(() => {
@@ -299,7 +301,7 @@ function ViewButton({ on, onClick, label, icon }: { on: boolean; onClick: () => 
 }
 
 /** What a status filter shows, and the screen that works through it when there is one. */
-function StatusNote({ filter }: { filter: "needs" | "low" | "out" | "stale" }) {
+function StatusNote({ filter }: { filter: StatusKey }) {
   const [copied, setCopied] = useState(false);
   const copyLow = async () => {
     const low = await api<ItemSummary[]>("/items/low");
@@ -338,6 +340,14 @@ function StatusNote({ filter }: { filter: "needs" | "low" | "out" | "stale" }) {
           <span>Stickered parts that are out right now.</span>
           <Link to="/out" className={link}>
             Where they went <ChevronRight size={14} />
+          </Link>
+        </>
+      )}
+      {filter === "noplace" && (
+        <>
+          <span>Nothing says where these are. Open one and tap Move to give it a place.</span>
+          <Link to="/putback" className={link}>
+            Put them away <ChevronRight size={14} />
           </Link>
         </>
       )}

@@ -134,7 +134,7 @@ await story("J7", "Scan stickers to open things", "/", async () => {
 });
 
 await story("J2", "Put things back from the put-back bin", "/", async () => {
-  await tap(page.getByRole("link", { name: "Put-back" }).first());
+  await tap(page.getByRole("link", { name: "Put away" }).first());
   await snap("J2-ready");
   await scan("BIN0001");
   await toast("M3 x 10 socket screws → Bin 0001");

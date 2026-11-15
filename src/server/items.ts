@@ -287,6 +287,7 @@ export function listInventory(db: Db, f: InventoryQuery): Inventory {
   if (f.out) conds.push(sql`exists (select 1 from units u where u.item_id = ${items.id} and u.status = 'checked_out')`);
   if (f.low) conds.push(inArray(items.id, listLow(db).map((i) => i.id)));
   if (f.stale) conds.push(inArray(items.id, [...new Set(listStale(db).map((e) => e.itemId))]));
+  if (f.noplace) conds.push(noPlace);
   const match = f.q ? ftsQuery(f.q) : null;
   if (match) conds.push(sql`${items.id} in (select rowid from items_fts where items_fts match ${match})`);
   const where = and(...conds)!;
@@ -452,6 +453,23 @@ export function listNeedsDetails(db: Db): ItemDetail[] {
     .orderBy(asc(items.createdAt), asc(items.id))
     .all()
     .map((r) => getItem(db, r.id));
+}
+
+/**
+ * A part with no place (DEC-089): nothing says where it is (no count or level anywhere and no
+ * stickered one that is somewhere or out), or one of its stickered ones is in but has no place.
+ * The same rule as the part page's "No place yet" card.
+ */
+export const noPlace = sql`((not exists (select 1 from stock s where s.item_id = ${items.id})
+  and not exists (select 1 from units u where u.item_id = ${items.id} and (u.location_id is not null or u.status = 'checked_out')))
+  or exists (select 1 from units u where u.item_id = ${items.id} and u.status = 'home' and u.location_id is null))`;
+
+export function countNoPlace(db: Db): number {
+  return db
+    .select({ n: sql<number>`count(*)` })
+    .from(items)
+    .where(and(eq(items.archived, false), noPlace))
+    .get()!.n;
 }
 
 export function countNeedsDetails(db: Db): number {

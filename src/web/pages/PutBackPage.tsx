@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Archive, ChevronRight, House, Plus, ScanLine, Search, X } from "lucide-react";
 import type { ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../../shared/api";
@@ -29,18 +29,38 @@ function homesOf(item: ItemDetail, unitId?: number): Loc[] {
   return homes;
 }
 
+/** What Quick capture hands back when it was opened from here (DEC-089). */
+export type PutAwayState = { tally?: number; added?: { itemId: number; locationId: number | null } };
+
 /**
- * Put-back mode (F6). Every scan means "this is going back":
+ * Put away (F6; called Put-back mode until DEC-089). Every scan means "this is going away":
  * a one-part bin logs +1, a mixed bin asks which part, an item's own sticker asks which bin,
- * and a bin that was taken out of its box goes back in its spot (DEC-028).
+ * and a bin that was taken out of its box goes back in its spot (DEC-028). Something that isn't
+ * in the inventory yet is added from here (DEC-089): "New item" opens Quick capture, which asks
+ * where it goes and comes back here, the tally counting it.
  */
 export function PutBackPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
   const putBackBin = usePutBackBin();
-  const [step, setStep] = useState<Step>({ kind: "ready" });
-  const [count, setCount] = useState(0);
+  // Back from adding something new (DEC-089): it shows as put away, and the tally carries on.
+  const back = (useLocation().state ?? {}) as PutAwayState;
+  const added = back.added;
+  const [step, setStep] = useState<Step>(added?.locationId ? { kind: "placed", itemId: added.itemId, location: { id: added.locationId, name: "" } } : { kind: "ready" });
+  const [count, setCount] = useState((back.tally ?? 0) + (added?.locationId ? 1 : 0));
+  useEffect(() => {
+    if (added && !added.locationId) toast.show({ message: "Saved with no place yet. It's under No place in Inventory." });
+    // Once, on arriving.
+  }, []);
+  /** Add something that isn't in the inventory yet, then come back. */
+  const addNew = (q: { name?: string; code?: string; location?: number } = {}) => {
+    const p = new URLSearchParams({ from: "putaway" });
+    if (q.name) p.set("name", q.name);
+    if (q.code) p.set("code", q.code);
+    if (q.location) p.set("location", String(q.location));
+    navigate(`/capture?${p}`, { state: { tally: count } satisfies PutAwayState });
+  };
 
   const put = useMutation({
     mutationFn: (v: { itemId: number; location: Loc; unitId?: number }) =>
@@ -77,7 +97,7 @@ export function PutBackPage() {
   useScanHandler((code) => {
     api<ScanResult>(`/scan/${encodeURIComponent(code)}`)
       .then((r) => {
-        if (r.kind === "unassigned") return navigate(`/capture?code=${encodeURIComponent(r.code)}`);
+        if (r.kind === "unassigned") return addNew({ code: r.code });
         if (r.kind === "unit") return startItem(r.itemId, r.unitId);
         const loc = r.location;
         // An item is waiting for its bin: this scan is the bin.
@@ -100,8 +120,8 @@ export function PutBackPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <Archive size={22} className="text-accent" />
-        <h1 className="flex-1 text-xl font-semibold">Put-back mode</h1>
-        {count > 0 && <span className="text-sm text-muted">{count} put back</span>}
+        <h1 className="flex-1 text-xl font-semibold">Put away</h1>
+        {count > 0 && <span className="text-sm text-muted" data-tally>{count} put away</span>}
       </div>
 
       {/* Desktop / Pi: the current step beside "find it". */}
@@ -110,7 +130,7 @@ export function PutBackPage() {
           {step.kind === "ready" && (
             <ScanTarget big what="Scan whatever you're putting away">
               <p className="text-sm text-muted">
-                Emptying your put-back bin? Scan the bin each thing goes into to add it back, or scan the item's own sticker to see where it lives. A whole bin you took out goes back in its spot when you scan it.
+                Emptying your put-away bin? Scan the bin each thing goes into to add it there, or scan the item's own sticker to see where it lives. A whole bin you took out goes back in its spot when you scan it. Something that isn't in the inventory yet: New item.
               </p>
             </ScanTarget>
           )}
@@ -179,14 +199,14 @@ export function PutBackPage() {
           {step.kind === "empty" && (
             <Card className="flex flex-col gap-3 p-4">
               <p className="font-semibold">Nothing recorded in {step.location.name} yet.</p>
-              <Link to={`/capture?location=${step.location.id}`} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
-                <Plus size={20} /> Quick capture into {step.location.name}
-              </Link>
+              <button onClick={() => addNew({ location: step.location.id })} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent font-semibold text-accent-fg">
+                <Plus size={20} /> New item in {step.location.name}
+              </button>
               <Button variant="ghost" onClick={() => setStep({ kind: "ready" })} className="self-start">Cancel</Button>
             </Card>
           )}
         </div>
-        {(step.kind === "ready" || step.kind === "placed") && <FindPart onPick={(id) => startItem(id)} />}
+        {(step.kind === "ready" || step.kind === "placed") && <FindPart onPick={(id) => startItem(id)} onNew={(name) => addNew({ name })} />}
       </div>
     </div>
   );
@@ -209,9 +229,9 @@ function Placed({ itemId, location }: { itemId: number; location: Loc }) {
   return (
     <Card className="flex flex-col gap-3 border-ok/50 p-4">
       <ItemHeader item={item} />
-      <p className="text-sm text-ok">Back in {place ? pathText(place.path) : location.name}</p>
+      <p className="text-sm text-ok">In {place ? pathText(place.path) : location.name}</p>
       {place?.hasStock && (
-        <StockControl itemId={item.id} locationId={location.id} placeName={location.name} tracking={item.tracking} qty={place.qty} level={place.level} stale={place.stale} />
+        <StockControl itemId={item.id} locationId={location.id} placeName={place.path.at(-1)?.name ?? location.name} tracking={item.tracking} qty={place.qty} level={place.level} stale={place.stale} />
       )}
       <ScanTarget compact what="Scan the next one" />
     </Card>
@@ -222,7 +242,7 @@ function Placed({ itemId, location }: { itemId: number; location: Loc }) {
  * No sticker and not sure where it lives? Search by what it is, and match it by photo.
  * Before typing, shows parts you took some of lately: leftovers are usually among them.
  */
-function FindPart({ onPick }: { onPick: (itemId: number) => void }) {
+function FindPart({ onPick, onNew }: { onPick: (itemId: number) => void; onNew: (name?: string) => void }) {
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
   useEffect(() => {
@@ -288,11 +308,11 @@ function FindPart({ onPick }: { onPick: (itemId: number) => void }) {
           })}
         </ul>
       )}
-      {q && results && results.length === 0 && (
-        <p className="px-1 py-3 text-center text-sm text-muted">
-          Nothing matches “{q}”. If it's new, <Link to="/capture" className="text-accent">quick capture it</Link>.
-        </p>
-      )}
+      {q && results && results.length === 0 && <p className="px-1 pt-3 text-center text-sm text-muted">Nothing matches “{q}”.</p>}
+      {/* Not in the inventory yet (DEC-089): add it without leaving Put away, with what was typed as its name. */}
+      <Button onClick={() => onNew(q && results && results.length === 0 ? q : undefined)} className="self-start" data-new-item>
+        <Plus size={18} /> {q && results && results.length === 0 ? `Add “${q}” as new` : "Not in the inventory? New item"}
+      </Button>
     </section>
   );
 }

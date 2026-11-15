@@ -6,7 +6,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { openDb } from "./db/client";
 import { createApi } from "./app";
 import { categoryNames, ftsQuery } from "./items";
-import type { BulkResult, Category, EventView, Inventory, ItemDetail, ItemSummary, LocationDetail, ScanResult, StockResult } from "../shared/api";
+import type { BulkResult, Category, EventView, Inventory, ItemDetail, ItemSummary, LocationDetail, ScanResult, Stats, StockResult } from "../shared/api";
 
 let api: ReturnType<typeof createApi>;
 
@@ -831,6 +831,16 @@ describe("inventory", () => {
     expect([r.total, r.next]).toEqual([4, null]);
     // A pinned part that doesn't pass the filter isn't shown.
     expect(names(await ok<Inventory>("GET", "/inventory?q=m3"))).toEqual([[], ["M3 screw"]]);
+  });
+
+  it("filters to parts with no place (DEC-089)", async () => {
+    const b = await bin("Bin");
+    await item({ name: "Placed", locationId: b.id, qty: 5 });
+    await item({ name: "Loose" });
+    await item({ name: "Stickered, no place", code: "U-NOPLACE-1" });
+    await item({ name: "Stickered, placed", code: "U-PLACED-1", locationId: b.id });
+    expect(names(await ok<Inventory>("GET", "/inventory?noplace=1"))).toEqual([[], ["Loose", "Stickered, no place"]]);
+    expect((await ok<Stats>("GET", "/stats")).noPlace).toBe(2);
   });
 
   it("pages through the rest, with pinned parts only on the first page", async () => {

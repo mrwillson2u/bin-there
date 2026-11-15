@@ -164,7 +164,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
           >
             <ScanLine size={28} strokeWidth={target ? 2.6 : 2} />
           </button>
-          <NavItem to="/putback" icon={<Archive size={22} />} label="Put-back" />
+          <NavItem to="/putback" icon={<Archive size={22} />} label="Put away" />
           {/* The rest of the menu, at the right end of the bar (DEC-088). */}
           <PhoneMenu />
         </div>

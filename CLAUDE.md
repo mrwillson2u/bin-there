@@ -85,7 +85,7 @@ are `src/web/index.html`, `src/web/main.tsx`, etc.
   - `projects.ts`: project kits (DEC-019). A kit is a `project` location that is never an item's or
     unit's home (`isProject` guards in items/stock/putback), which is what lets "return" send things back.
   - `merge.ts` (DEC-075): `mergeItem` adds a part captured again to the one on record (counts, units, photos, homes; one undoable `merge` event, undone in `events.ts`); `similarItems` in `items.ts` finds the look-alikes (same part number or name, the AI's guesses included) for `ItemDetail.similar`, only while a part needs details.
-  - `putback.ts`, `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
+  - `putback.ts` (the Put away screen's server side; the mode was called Put-back until DEC-089, and the route and file names keep the old word), `pins.ts`, `backup.ts` (SQLite online backup + photo sync, nightly and on start),
     `housekeeping.ts` (hard-deletes items archived over 30 days ago, nightly and on start).
   - `events.ts`: activity log and undo.
   - `ai/` (DEC-048; on both instances since DEC-054, off wherever `AI_URL` is unset): `research.ts` is the data-fill pipeline (look at photos → read the part's
@@ -143,13 +143,13 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   `useInfiniteQuery` (key `["items", "inventory", …]`, so any `["items"]` invalidation refreshes it),
   filters kept in the URL, list or tile view in `localStorage`, pinned parts on top with − / +, and a
   pin button on every row and tile (DEC-032). Select (DEC-057) turns rows and tiles into checkboxes and shows
-  `components/BulkBar.tsx` (category, move, counting, delete for the checked parts). Inventory is the one place to search (DEC-087): there is no Search page, `/search?q=` redirects to `/?q=`, and on a computer the search box takes the focus when the screen opens.
+  `components/BulkBar.tsx` (category, move, counting, delete for the checked parts). The No place filter (`noplace=1`, `noPlace` in `items.ts`, DEC-089) lists parts nothing says the whereabouts of. Inventory is the one place to search (DEC-087): there is no Search page, `/search?q=` redirects to `/?q=`, and on a computer the search box takes the focus when the screen opens.
   `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits, and an
   All places list (`GET /api/locations?all=1`) with type chips (DEC-027). `LocationFormPage.tsx` (`/locations/new`) is
   the New location form; with `?many=1` (Add several, DEC-058) it stays after each save, a scan saves the place with
   that sticker, the name counts up or stays (`nextName` in `src/shared/names.ts`) and rack positions fill in order.
   `CapturePage.tsx` (`/capture`) is Quick capture: how it's counted is chosen there (an exact count of 1 unless
-  changed, DEC-055) and "Look it up with AI after saving" queues the part; a shop bag's 2D barcode in the photo is read on the device (DEC-074: `src/shared/bagcode.ts` parses the text, `web/lib/bagcode.ts` finds it with zxing; also in `useAddPhoto` for photos added later) and gives the part number and count; after saving it says when the part looks like one on record (DEC-075). `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
+  changed, DEC-055) and "Look it up with AI after saving" queues the part; a shop bag's 2D barcode in the photo is read on the device (DEC-074: `src/shared/bagcode.ts` parses the text, `web/lib/bagcode.ts` finds it with zxing; also in `useAddPhoto` for photos added later) and gives the part number and count; after saving it says when the part looks like one on record (DEC-075). `PutBackPage.tsx` (`/putback`) is Put away (DEC-089): every scan puts something away, and something not logged yet is added through `/capture?from=putaway` ("New item": Save asks where it goes when no place is set, then returns with the tally in router state, `PutAwayState`). `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
   part needing details as rows that save as you go (each with its own "Look it up with AI" / "Look again", DEC-073, and the "You may already have this" hint with "Same part: add this to it", DEC-075); each row reads `["item", id]`, seeded from
   `GET /api/items/needs-details`, so stock toasts and Undo update it. It opens `ItemForm` (exported
   from `ItemEditPage.tsx`) in a popup; the form has its own photo button (DEC-077: `useAddPhoto`, saved straight away, the rest waits for Save); the form lays itself out by its own width (`@container`: two columns from 48 rem, DEC-051). `CategoryPicker.tsx` is the type-to-find category box used there

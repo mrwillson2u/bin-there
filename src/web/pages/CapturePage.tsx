@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import type { PutAwayState } from "./PutBackPage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, MapPin, QrCode, ScanBarcode, Sparkles, X } from "lucide-react";
 import { trackingLabels, trackingModes, type CreateItem, type ItemDetail, type LocationDetail, type ScanResult, type StockLevel, type TrackingMode } from "../../shared/api";
@@ -23,6 +24,8 @@ import { Button, Card, Field, inputClass, pathText } from "../components/ui";
  * "Look it up with AI after saving" queues each saved part for the AI (DEC-055).
  * A shop bag's 2D barcode in the photo is read on the spot (DEC-074): its part number is saved
  * with the part, and the bag's quantity becomes the count unless one was typed.
+ * Opened from Put away (`?from=putaway`, DEC-089) it is "New item": one thing, Save asks where
+ * it goes when no place is set, and then it goes back to Put away with the tally.
  */
 export function CapturePage() {
   const [params] = useSearchParams();
@@ -33,7 +36,16 @@ export function CapturePage() {
   const [locationId, setLocationId] = useState<number | null>(params.get("location") ? Number(params.get("location")) : null);
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(params.get("name") ?? "");
+  const putAway = params.get("from") === "putaway";
+  const tally = ((useLocation().state ?? {}) as PutAwayState).tally ?? 0;
+  const backToPutAway = (added?: PutAwayState["added"]) => navigate("/putback", { replace: true, state: { tally, added } satisfies PutAwayState });
+  // Save pressed with no place set (from Put away): where is it going?
+  const [asking, setAsking] = useState(false);
+  const askBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (asking) askBox.current?.scrollIntoView({ block: "center" });
+  }, [asking]);
   const [tracking, setTracking] = useState<TrackingMode>("exact");
   const [qty, setQty] = useState("1");
   const [qtyTyped, setQtyTyped] = useState(false);
@@ -79,7 +91,7 @@ export function CapturePage() {
   const count = bagQty ?? qty;
 
   useScanHandler((scanned) => {
-    if (picking) return false; // PickLocation handles it
+    if (picking || asking) return false; // PickLocation handles it
     setError(null);
     api<ScanResult>(`/scan/${encodeURIComponent(scanned)}`)
       .then((r) => {
@@ -91,7 +103,8 @@ export function CapturePage() {
     return true;
   });
 
-  const save = async () => {
+  const save = async (place: number | null = locationId) => {
+    setAsking(false);
     setSaving(true);
     setError(null);
     try {
@@ -99,7 +112,7 @@ export function CapturePage() {
       const body: CreateItem = {
         name: name.trim() || undefined,
         code: code ?? undefined,
-        locationId: locationId ?? undefined,
+        locationId: place ?? undefined,
         tracking: code ? undefined : tracking,
         qty: !code && tracking === "exact" && count ? Number(count) : undefined,
         level: !code && tracking === "level" ? level : undefined,
@@ -119,6 +132,7 @@ export function CapturePage() {
       qc.invalidateQueries({ queryKey: ["items"] });
       qc.invalidateQueries({ queryKey: ["location"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
+      if (putAway) return backToPutAway({ itemId: item.id, locationId: place });
       setSaved((s) => [item, ...s]);
       // Ready for the next one; keep the location (cataloging a bin at a time).
       setCode(null);
@@ -136,7 +150,7 @@ export function CapturePage() {
 
   return (
     <div className="flex flex-col gap-4 lg:mx-auto lg:w-full lg:max-w-2xl">
-      <h1 className="text-xl font-semibold">Quick capture</h1>
+      <h1 className="text-xl font-semibold">{putAway ? "New item" : "Quick capture"}</h1>
 
       {saved[0] && (
         <p className="rounded-xl bg-ok/15 px-4 py-3 text-sm text-ok" role="status">
@@ -272,13 +286,27 @@ export function CapturePage() {
 
       {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
-      {!picking && <ScanTarget compact what={code ? "Scan the bin it's going in" : "Scan the bin it's going in, or its own new sticker"} />}
+      {asking && (
+        <div ref={askBox}>
+          <PickLocation title="Scan the bin it's going in" onPick={(l) => void save(l.id)} onCancel={() => setAsking(false)}>
+            <p className="text-sm font-semibold">Where is it going?</p>
+            <Button variant="ghost" onClick={() => void save(null)} className="self-start">No place yet: save anyway</Button>
+          </PickLocation>
+        </div>
+      )}
+
+      {!picking && !asking && <ScanTarget compact what={code ? "Scan the bin it's going in" : "Scan the bin it's going in, or its own new sticker"} />}
 
       <div className="flex gap-2">
-        <Button variant="primary" onClick={save} disabled={saving || (!photo && !name.trim() && !code)} className="min-h-14 flex-1 text-lg">
+        <Button
+          variant="primary"
+          onClick={() => (putAway && locationId === null ? setAsking(true) : void save())}
+          disabled={saving || asking || (!photo && !name.trim() && !code)}
+          className="min-h-14 flex-1 text-lg"
+        >
           {saving ? "Saving…" : "Save"}
         </Button>
-        <Button variant="ghost" onClick={() => navigate(locationId !== null ? `/locations/${locationId}` : "/")} className="min-h-14">
+        <Button variant="ghost" onClick={() => (putAway ? backToPutAway() : navigate(locationId !== null ? `/locations/${locationId}` : "/"))} className="min-h-14">
           {saved.length > 0 ? "Done" : "Cancel"}
         </Button>
       </div>

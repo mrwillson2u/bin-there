@@ -219,7 +219,7 @@ function PlaceCard({ item, place, onMove }: { item: ItemDetail; place: Place; on
           onClick={() => toggleHome.mutate()}
           aria-pressed={place.isHome}
           className={`flex min-h-11 items-center gap-1 rounded-lg px-2 text-[13px] ${place.isHome ? "text-ok" : "text-muted"}`}
-          title="Home = where it belongs. Used by put-back."
+          title="Home = where it belongs. Used by Put away."
         >
           <House size={16} /> {place.isHome ? "Home" : "Make home"}
         </button>

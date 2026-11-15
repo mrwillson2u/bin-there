@@ -185,12 +185,12 @@ const phoneMenu = page.getByRole("navigation", { name: "Menu" });
 await phoneMenu.waitFor();
 check((await phoneMenu.getByRole("link").allTextContents()).map((t) => t.trim()).join(", ") === "Activity, Categories, Print stickers, Settings", "phone: Menu lists Activity, Categories, Print stickers, Settings");
 {
-  // DEC-088: the bar reads Inventory, Locations, Scan, Put-back, Menu, and the menu opens upwards from its button.
+  // DEC-088: the bar reads Inventory, Locations, Scan, Put away, Menu, and the menu opens upwards from its button.
   const bar = await page.evaluate(() => {
     const row = document.querySelector("[data-phone-bar]");
     return [...row.children].map((el) => ({ text: /^Scan/.test(el.getAttribute("aria-label") ?? "") ? "Scan" : (el.querySelector(":scope > button") ?? el).textContent.trim(), x: Math.round(el.getBoundingClientRect().x) }));
   });
-  check(bar.map((b) => b.text).join(", ") === "Inventory, Locations, Scan, Put-back, Menu" && bar.every((b, i) => i === 0 || b.x > bar[i - 1].x), "phone: the bar reads Inventory, Locations, Scan, Put-back, Menu: " + JSON.stringify(bar));
+  check(bar.map((b) => b.text).join(", ") === "Inventory, Locations, Scan, Put away, Menu" && bar.every((b, i) => i === 0 || b.x > bar[i - 1].x), "phone: the bar reads Inventory, Locations, Scan, Put away, Menu: " + JSON.stringify(bar));
   const pop = await phoneMenu.boundingBox();
   const btn = await page.getByRole("button", { name: "Menu" }).boundingBox();
   check(pop.x >= 0 && pop.x + pop.width <= 390 && pop.y >= 0 && pop.y + pop.height <= btn.y, "phone: the menu opens above its button, inside the screen: " + JSON.stringify(pop));

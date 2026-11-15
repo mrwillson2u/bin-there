@@ -45,6 +45,7 @@ import {
   recentlyUsed,
   requireItemPhoto,
   searchItems,
+  countNoPlace,
   setHomes,
   setMainPhoto,
   setPhotoCrop,
@@ -175,7 +176,7 @@ export function createApi(db: Db, opts: { photoDir: string; backup?: BackupConfi
     });
   });
   api.get("/stats", (c) =>
-    c.json({ needsDetails: countNeedsDetails(db), checkedOut: listCheckedOut(db).length, stale: listStale(db).length, low: listLow(db).length } satisfies Stats),
+    c.json({ needsDetails: countNeedsDetails(db), checkedOut: listCheckedOut(db).length, stale: listStale(db).length, low: listLow(db).length, noPlace: countNoPlace(db) } satisfies Stats),
   );
 
   api.get("/scan/:code", (c) => {

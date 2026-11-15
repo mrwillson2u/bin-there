@@ -2102,6 +2102,26 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** This replaces the Menu's place in DEC-070 and the bar's Activity button. Activity is two taps away on a phone instead of one. Checked in `stickers-check.mjs` (the bar's order, the menu's entries, opening above its button, closing on Escape, a tap outside and a pick). Shipped to the live app on 2026-11-15 (backup `2026-11-15_111808`, `main` at 56236eb).
 
+### DEC-089: Put-back mode becomes Put away, takes in things that aren't logged yet; Inventory gets a No place filter
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin, Q137/Q138: "I like Put away better"; "Yes. Also there should be a filter for things with no location") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Colin empties a full put-away bin in one go, and some of what's in it was never logged. "Put-back" only named the things going back to a home, and adding a new thing meant leaving the mode. A list of unplaced parts on the screen was considered and dropped: the things in the bin aren't logged, so there is nothing to list.
+
+**Decision:**
+- The mode is called **Put away** everywhere it is named (bar, sidebar, its screen, "N put away"). "Put back" stays as the verb for a bin taken out of its box and for a kit's things going home.
+- Put away adds what isn't logged without leaving the mode. Under the find box there is "Not in the inventory? New item"; when the find box has no match it reads "Add “<what was typed>” as new" and carries the words over as the name. A fresh sticker scanned in Put away, and "New item in <bin>" on an empty bin, go the same way.
+- That opens Quick capture as **New item** (`/capture?from=putaway`). Save with no place set asks "Where is it going?": a scan or a pick saves it there; "No place yet: save anyway" saves it with none. Nothing is saved until that is answered, so the count typed goes to the place with the part.
+- Either way it returns to Put away. With a place the part shows as put away and the tally counts it; without one a note says it is under No place in Inventory, and the tally doesn't move.
+- Inventory has a **No place** filter (with its count, like the other status filters): parts nothing says the whereabouts of, and parts with a stickered one that is in but has no place. The same rule as the part page's "No place yet" card.
+
+**Consequences:** The route (`/putback`), the API (`POST /api/putback`) and file names keep the old word. A part saved with no place still loses a count typed at capture (a count belongs to a place); the prompt makes that the exception. `GET /api/inventory` takes `noplace=1` and `GET /api/stats` returns `noPlace`. Checked in `putaway-check.mjs` and `items.test.ts`.
+
 ---
 
 ## Decision Index
@@ -2196,6 +2216,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-086 | On a phone the page never repeats the note's words | UX | Accepted | 2026-11-15 |
 | DEC-087 | Inventory is the one place to search; the Search page is gone | UX | Accepted | 2026-11-15 |
 | DEC-088 | On a phone the Menu button is the right-hand button of the bottom bar | UX | Accepted | 2026-11-15 |
+| DEC-089 | Put-back mode becomes Put away and takes in things not logged yet; Inventory gets a No place filter | UX | Accepted | 2026-11-15 |
 
 ---
 

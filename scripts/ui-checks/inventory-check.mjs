@@ -247,7 +247,7 @@ await future.getByRole("heading", { name: "Inventory" }).waitFor();
 await future.getByLabel("Category").selectOption(String(fasteners.id)); // a filter on, so the chip row effect runs
 await future.waitForTimeout(400);
 const sidebar = future.locator("nav").filter({ hasText: "Bin→There" });
-for (const tab of ["Locations", "Inventory", "Put-back", "Inventory", "Activity", "Locations"]) {
+for (const tab of ["Locations", "Inventory", "Put away", "Inventory", "Activity", "Locations"]) {
   await sidebar.getByRole("link", { name: tab }).click();
   await future.waitForTimeout(500);
   if (tab === "Locations") { await future.getByRole("button", { name: "All places" }).click(); await future.getByRole("group", { name: "Type" }).getByRole("button").first().click(); await future.waitForTimeout(300); }
