@@ -177,17 +177,34 @@ await page.goto(`${base}/capture`);
 }
 
 // 8b. Settings (DEC-043, DEC-044): scanning on this device decides what the Stickers screen offers.
-// Reached from the phone's Menu (DEC-070, Q119), not from the bottom of Locations.
+// Reached from the phone's Menu (DEC-070), the right-hand button of the bottom bar (DEC-088), not from the bottom of Locations.
 await page.goto(`${base}/locations`);
 check((await page.locator("main").getByRole("link", { name: /Print stickers|Categories|Settings/ }).count()) === 0, "phone: the Locations page carries no Print stickers, Categories or Settings links");
 await page.getByRole("button", { name: "Menu" }).click();
 const phoneMenu = page.getByRole("navigation", { name: "Menu" });
 await phoneMenu.waitFor();
-check((await phoneMenu.getByRole("link").allTextContents()).map((t) => t.trim()).join(", ") === "Categories, Print stickers, Settings", "phone: Menu lists Categories, Print stickers, Settings");
+check((await phoneMenu.getByRole("link").allTextContents()).map((t) => t.trim()).join(", ") === "Activity, Categories, Print stickers, Settings", "phone: Menu lists Activity, Categories, Print stickers, Settings");
+{
+  // DEC-088: the bar reads Inventory, Locations, Scan, Put-back, Menu, and the menu opens upwards from its button.
+  const bar = await page.evaluate(() => {
+    const row = document.querySelector("[data-phone-bar]");
+    return [...row.children].map((el) => ({ text: /^Scan/.test(el.getAttribute("aria-label") ?? "") ? "Scan" : (el.querySelector(":scope > button") ?? el).textContent.trim(), x: Math.round(el.getBoundingClientRect().x) }));
+  });
+  check(bar.map((b) => b.text).join(", ") === "Inventory, Locations, Scan, Put-back, Menu" && bar.every((b, i) => i === 0 || b.x > bar[i - 1].x), "phone: the bar reads Inventory, Locations, Scan, Put-back, Menu: " + JSON.stringify(bar));
+  const pop = await phoneMenu.boundingBox();
+  const btn = await page.getByRole("button", { name: "Menu" }).boundingBox();
+  check(pop.x >= 0 && pop.x + pop.width <= 390 && pop.y >= 0 && pop.y + pop.height <= btn.y, "phone: the menu opens above its button, inside the screen: " + JSON.stringify(pop));
+  check((await page.locator("main").getByText("Bin→There").count()) === 0, "phone: no menu row at the top of the page any more");
+}
 await page.screenshot({ path: `${shots}/s8-phone-menu.png` });
 await page.keyboard.press("Escape");
 await phoneMenu.waitFor({ state: "detached" });
 check(true, "phone: Escape closes the menu");
+await page.getByRole("button", { name: "Menu" }).click();
+await phoneMenu.waitFor();
+await page.mouse.click(60, 200);
+await phoneMenu.waitFor({ state: "detached" });
+check(true, "phone: a tap outside closes the menu");
 await page.getByRole("button", { name: "Menu" }).click();
 await phoneMenu.getByRole("link", { name: "Settings" }).click();
 await page.getByRole("heading", { name: "Settings" }).waitFor();

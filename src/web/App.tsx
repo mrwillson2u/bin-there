@@ -102,12 +102,6 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
     <div ref={shellRef} className="flex min-h-dvh flex-col lg:pl-56">
       {/* Top: clear of the status bar and the Dynamic Island's blur, not just the inset edge. Bottom: room for the bar, and for the scan note when one is up (DEC-044, DEC-080). */}
       <main className={`mx-auto w-full max-w-2xl flex-1 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] lg:max-w-6xl lg:px-8 lg:pb-10 lg:pt-6 ${target ? "pb-40" : "pb-28"}`}>
-        {/* Phone: the menu for what the bar doesn't hold (DEC-070, Q119), in a row of its own so it
-            never sits on a screen's own buttons (the part page's Pin and Edit). */}
-        <div className="mb-2 flex min-h-10 items-center justify-between lg:hidden">
-          <span className="text-sm font-semibold text-muted">Bin→There</span>
-          <PhoneMenu />
-        </div>
         {scanError && <p className="mb-4 rounded-xl bg-danger/15 px-4 py-3 text-sm text-danger" role="alert">{scanError}</p>}
         {/* Above the per-screen remount, so it also catches a screen that fails while closing. */}
         <ScreenErrorBoundary resetKey={location.pathname}>
@@ -154,7 +148,7 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
             <span aria-hidden className="absolute -bottom-[7px] left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 border-b-[1.5px] border-r-[1.5px] border-scan bg-surface" />
           </p>
         )}
-        <div className="mx-auto flex max-w-2xl items-center justify-around">
+        <div className="mx-auto flex max-w-2xl items-center justify-around" data-phone-bar>
           {/* Inventory has its own search bar at the top, so the phone bar has room for Locations. */}
           <NavItem to="/" icon={<Boxes size={22} />} label="Inventory" />
           <NavItem to="/locations" end={false} icon={<Warehouse size={22} />} label="Locations" />
@@ -170,8 +164,9 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
           >
             <ScanLine size={28} strokeWidth={target ? 2.6 : 2} />
           </button>
-          <NavItem to="/activity" icon={<History size={22} />} label="Activity" />
           <NavItem to="/putback" icon={<Archive size={22} />} label="Put-back" />
+          {/* The rest of the menu, at the right end of the bar (DEC-088). */}
+          <PhoneMenu />
         </div>
       </nav>
 
@@ -208,13 +203,18 @@ function OldSearch() {
 }
 
 /**
- * The phone's menu (DEC-070, Q119): Categories, Print stickers and Settings, the sidebar's
- * entries the bottom bar doesn't hold, in the menu's order (DEC-078). It closes on a pick, a tap outside, Escape or a new screen.
+ * The phone's menu (DEC-070, DEC-088): the right-hand button of the bottom bar, opening upwards
+ * with the entries the bar doesn't hold (Activity, Categories, Print stickers and Settings) in the
+ * menu's order (DEC-078). It closes on a pick, a tap outside, Escape or a new screen.
  */
 function PhoneMenu() {
   const { order } = useMenuOrder();
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const box = useRef<HTMLDivElement>(null);
+  const entries = order.filter((id) => !IN_PHONE_BAR.includes(id)).map((id) => MENU.find((m) => m.id === id)!);
+  // Lit while the screen showing is one of its entries, as a bar button is for its own screen.
+  const here = entries.some((m) => location.pathname === m.to || location.pathname.startsWith(`${m.to}/`));
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);
@@ -223,32 +223,35 @@ function PhoneMenu() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    // A listener, not a backdrop: the bar's blur would keep a fixed backdrop inside the bar.
+    const onDown = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onDown);
+    };
   }, [open]);
   return (
-    <div className="relative">
+    <div className="relative" ref={box}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="true"
-        className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-sm font-medium ${open ? "border-accent text-accent" : "border-border text-text"}`}
+        className={`flex min-h-14 min-w-16 flex-col items-center justify-center gap-0.5 text-xs ${open || here ? "text-accent" : "text-muted"}`}
       >
-        <Menu size={18} /> Menu
+        <Menu size={22} />
+        Menu
       </button>
       {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} aria-hidden />
-          <nav aria-label="Menu" className="absolute right-0 top-full z-40 mt-2 flex w-56 flex-col gap-0.5 rounded-2xl border border-border bg-surface p-1.5 shadow-xl">
-            {order
-              .filter((id) => !IN_PHONE_BAR.includes(id))
-              .map((id) => MENU.find((m) => m.id === id)!)
-              .map((m) => (
-                <SideItem key={m.id} to={m.to} end={m.end} icon={menuIcons[m.id]} label={m.label} />
-              ))}
-          </nav>
-        </>
+        <nav aria-label="Menu" className="absolute bottom-full right-0 z-40 mb-8 flex w-56 flex-col gap-0.5 rounded-2xl border border-border bg-surface p-1.5 shadow-xl">
+          {entries.map((m) => (
+            <SideItem key={m.id} to={m.to} end={m.end} icon={menuIcons[m.id]} label={m.label} />
+          ))}
+        </nav>
       )}
     </div>
   );

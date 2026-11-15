@@ -136,7 +136,7 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   `useQuery`/`useMutation` and invalidate queries after writes. `live.ts` (`useLiveUpdates`, mounted
   once in `App`) listens on `/api/changes` and invalidates every query when another device or tab
   writes, ignoring this tab's own echo; queries also refetch on window focus and reconnect (DEC-046).
-- `App.tsx` holds the routes and the shell (bottom bar on phones with a top row whose Menu holds Categories, Print stickers and Settings, DEC-070; sidebar at `lg`, its entries and usual order in `menu.ts`, draggable into a per-device order kept in `localStorage`, DEC-078). Each screen sits
+- `App.tsx` holds the routes and the shell (bottom bar on phones reading Inventory, Locations, Scan, Put-back, Menu, where Menu opens upwards with Activity, Categories, Print stickers and Settings, DEC-070, DEC-088; sidebar at `lg`, its entries and usual order in `menu.ts`, draggable into a per-device order kept in `localStorage`, DEC-078). Each screen sits
   inside `ScreenErrorBoundary` (DEC-029). Write effects with a block body: an effect must return
   nothing or a clean-up function, and newer browsers' `scrollTo` returns a Promise.
 - Home (`/`) is `InventoryPage.tsx` (DEC-026): every part from `GET /api/inventory` via

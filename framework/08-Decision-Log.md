@@ -2082,7 +2082,25 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - On a computer Inventory's search box takes the focus when the screen opens, as the Search page's did. Not on a phone, where it would bring the keyboard up over the list.
 - A menu order saved on a device with Search in it simply loses that entry (`menuOrder` drops names it doesn't know).
 
-**Consequences:** This replaces "Search is results only" in DEC-026 and the Search entry in DEC-070 and DEC-078's orders. Two small differences from the old page: pinned parts that match are listed first, and results are no longer capped at 50 (the list loads more as you scroll). `GET /api/items?q=` stays for put-back and project kits. Checked in `inventory-check.mjs`, `bulk-check.mjs`, `stickers-check.mjs`, `stickers-print-check.mjs` and `menu.test.ts`.
+**Consequences:** This replaces "Search is results only" in DEC-026 and the Search entry in DEC-070 and DEC-078's orders. Two small differences from the old page: pinned parts that match are listed first, and results are no longer capped at 50 (the list loads more as you scroll). `GET /api/items?q=` stays for put-back and project kits. Checked in `inventory-check.mjs`, `bulk-check.mjs`, `stickers-check.mjs`, `stickers-print-check.mjs` and `menu.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_111025`, `main` at 5f13b5d).
+
+### DEC-088: On a phone the Menu button is the right-hand button of the bottom bar
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin: "I wanted you to put the menu button on the menu bar at the right hand button, not at the top. It should read from left to right inventory, locations, scan, put back, menu (for the rest of the options)") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-070 put the phone's Menu in a row of its own at the top of every page. Colin had meant it for the bottom bar.
+
+**Decision:**
+- The phone's bottom bar reads Inventory, Locations, Scan, Put-back, Menu.
+- Menu opens upwards from its button and lists the rest in the menu's order: Activity (which gives up its place on the bar), Categories, Print stickers, Settings. It is lit while one of those screens is showing.
+- The row at the top of every page (the app's name and the Menu button) is gone, so pages start higher.
+
+**Consequences:** This replaces the Menu's place in DEC-070 and the bar's Activity button. Activity is two taps away on a phone instead of one. Checked in `stickers-check.mjs` (the bar's order, the menu's entries, opening above its button, closing on Escape, a tap outside and a pick).
 
 ---
 
@@ -2177,6 +2195,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-085 | Over a sheet on a phone, the Scan button floats where it always sits (issue #1) | UX | Accepted | 2026-11-15 |
 | DEC-086 | On a phone the page never repeats the note's words | UX | Accepted | 2026-11-15 |
 | DEC-087 | Inventory is the one place to search; the Search page is gone | UX | Accepted | 2026-11-15 |
+| DEC-088 | On a phone the Menu button is the right-hand button of the bottom bar | UX | Accepted | 2026-11-15 |
 
 ---
 

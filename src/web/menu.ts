@@ -16,7 +16,7 @@ export const MENU = [
 ] as const;
 export type MenuId = (typeof MENU)[number]["id"];
 /** What the phone's bottom bar already holds. */
-export const IN_PHONE_BAR: MenuId[] = ["inventory", "locations", "activity", "putback"];
+export const IN_PHONE_BAR: MenuId[] = ["inventory", "locations", "putback"];
 
 const KEY = "menu.order";
 const usual = MENU.map((m) => m.id);
