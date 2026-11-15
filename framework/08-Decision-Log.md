@@ -2004,7 +2004,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - A scan box inside a sheet that covers the bar (the bin sheet, the Move sheet, the rack position sheet, the Stickers screen) keeps its words and its camera button: the bar can't be reached from there. `ScanTarget` works this out itself by looking for a fixed-position ancestor.
 - Desktop is unchanged.
 
-**Consequences:** The one exception is the sheets; making them the same would mean lifting the Scan button above sheets. Checked in `stickers-check.mjs` (Quick capture has no box or camera button; a page box with Cancel keeps words and Cancel only; the bin sheet keeps its camera button).
+**Consequences:** The one exception is the sheets; making them the same would mean lifting the Scan button above sheets. Checked in `stickers-check.mjs` (Quick capture has no box or camera button; a page box with Cancel keeps words and Cancel only; the bin sheet keeps its camera button). Shipped to the live app on 2026-11-14 (backup `2026-11-14_223705`, `main` at 10a8e33).
 
 ---
 
