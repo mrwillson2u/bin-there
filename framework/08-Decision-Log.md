@@ -2044,7 +2044,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - The Stickers screen is left as it was (`stay` on its `ScanTarget`): it has its own camera.
 - In code: a target registers as `floating` when it has a fixed-position ancestor on a phone; `Shell` draws `[data-scan-float]`; sheets read `useScanFloat()` for the bottom room.
 
-**Consequences:** One camera button on a phone everywhere but the Stickers screen. In the Move sheet the box still heads "Pick from list" and Cancel with the same words as the note. Colin is trying this; C (bottom corner) was the other one he weighed. Checked in `move-check.mjs` (the button bottom centre with the note above, no camera button in the sheet, one note, the Move button clear of it).
+**Consequences:** One camera button on a phone everywhere but the Stickers screen. In the Move sheet the box still heads "Pick from list" and Cancel with the same words as the note. Colin is trying this; C (bottom corner) was the other one he weighed. Checked in `move-check.mjs` (the button bottom centre with the note above, no camera button in the sheet, one note, the Move button clear of it). Shipped to the live app on 2026-11-15 (backup `2026-11-15_001647`, `main` at 4036b38).
 
 ---
 
