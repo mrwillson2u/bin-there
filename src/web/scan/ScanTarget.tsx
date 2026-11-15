@@ -29,7 +29,7 @@ type Props = {
 export function ScanTarget({ what, camera, actions, compact, big, children, className = "" }: Props) {
   const { openCamera } = useScan();
   const method = useScanMethod();
-  useScanTarget(what);
+  useScanTarget(what, camera);
   const withCamera = cameraAllowed(method);
 
   if (compact) {

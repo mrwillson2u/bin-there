@@ -241,6 +241,13 @@ await page.getByRole("button", { name: "Scan BIN0007" }).click();
 await page.getByRole("alert").waitFor();
 check((await page.getByRole("button", { name: "Close camera" }).count()) === 0 && (await codeOf(b3)) === "BIN0009", "Scan closes the camera; BIN0007 is Bin 0002's, so it isn't taken: " + (await page.getByRole("alert").textContent()));
 
+// 9a. Issue #1: while a screen asks for a sticker, the bar's Scan button opens the camera the same way as the screen's own button (waits for a tap, same title).
+await page.getByRole("button", { name: /^Scan with camera: Scan the new sticker for Bin 0003/ }).click();
+await page.getByRole("button", { name: "Scan BIN0007" }).waitFor({ timeout: 20000 });
+await page.waitForTimeout(1200);
+check((await page.getByRole("button", { name: "Close camera" }).count()) === 1 && (await page.getByText("Sticker for Bin 0003").count()) >= 1, "the bar's Scan button opens the same tap-mode camera as the screen's own button");
+await page.getByRole("button", { name: "Close camera" }).click();
+
 // 10. The bottom-bar camera (looking things up) still takes the first code it sees.
 await page.getByRole("button", { name: "Cancel" }).click();
 await page.getByRole("button", { name: "Scan with camera" }).first().click();

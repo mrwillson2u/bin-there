@@ -1971,6 +1971,21 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** This replaces the filled look in DEC-044 and the "for now" in DEC-080. Checked in `stickers-check.mjs` (with the note: outlined, 5 px, pulsing; without: the same button, 3 px, still). Shipped to the live app on 2026-11-14 (backup `2026-11-14_173956`, `main` at 11a7656).
 
+### DEC-082: The bar's Scan button opens the camera the same way as the screen's own button (issue #1, first part)
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-14 |
+| **Status** | Accepted (a fix; the rest of issue #1 waits for Colin) |
+| **Deciders** | Colin (issue #1: "I am not sure if they do the same thing and in some cases it seems that it doesn't") |
+| **Category** | UX / Fix |
+
+**Context:** A screen's scan box can ask the camera to wait for a tap on Scan (wherever a scan writes a sticker onto something) and give it a title. The bar's Scan button ignored that and opened the plain camera, which takes the first code it sees. So the two buttons differed on exactly the screens where a scan writes: a new sticker for a place or a bin, a new sticker on a part.
+
+**Decision:** A scan target registers its camera options with its words (`useScanTarget(what, camera)`, `targetCamera` in `ScanProvider`). The bar's button on a phone and the sidebar's on a desktop open the camera with them.
+
+**Consequences:** Both buttons now do the same thing on every screen. Whether the screens' own boxes and camera buttons go away on a phone is still open (issue #1). Checked in `stickers-check.mjs` (9a).
+
 ---
 
 ## Decision Index
@@ -2058,6 +2073,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-079 | The Categories screen's top box finds a category and adds a new one (issue #4) | UX | Accepted | 2026-11-13 |
 | DEC-080 | On a phone, what a scan does is a note pointing at the Scan button (issue #2) | UX | Accepted | 2026-11-13 |
 | DEC-081 | The phone's Scan button is always outlined; bolder with a pulsing halo while a screen takes the scan | UX | Accepted | 2026-11-14 |
+| DEC-082 | The bar's Scan button opens the camera the same way as the screen's own button (issue #1, first part) | UX / Fix | Accepted | 2026-11-14 |
 
 ---
 

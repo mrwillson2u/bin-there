@@ -26,8 +26,10 @@ type ScanContextValue = {
   cameraOpen: boolean;
   register: (handler: ScanHandler) => () => void;
   /** A screen saying what a scan does right now (DEC-044); the bar shows it. */
-  registerTarget: (label: string) => () => void;
+  registerTarget: (label: string, camera?: CameraOptions) => () => void;
   target: string | null;
+  /** The camera options of the screen's scan target, so every Scan button opens the camera the same way (issue #1). */
+  targetCamera: CameraOptions | null;
   lastScan: { code: string; at: number } | null;
 };
 
@@ -51,12 +53,13 @@ export function useScanHandler(handler: ScanHandler) {
  * While mounted, the bar says a scan does `what` (DEC-044). Use it wherever a `useScanHandler`
  * acts on a scan; `ScanTarget` does it for you.
  */
-export function useScanTarget(what: string | null) {
+export function useScanTarget(what: string | null, camera?: CameraOptions) {
   const { registerTarget } = useScan();
+  const { tap, title, hint } = camera ?? {};
   useEffect(() => {
     if (!what) return;
-    return registerTarget(what);
-  }, [registerTarget, what]);
+    return registerTarget(what, tap || title || hint ? { tap, title, hint } : undefined);
+  }, [registerTarget, what, tap, title, hint]);
 }
 
 /** Remove characters a prefix-less scan already typed into the focused field. */
@@ -97,14 +100,15 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
     };
   }, []);
   // The most recently mounted target wins, like handlers.
-  const [targets, setTargets] = useState<{ id: number; label: string }[]>([]);
+  const [targets, setTargets] = useState<{ id: number; label: string; camera?: CameraOptions }[]>([]);
   const nextId = useRef(0);
-  const registerTarget = useCallback((label: string) => {
+  const registerTarget = useCallback((label: string, camera?: CameraOptions) => {
     const id = nextId.current++;
-    setTargets((t) => [...t, { id, label }]);
+    setTargets((t) => [...t, { id, label, camera }]);
     return () => setTargets((t) => t.filter((x) => x.id !== id));
   }, []);
   const target = targets.at(-1)?.label ?? null;
+  const targetCamera = targets.at(-1)?.camera ?? null;
 
   useEffect(() => {
     const detector = new ScanDetector((scan: Scan) => {
@@ -152,7 +156,7 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
     setCamera("nativeEvent" in options ? {} : options);
   }, []);
   const closeCamera = useCallback(() => setCamera(null), []);
-  const value = { submit, openCamera, closeCamera, cameraOpen: camera !== null, register, registerTarget, target, lastScan };
+  const value = { submit, openCamera, closeCamera, cameraOpen: camera !== null, register, registerTarget, target, targetCamera, lastScan };
 
   return (
     <ScanContext.Provider value={value}>
