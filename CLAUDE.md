@@ -136,20 +136,20 @@ create/update (every placed bin must still fit, DEC-047), and `BoxGrid.tsx` uses
   `useQuery`/`useMutation` and invalidate queries after writes. `live.ts` (`useLiveUpdates`, mounted
   once in `App`) listens on `/api/changes` and invalidates every query when another device or tab
   writes, ignoring this tab's own echo; queries also refetch on window focus and reconnect (DEC-046).
-- `App.tsx` holds the routes and the shell (bottom bar on phones with a top row whose Menu holds Search, Categories, Print stickers and Settings, DEC-070; sidebar at `lg`, its entries and usual order in `menu.ts`, draggable into a per-device order kept in `localStorage`, DEC-078). Each screen sits
+- `App.tsx` holds the routes and the shell (bottom bar on phones with a top row whose Menu holds Categories, Print stickers and Settings, DEC-070; sidebar at `lg`, its entries and usual order in `menu.ts`, draggable into a per-device order kept in `localStorage`, DEC-078). Each screen sits
   inside `ScreenErrorBoundary` (DEC-029). Write effects with a block body: an effect must return
   nothing or a clean-up function, and newer browsers' `scrollTo` returns a Promise.
 - Home (`/`) is `InventoryPage.tsx` (DEC-026): every part from `GET /api/inventory` via
   `useInfiniteQuery` (key `["items", "inventory", …]`, so any `["items"]` invalidation refreshes it),
   filters kept in the URL, list or tile view in `localStorage`, pinned parts on top with − / +, and a
   pin button on every row and tile (DEC-032). Select (DEC-057) turns rows and tiles into checkboxes and shows
-  `components/BulkBar.tsx` (category, move, counting, delete for the checked parts); `SearchPage.tsx` has the same.
+  `components/BulkBar.tsx` (category, move, counting, delete for the checked parts). Inventory is the one place to search (DEC-087): there is no Search page, `/search?q=` redirects to `/?q=`, and on a computer the search box takes the focus when the screen opens.
   `LocationsPage.tsx` (`/locations`) is the old home: places, pinned places, project kits, and an
   All places list (`GET /api/locations?all=1`) with type chips (DEC-027). `LocationFormPage.tsx` (`/locations/new`) is
   the New location form; with `?many=1` (Add several, DEC-058) it stays after each save, a scan saves the place with
   that sticker, the name counts up or stays (`nextName` in `src/shared/names.ts`) and rack positions fill in order.
   `CapturePage.tsx` (`/capture`) is Quick capture: how it's counted is chosen there (an exact count of 1 unless
-  changed, DEC-055) and "Look it up with AI after saving" queues the part; a shop bag's 2D barcode in the photo is read on the device (DEC-074: `src/shared/bagcode.ts` parses the text, `web/lib/bagcode.ts` finds it with zxing; also in `useAddPhoto` for photos added later) and gives the part number and count; after saving it says when the part looks like one on record (DEC-075). `SearchPage.tsx` lists only matches. `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
+  changed, DEC-055) and "Look it up with AI after saving" queues the part; a shop bag's 2D barcode in the photo is read on the device (DEC-074: `src/shared/bagcode.ts` parses the text, `web/lib/bagcode.ts` finds it with zxing; also in `useAddPhoto` for photos added later) and gives the part number and count; after saving it says when the part looks like one on record (DEC-075). `NeedsDetailsPage.tsx` (`/needs-details`, DEC-037) lists every
   part needing details as rows that save as you go (each with its own "Look it up with AI" / "Look again", DEC-073, and the "You may already have this" hint with "Same part: add this to it", DEC-075); each row reads `["item", id]`, seeded from
   `GET /api/items/needs-details`, so stock toasts and Undo update it. It opens `ItemForm` (exported
   from `ItemEditPage.tsx`) in a popup; the form has its own photo button (DEC-077: `useAddPhoto`, saved straight away, the rest waits for Save); the form lays itself out by its own width (`@container`: two columns from 48 rem, DEC-051). `CategoryPicker.tsx` is the type-to-find category box used there

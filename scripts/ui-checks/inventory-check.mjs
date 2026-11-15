@@ -207,25 +207,26 @@ await page.goto(`${base}/low`);
 await page.getByText("2 found").waitFor();
 check(new URL(page.url()).search === "?low=1", "/low opens Inventory filtered to running low");
 
-// 12. Desktop: sidebar has Search; columns; focused search.
+// 12. Desktop: no Search entry (DEC-087: Inventory is the one place to search); columns; the box ready to type in.
 const desk = await browser.newPage({ viewport: { width: 1280, height: 860 } });
 desk.on("pageerror", (e) => console.log("PAGE ERROR:", e.message));
 await desk.goto(`${base}/`);
 await desk.getByRole("heading", { name: "Inventory" }).waitFor();
 await desk.waitForTimeout(400);
 const side = await desk.locator("nav").filter({ hasText: "Bin→There" }).textContent();
-check(side.includes("Inventory") && side.includes("Locations") && side.includes("Search"), "sidebar: Inventory, Locations, Search: " + side);
+check(side.includes("Inventory") && side.includes("Locations") && !side.includes("Search"), "sidebar: Inventory and Locations, no Search: " + side);
+check(await desk.evaluate(() => document.activeElement?.getAttribute("aria-label") === "Search parts"), "desktop: the search box is ready to type in");
+check(await page.evaluate(() => document.activeElement?.getAttribute("aria-label") !== "Search parts"), "phone: the search box doesn't take the keyboard");
 check(await desk.getByText("Category", { exact: true }).isVisible(), "list has a Category column on desktop");
 await desk.screenshot({ path: `${shots}/i6-desk-list.png` });
 await desk.getByRole("button", { name: "Tile view" }).click();
 await desk.waitForTimeout(300);
 await desk.screenshot({ path: `${shots}/i7-desk-tiles.png` });
-await desk.getByRole("link", { name: "Search" }).click();
-await desk.getByText(/Type a name/).waitFor();
-check((await desk.getByRole("main").getByRole("listitem").count()) === 0, "focused search: nothing listed before you type");
-await desk.getByLabel("Search").fill("tape");
-await desk.getByRole("link", { name: /Electrical tape/ }).waitFor();
-check((await desk.getByRole("main").getByRole("listitem").count()) === 1, "focused search: only the hit");
+await desk.goto(`${base}/search?q=tape`);
+await desk.getByRole("heading", { name: "Inventory" }).waitFor();
+await desk.getByRole("link", { name: /Electrical tape/ }).first().waitFor();
+check(new URL(desk.url()).pathname === "/" && new URL(desk.url()).searchParams.get("q") === "tape", "the old Search address opens Inventory with the same words: " + desk.url());
+check((await desk.getByLabel("Search parts").inputValue()) === "tape", "the words are in Inventory's search box");
 await desk.screenshot({ path: `${shots}/i8-desk-search.png` });
 
 // 13. Newer browsers' scroll methods return a Promise. Leaving any screen must not crash on it
@@ -246,7 +247,7 @@ await future.getByRole("heading", { name: "Inventory" }).waitFor();
 await future.getByLabel("Category").selectOption(String(fasteners.id)); // a filter on, so the chip row effect runs
 await future.waitForTimeout(400);
 const sidebar = future.locator("nav").filter({ hasText: "Bin→There" });
-for (const tab of ["Locations", "Inventory", "Search", "Inventory", "Put-back", "Inventory", "Activity", "Locations"]) {
+for (const tab of ["Locations", "Inventory", "Put-back", "Inventory", "Activity", "Locations"]) {
   await sidebar.getByRole("link", { name: tab }).click();
   await future.waitForTimeout(500);
   if (tab === "Locations") { await future.getByRole("button", { name: "All places" }).click(); await future.getByRole("group", { name: "Type" }).getByRole("button").first().click(); await future.waitForTimeout(300); }

@@ -22,6 +22,7 @@ import { useToast } from "../components/Toast";
 import { Badge, Card, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
 import { FirstSite } from "./LocationsPage";
 import { outText } from "../components/TakeOut";
+import { useWide } from "../lib/useWide";
 
 // Inventory (DEC-026): every part, searchable and filterable, as a list or as tiles, with pinned
 // parts on top. Filters live in the URL so Back (say, after saving a part's details) lands on the
@@ -75,6 +76,13 @@ export function InventoryPage() {
   }, [text]); // on typing only: a Back to ?q=… must not be overwritten
 
   const q = params.get("q") ?? "";
+  // On a computer the box is ready to type in, as the old Search page's was (DEC-087). Not on a
+  // phone, where it would bring the keyboard up over the list.
+  const box = useRef<HTMLInputElement>(null);
+  const wide = useWide();
+  useEffect(() => {
+    if (wide) box.current?.focus({ preventScroll: true });
+  }, [wide]);
   const filtering = FILTER_KEYS.some((k) => params.get(k));
   const query = new URLSearchParams();
   for (const k of [...FILTER_KEYS, "sort"]) {
@@ -150,6 +158,7 @@ export function InventoryPage() {
           onChange={(e) => setText(e.target.value)}
           placeholder="Search parts, e.g. m3 10"
           aria-label="Search parts"
+          ref={box}
           autoCapitalize="none"
           autoCorrect="off"
           className={`${inputClass} w-full pl-10 pr-10`}

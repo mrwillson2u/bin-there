@@ -63,7 +63,7 @@ A kit is created like any location with `type: "project"`. Nothing ever makes a 
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/api/inventory?q=&cat=&kind=&needs=1&low=1&out=1&stale=1&sort=&offset=&limit=` | The Inventory screen (DEC-026). Every filter narrows: `cat` is a category id or `none`; `kind` is `consumable`/`returnable`; `needs`, `low` (as `/items/low`), `out` (a unit checked out), `stale` (as `/review`). `sort` is `name` (default; unnamed last), `recent` or `added`; with `q` and no `sort`, best match. Returns `{ pinned, items, total, next }`: pinned parts that pass the filters (first page only, newest pin first), then a page of the rest (`limit` default 60, max 200), `total` counting both, `next` the next offset or null |
-| GET | `/api/items?q=&needs=1` | Search (FTS) with total qty + every location path; without `q`, recently changed. Used by the Search page, put-back and project kits |
+| GET | `/api/items?q=&needs=1` | Search (FTS) with total qty + every location path; without `q`, recently changed. Used by put-back and project kits (Inventory searches through `/api/inventory`, DEC-087) |
 | GET | `/api/items/recently-used?days=30` | Items with a non-undone "use" in the last N days, most recent first (put-back suggestions) |
 | GET | `/api/items/needs-details` | Every part on the Needs details list, oldest first, as full `ItemDetail`s, for the Fill in details page (DEC-037) |
 | GET | `/api/items/low` | The shopping list: level items low/out anywhere, exact items at zero or at/below their `lowThreshold`; worst first (DEC-016) |

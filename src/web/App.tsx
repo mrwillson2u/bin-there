@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { Archive, Boxes, History, Menu, QrCode, ScanLine, Search, Settings, Tags, Warehouse } from "lucide-react";
+import { Archive, Boxes, History, Menu, QrCode, ScanLine, Settings, Tags, Warehouse } from "lucide-react";
 import type { ScanResult } from "../shared/api";
 import { api } from "./api";
 import { ScanProvider, useScan } from "./scan/ScanProvider";
@@ -18,7 +18,6 @@ import { UnassignedPage } from "./pages/UnassignedPage";
 import { ItemPage } from "./pages/ItemPage";
 import { ItemEditPage } from "./pages/ItemEditPage";
 import { CapturePage } from "./pages/CapturePage";
-import { SearchPage } from "./pages/SearchPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PutBackPage } from "./pages/PutBackPage";
 import { CheckedOutPage } from "./pages/CheckedOutPage";
@@ -57,7 +56,7 @@ export function App() {
             <Route path="/locations/new" element={<LocationFormPage />} />
             <Route path="/locations/:id" element={<LocationPage />} />
             <Route path="/scan/:code" element={<UnassignedPage />} />
-            <Route path="/search" element={<SearchPage />} />
+            <Route path="/search" element={<OldSearch />} />
             <Route path="/capture" element={<CapturePage />} />
             <Route path="/items/:id" element={<ItemPage />} />
             <Route path="/items/:id/edit" element={<ItemEditPage />} />
@@ -202,8 +201,14 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
   );
 }
 
+/** The old Search page's address (DEC-087): Inventory is the one place to search, with the same words. */
+function OldSearch() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "/", search }} replace />;
+}
+
 /**
- * The phone's menu (DEC-070, Q119): Search, Categories, Print stickers and Settings, the sidebar's
+ * The phone's menu (DEC-070, Q119): Categories, Print stickers and Settings, the sidebar's
  * entries the bottom bar doesn't hold, in the menu's order (DEC-078). It closes on a pick, a tap outside, Escape or a new screen.
  */
 function PhoneMenu() {
@@ -252,7 +257,6 @@ function PhoneMenu() {
 const menuIcons: Record<MenuId, React.ReactNode> = {
   inventory: <Boxes size={20} />,
   locations: <Warehouse size={20} />,
-  search: <Search size={20} />,
   putback: <Archive size={20} />,
   activity: <History size={20} />,
   categories: <Tags size={20} />,

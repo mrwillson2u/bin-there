@@ -112,8 +112,10 @@ await page.getByRole("button", { name: "Done" }).click();
 check((await page.getByRole("checkbox").count()) === 0 && (await page.getByRole("button", { name: /^Pin / }).count()) === 3, "Done: tiles are tiles again");
 await page.getByRole("button", { name: "List view" }).click();
 
-// 6. Search has the same.
+// 6. The old Search address lands on Inventory with the words filled in (DEC-087), and Select works on what it found.
 await page.goto(`${base}/search?q=m3`);
+await page.getByRole("heading", { name: "Inventory" }).waitFor();
+check(new URL(page.url()).pathname === "/" && (await page.getByLabel("Search parts").inputValue()) === "m3", "the old Search address is Inventory, searching for the same words");
 await page.getByRole("checkbox", { name: "M3 nuts" }).waitFor({ state: "detached" });
 await page.getByRole("button", { name: "Select" }).click();
 await page.getByRole("checkbox", { name: "M3 nuts" }).click();
@@ -124,7 +126,7 @@ await cat2.fill("supp");
 await cat2.press("Enter");
 await page.getByRole("button", { name: "Set category" }).click();
 await toast("Set 1 part to Supplies");
-check((await get(nuts.id)).categoryName === "Supplies", "from Search: the category is set");
+check((await get(nuts.id)).categoryName === "Supplies", "from a search: the category is set");
 
 // 7. Phone: the bar covers the bottom nav, actions as icons with words.
 await page.setViewportSize({ width: 390, height: 844 });

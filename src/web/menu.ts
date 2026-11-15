@@ -8,7 +8,6 @@ import { useSyncExternalStore } from "react";
 export const MENU = [
   { id: "inventory", to: "/", label: "Inventory", end: true },
   { id: "locations", to: "/locations", label: "Locations", end: false },
-  { id: "search", to: "/search", label: "Search", end: true },
   { id: "putback", to: "/putback", label: "Put-back", end: true },
   { id: "activity", to: "/activity", label: "Activity", end: true },
   { id: "categories", to: "/categories", label: "Categories", end: true },

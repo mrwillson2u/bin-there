@@ -2065,6 +2065,25 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** This replaces "a box with other buttons keeps its words" in DEC-083 and DEC-085. Put-back's opening box is its explanation only. Checked in `move-check.mjs` (the words visible once, the box's lead-in) and `fill-check.mjs`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_003859`, `main` at e480550).
 
+### DEC-087: Inventory is the one place to search; the Search page is gone
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin, Q136: "Do you feel like having the separate search page is redundant?" then "Yes") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-026 made the home screen the inventory with its own search box and kept a Search page that showed matches only. Since then the home screen gained filters, sorting, tiles, pins and Select (DEC-057), so the Search page did nothing the home screen didn't, except put the cursor in the box when it opened. Both ranked matches the same way (the same full-text query and weights).
+
+**Decision:**
+- The Search page and its menu entry are removed (the sidebar, and the phone's Menu, which now lists Categories, Print stickers and Settings).
+- The old address `/search?q=…` opens Inventory with the same words in its box.
+- On a computer Inventory's search box takes the focus when the screen opens, as the Search page's did. Not on a phone, where it would bring the keyboard up over the list.
+- A menu order saved on a device with Search in it simply loses that entry (`menuOrder` drops names it doesn't know).
+
+**Consequences:** This replaces "Search is results only" in DEC-026 and the Search entry in DEC-070 and DEC-078's orders. Two small differences from the old page: pinned parts that match are listed first, and results are no longer capped at 50 (the list loads more as you scroll). `GET /api/items?q=` stays for put-back and project kits. Checked in `inventory-check.mjs`, `bulk-check.mjs`, `stickers-check.mjs`, `stickers-print-check.mjs` and `menu.test.ts`.
+
 ---
 
 ## Decision Index
@@ -2157,6 +2176,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-084 | On a phone, a button that asks for a sticker opens the camera straight away | UX | Accepted | 2026-11-14 |
 | DEC-085 | Over a sheet on a phone, the Scan button floats where it always sits (issue #1) | UX | Accepted | 2026-11-15 |
 | DEC-086 | On a phone the page never repeats the note's words | UX | Accepted | 2026-11-15 |
+| DEC-087 | Inventory is the one place to search; the Search page is gone | UX | Accepted | 2026-11-15 |
 
 ---
 
