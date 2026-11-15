@@ -161,6 +161,8 @@ await page.goto(`${base}/capture`);
   check(n.y + n.height < b.y && Math.abs(n.x + n.width / 2 - (b.x + b.width / 2)) < 3, "phone: the scan note sits above the Scan button, centred on it");
   check(colours[0] !== colours[1] && n.x >= 8 && n.x + n.width <= 390 - 8, "phone: the note is a dark box with a scan-coloured edge, inside the screen: " + colours.join(" / "));
   check((await note.textContent()).includes("Scan the bin it's going in"), "phone: it says what a scan does on this screen");
+  // DEC-083 (issue #1): the bar's Scan button is the one camera button on a phone's pages, and a prompt that is only its words isn't drawn twice.
+  check((await page.locator("[data-scan-target]").count()) === 0 && (await page.locator("[data-scan-target-quiet]").count()) === 1 && (await page.getByRole("button", { name: /open the camera/ }).count()) === 0, "phone: Quick capture has no scan box or camera button of its own; the note and the Scan button say and do it");
   // DEC-081: the button keeps its outlined look; while the note is up the outline is bolder and a halo pulses.
   const scanButton = page.getByRole("button", { name: /^Scan with camera:/ });
   const look = (el) => { const c = getComputedStyle(el); return { bg: c.backgroundColor, edge: c.borderTopColor, width: c.borderTopWidth, anim: c.animationName }; };
@@ -222,6 +224,7 @@ await pane.waitFor();
 check((await pane.getByRole("button", { name: "Replace sticker" }).count()) === 1 && (await pane.locator("[data-scan-target]").count()) === 0 && (await pane.getByText(/Scan with camera/).count()) === 0, "the bin pane has a Replace sticker button and no scan target until it's pressed (DEC-044)");
 await pane.getByRole("button", { name: "Replace sticker" }).click();
 await pane.getByText("Scan the new sticker for Bin 0003 (replaces the old one)").waitFor();
+check((await pane.locator("[data-scan-target]").getByRole("button", { name: "Scan with camera" }).count()) === 1, "phone: in the bin sheet, which covers the bar, the scan box keeps its own camera button (DEC-083)");
 await scan("BIN0009");
 await page.getByRole("status").filter({ hasText: "New sticker is on Bin 0003" }).waitFor();
 check((await codeOf(b3)) === "BIN0009" && (await pane.locator("[data-scan-target]").count()) === 0, "with Replace sticker pressed, a scan goes straight on and the target goes away");
@@ -232,7 +235,13 @@ await pane.getByRole("button", { name: "Not now" }).click();
 await pane.getByRole("link", { name: "Open Bin 0003" }).click();
 await page.getByRole("heading", { name: "Bin 0003" }).waitFor();
 await page.getByRole("button", { name: /Assign sticker|Replace sticker/ }).click();
-await page.getByRole("button", { name: "Scan with camera" }).first().click();
+{
+  const box = page.locator("[data-scan-target]");
+  await box.waitFor();
+  check((await box.getByRole("button", { name: "Scan with camera" }).count()) === 0 && (await box.getByRole("button", { name: "Cancel" }).count()) === 1 && (await box.textContent()).includes("Scan the new sticker for Bin 0003"), "phone: on a page, a scan box with a Cancel keeps its words and Cancel but has no camera button (DEC-083)");
+  await page.screenshot({ path: `${shots}/s9-page-box.png` });
+}
+await page.getByRole("button", { name: /^Scan with camera: Scan the new sticker for Bin 0003/ }).click();
 await page.getByRole("button", { name: "Scan BIN0007" }).waitFor({ timeout: 20000 });
 await page.waitForTimeout(1200);
 check((await page.getByRole("button", { name: "Close camera" }).count()) === 1, "tap-mode camera stays open until Scan is tapped");

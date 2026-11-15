@@ -1984,7 +1984,27 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** A scan target registers its camera options with its words (`useScanTarget(what, camera)`, `targetCamera` in `ScanProvider`). The bar's button on a phone and the sidebar's on a desktop open the camera with them.
 
-**Consequences:** Both buttons now do the same thing on every screen. Whether the screens' own boxes and camera buttons go away on a phone is still open (issue #1). Checked in `stickers-check.mjs` (9a).
+**Consequences:** Both buttons now do the same thing on every screen. Whether the screens' own boxes and camera buttons go away on a phone is still open (issue #1). Checked in `stickers-check.mjs` (9a). Shipped to the live app on 2026-11-14 (backup `2026-11-14_222911`, `main` at 79c82a7).
+
+### DEC-083: On a phone's pages the bar's Scan button is the one camera button (issue #1)
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-14 |
+| **Status** | Accepted (Colin: "remove the pages own scan button but it still can say scan to do whatever unless it is redundant with the button text") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** On a phone a screen that takes a scan had its own scan box with a camera button, and the bar had the Scan button with a note saying the same words (DEC-080). Two buttons for one thing, and Colin wasn't sure they did the same (issue #1).
+
+**Decision:**
+- On a phone (where the bar shows), a scan box on a page has no camera button. The bar's Scan button opens the camera for it, the same way (DEC-082).
+- A scan box that is only its words (Quick capture, New location, Put-back's "Scan the next one", the kit panel) isn't drawn on a phone: the note above the Scan button says them.
+- A scan box that also holds other buttons (Cancel, Pick from list) or content keeps its words, which head those.
+- A scan box inside a sheet that covers the bar (the bin sheet, the Move sheet, the rack position sheet, the Stickers screen) keeps its words and its camera button: the bar can't be reached from there. `ScanTarget` works this out itself by looking for a fixed-position ancestor.
+- Desktop is unchanged.
+
+**Consequences:** The one exception is the sheets; making them the same would mean lifting the Scan button above sheets. Checked in `stickers-check.mjs` (Quick capture has no box or camera button; a page box with Cancel keeps words and Cancel only; the bin sheet keeps its camera button).
 
 ---
 
@@ -2074,6 +2094,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-080 | On a phone, what a scan does is a note pointing at the Scan button (issue #2) | UX | Accepted | 2026-11-13 |
 | DEC-081 | The phone's Scan button is always outlined; bolder with a pulsing halo while a screen takes the scan | UX | Accepted | 2026-11-14 |
 | DEC-082 | The bar's Scan button opens the camera the same way as the screen's own button (issue #1, first part) | UX / Fix | Accepted | 2026-11-14 |
+| DEC-083 | On a phone's pages the bar's Scan button is the one camera button (issue #1) | UX | Accepted | 2026-11-14 |
 
 ---
 
