@@ -15,6 +15,8 @@ export type CameraOptions = {
   tap?: boolean;
   title?: string;
   hint?: string;
+  /** Called when the camera goes away, with or without a scan (DEC-084: a wait a button started ends with its camera). */
+  onClose?: () => void;
 };
 
 type ScanContextValue = {
@@ -79,6 +81,15 @@ function removeLeakedChars(count: number) {
 export function ScanProvider({ fallback, children }: { fallback: (code: string) => void; children: ReactNode }) {
   const handlers = useRef<ScanHandler[]>([]);
   const [camera, setCamera] = useState<CameraOptions | null>(null);
+  const cameraRef = useRef<CameraOptions | null>(null);
+  cameraRef.current = camera;
+  // The camera goes away: after a scan (from it or from a hardware scanner while it's open) or when it's closed.
+  const endCamera = useCallback(() => {
+    const was = cameraRef.current;
+    cameraRef.current = null;
+    setCamera(null);
+    was?.onClose?.();
+  }, []);
   const [lastScan, setLastScan] = useState<{ code: string; at: number } | null>(null);
   const fallbackRef = useRef(fallback);
   fallbackRef.current = fallback;
@@ -114,6 +125,7 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
     const detector = new ScanDetector((scan: Scan) => {
       if (scan.leaked) removeLeakedChars(scan.leaked);
       submit(scan.code);
+      if (cameraRef.current?.onClose) endCamera();
     });
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -147,7 +159,7 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
       window.removeEventListener("keydown", onKeyDown, { capture: true });
       window.removeEventListener("beforeinput", onBeforeInput, { capture: true });
     };
-  }, [submit]);
+  }, [submit, endCamera]);
 
   const openCamera = useCallback((options: CameraOptions | { nativeEvent: unknown } = {}) => {
     primeFeedback(); // this runs in the tap that opened the camera, so the beep is allowed later
@@ -155,7 +167,7 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
     if (!cameraAllowed(getScanMethod())) return;
     setCamera("nativeEvent" in options ? {} : options);
   }, []);
-  const closeCamera = useCallback(() => setCamera(null), []);
+  const closeCamera = endCamera;
   const value = { submit, openCamera, closeCamera, cameraOpen: camera !== null, register, registerTarget, target, targetCamera, lastScan };
 
   return (
@@ -168,8 +180,8 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
             title={camera.title}
             hint={camera.hint}
             onResult={(code) => {
-              setCamera(null);
               submit(code);
+              endCamera();
             }}
             onClose={closeCamera}
           />

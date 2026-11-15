@@ -436,6 +436,7 @@ export function LocationPage() {
           <ScanTarget
             what={`Scan the new sticker for ${loc.name}`}
             camera={{ tap: true, title: `Sticker for ${loc.name}` }}
+            cancel={() => setMode((m) => (m === "assign" ? "idle" : m))}
             actions={<Button variant="ghost" onClick={() => setMode("idle")}>Cancel</Button>}
           />
         )}

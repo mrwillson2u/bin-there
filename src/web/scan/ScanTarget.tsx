@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ScanLine } from "lucide-react";
 import { useScan, useScanTarget, type CameraOptions } from "./ScanProvider";
 import { cameraAllowed, useScanMethod } from "../settings";
@@ -23,6 +23,12 @@ type Props = {
   what: string;
   /** Camera options for this target (tap: wait for the Scan button; use when the scan writes). */
   camera?: CameraOptions;
+  /**
+   * For a wait a button started ("Replace sticker"): how to end it. On a phone with the camera
+   * allowed, the camera opens straight away and the wait ends when it goes away, so there is no
+   * box and no extra tap (DEC-084).
+   */
+  cancel?: () => void;
   /** Other ways to do the same thing (Pick from list) and Cancel. */
   actions?: ReactNode;
   /** One line (inside a form) instead of a card. */
@@ -33,7 +39,7 @@ type Props = {
   className?: string;
 };
 
-export function ScanTarget({ what, camera, actions, compact, big, children, className = "" }: Props) {
+export function ScanTarget({ what, camera, cancel, actions, compact, big, children, className = "" }: Props) {
   const { openCamera } = useScan();
   const method = useScanMethod();
   useScanTarget(what, camera);
@@ -52,11 +58,20 @@ export function ScanTarget({ what, camera, actions, compact, big, children, clas
     setCovered(over);
   }, []);
   const onBar = !wide && !covered;
+  const direct = !!cancel && !wide && cameraAllowed(method);
+  const cancelRef = useRef(cancel);
+  cancelRef.current = cancel;
+  useEffect(() => {
+    if (direct) openCamera({ ...camera, onClose: () => cancelRef.current?.() });
+    // Once, when the wait starts.
+  }, [direct]);
   const withCamera = cameraAllowed(method) && !onBar;
   const set = (el: HTMLElement | null) => {
     ref.current = el;
   };
 
+  // The camera is the wait: nothing to draw.
+  if (direct) return <span ref={set} hidden data-scan-target-quiet />;
   // Only its words, and the bar's note says them.
   if (onBar && compact && !actions && !children) return <span ref={set} hidden data-scan-target-quiet />;
 

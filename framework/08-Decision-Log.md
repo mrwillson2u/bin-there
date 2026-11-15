@@ -2006,6 +2006,26 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** The one exception is the sheets; making them the same would mean lifting the Scan button above sheets. Checked in `stickers-check.mjs` (Quick capture has no box or camera button; a page box with Cancel keeps words and Cancel only; the bin sheet keeps its camera button). Shipped to the live app on 2026-11-14 (backup `2026-11-14_223705`, `main` at 10a8e33).
 
+### DEC-084: On a phone, a button that asks for a sticker opens the camera straight away
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-14 |
+| **Status** | Accepted (Colin, Q134: "there is an unnecessary extra click", option A) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** "Replace sticker" / "Assign sticker" on a place's page, the same in the bin sheet, and "add a sticker" on a part's page put the screen into a wait for the next scan, shown as a scan box with a camera button and Cancel. After DEC-083 that box on a phone held only its words and Cancel, and scanning took a second tap on the bar.
+
+**Decision:**
+- On a phone with the camera allowed, pressing such a button opens the camera straight away, titled with what the sticker is for, waiting for a tap on Scan as before. No scan box is drawn.
+- The wait ends when the camera goes away: after a scan (whether it was taken or refused, the message says which) or when the camera is closed. Closing the camera is the cancel.
+- A hardware scanner's scan while that camera is open is taken and closes it.
+- On a desktop, and on a phone set to scanner only, nothing changes: the scan box with its Cancel stays.
+- In code: `ScanTarget` takes `cancel`; `CameraOptions.onClose` runs when the camera goes away.
+
+**Consequences:** A phone set to scanner only still shows the box with words and Cancel on these three screens. Choosers that offer another way (Pick from list) keep their box. Checked in `stickers-check.mjs` (bin sheet and bin page on a phone: camera opens at once, no box, closing ends the wait; desktop keeps the box).
+
 ---
 
 ## Decision Index
@@ -2095,6 +2115,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-081 | The phone's Scan button is always outlined; bolder with a pulsing halo while a screen takes the scan | UX | Accepted | 2026-11-14 |
 | DEC-082 | The bar's Scan button opens the camera the same way as the screen's own button (issue #1, first part) | UX / Fix | Accepted | 2026-11-14 |
 | DEC-083 | On a phone's pages the bar's Scan button is the one camera button (issue #1) | UX | Accepted | 2026-11-14 |
+| DEC-084 | On a phone, a button that asks for a sticker opens the camera straight away | UX | Accepted | 2026-11-14 |
 
 ---
 
