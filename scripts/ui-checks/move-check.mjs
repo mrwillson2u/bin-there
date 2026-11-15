@@ -103,7 +103,7 @@ check((await moveButton().textContent()).trim() === "Move 1 to …", "Move 1 to 
   const n = await float.locator("[data-scan-note]").boundingBox();
   check(Math.abs(b.x + b.width / 2 - 195) < 3 && b.y + b.height > 844 - 60 && b.y + b.height <= 844 && n.y + n.height < b.y, "phone: over the Move sheet the Scan button floats bottom centre with its note above it");
   check((await sheet().getByRole("button", { name: /Scan with camera|open the camera/ }).count()) === 0 && (await page.locator("[data-scan-note]").count()) === 1, "phone: the sheet has no camera button of its own, and there is one note");
-  const last = await moveButton().boundingBox();
+  check((await sheet().getByText("Instead of scanning, you can").count()) === 1 && (await sheet().getByRole("button", { name: "Pick from list" }).count()) === 1, "phone: the sheet's box says \"Instead of scanning, you can\" Pick from list (DEC-086)");
   await moveButton().scrollIntoViewIfNeeded();
   const shown = await moveButton().boundingBox();
   check(shown.y + shown.height <= n.y || shown.y >= b.y + b.height, "phone: the sheet leaves room, so its Move button isn't under the floating button: " + JSON.stringify({ move: Math.round(shown.y + shown.height), note: Math.round(n.y) }));
@@ -183,7 +183,10 @@ check((await api("GET", `/items/${loose.id}`)).places.map((p) => p.locationId).j
 await page.goto(`${base}/items/${pack.id}`);
 await page.getByRole("button", { name: "Move: Nano Tote" }).click();
 await sheet().waitFor();
-check((await sheet().getByText("Scan where they're going, or scan the ones you want to move").count()) === 1, "the prompt says scanning picks the ones to move too");
+await page.locator("[data-scan-float]").waitFor();
+await page.waitForTimeout(200);
+check((await page.locator("[data-scan-note]").filter({ hasText: "Scan where they're going, or scan the ones you want to move" }).count()) === 1, "the prompt says scanning picks the ones to move too");
+check((await page.getByText("Scan where they're going, or scan the ones you want to move").filter({ visible: true }).count()) === 1, "phone: the words are said once, in the note (DEC-086)");
 await sheet().getByRole("radio", { name: /^Pick which/ }).click();
 check((await sheet().getByRole("checkbox", { checked: true }).count()) === 0, "Pick which starts with none ticked");
 check((await sheet().getByRole("button", { name: "Tick or scan the ones to move" }).isDisabled()), "with none ticked the button says to tick or scan them");

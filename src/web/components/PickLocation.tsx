@@ -1,3 +1,4 @@
+import { useWide } from "../lib/useWide";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -35,6 +36,7 @@ export function PickLocation({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [browsing, setBrowsing] = useState(false);
+  const wide = useWide();
 
   useScanHandler((code) => {
     setError(null);
@@ -53,13 +55,20 @@ export function PickLocation({
       what={title}
       actions={
         <>
-          {!browsing && (
-            // Kept together, so "or you can" never breaks away from its button.
-            <span className="inline-flex items-center gap-2">
-              <span className="text-sm text-muted">or you can</span>
-              <Button onClick={() => setBrowsing(true)}>Pick from list</Button>
-            </span>
-          )}
+          {!browsing &&
+            (wide ? (
+              // Kept together, so "or you can" never breaks away from its button.
+              <span className="inline-flex items-center gap-2">
+                <span className="text-sm text-muted">or you can</span>
+                <Button onClick={() => setBrowsing(true)}>Pick from list</Button>
+              </span>
+            ) : (
+              // On a phone the words are in the note by the Scan button (DEC-086), so this line says what the box is for; the buttons sit under it.
+              <>
+                <span className="w-full text-sm text-muted">Instead of scanning, you can</span>
+                <Button onClick={() => setBrowsing(true)} className="whitespace-nowrap">Pick from list</Button>
+              </>
+            ))}
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
         </>
       }

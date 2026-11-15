@@ -13,8 +13,8 @@ import { useWide } from "../lib/useWide";
 // scan will do something or just open something. A scan writes only where one of these shows.
 //
 // On a phone the bar's Scan button is the one camera button (issue #1, DEC-083): a target on a
-// page has no camera button of its own, and one that is only its words isn't drawn at all, since
-// the note above the Scan button says them. Inside a sheet that covers the bar (the bin sheet,
+// page has no camera button of its own, and its words aren't drawn, since the note above the Scan
+// button says them (DEC-086); what's left (other ways, Cancel, an explanation) sits in a plain box. Inside a sheet that covers the bar (the bin sheet,
 // the Move sheet, a rack position's sheet) the same holds, and the Scan button and its note float
 // over the sheet where they always sit (DEC-085). `stay` keeps a target as it is on a desktop
 // (the Stickers screen, which has its own camera).
@@ -75,8 +75,23 @@ export function ScanTarget({ what, camera, cancel, actions, stay, compact, big, 
 
   // The camera is the wait: nothing to draw.
   if (direct) return <span ref={set} hidden data-scan-target-quiet />;
-  // Only its words, and the bar's note says them.
-  if (onBar && compact && !actions && !children) return <span ref={set} hidden data-scan-target-quiet />;
+  // On a phone the note by the Scan button says the words, so the page never says them twice (DEC-086):
+  // a target that is only its words isn't drawn, and one with more keeps just that, in a plain box.
+  if (onBar && !actions && !children) return <span ref={set} hidden data-scan-target-quiet />;
+  if (onBar) {
+    return (
+      <div
+        className={`flex ${compact ? "min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-3 py-1.5" : "flex-col gap-3 rounded-2xl p-4"} border border-border bg-surface ${className}`}
+        data-scan-target
+        aria-label={what}
+        role="group"
+        ref={set}
+      >
+        {children}
+        {actions && <div className={`flex flex-wrap items-center gap-2 ${big ? "flex-col items-stretch" : ""}`}>{actions}</div>}
+      </div>
+    );
+  }
 
   if (compact) {
     return (

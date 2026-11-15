@@ -2046,6 +2046,25 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** One camera button on a phone everywhere but the Stickers screen. In the Move sheet the box still heads "Pick from list" and Cancel with the same words as the note. Colin is trying this; C (bottom corner) was the other one he weighed. Checked in `move-check.mjs` (the button bottom centre with the note above, no camera button in the sheet, one note, the Move button clear of it). Shipped to the live app on 2026-11-15 (backup `2026-11-15_001647`, `main` at 4036b38).
 
+### DEC-086: On a phone the page never repeats the note's words
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin: "Is it redundant to have the same text twice? ... say something like 'instead of scanning you can..'") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** After DEC-083 and DEC-085 a scan box on a phone that held other buttons still showed its words, the same ones as the note by the Scan button.
+
+**Decision:**
+- On a phone a scan box never shows its words; the note is the one place that says what a scan does. A box with nothing else isn't drawn.
+- What's left (other ways, Cancel, an explanation) sits in a plain box with an ordinary border, labelled with the words for screen readers.
+- The chooser (`PickLocation`) leads with "Instead of scanning, you can", with Pick from list and Cancel under it.
+- Desktop is unchanged ("or you can" after the words).
+
+**Consequences:** This replaces "a box with other buttons keeps its words" in DEC-083 and DEC-085. Put-back's opening box is its explanation only. Checked in `move-check.mjs` (the words visible once, the box's lead-in) and `fill-check.mjs`.
+
 ---
 
 ## Decision Index
@@ -2137,6 +2156,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-083 | On a phone's pages the bar's Scan button is the one camera button (issue #1) | UX | Accepted | 2026-11-14 |
 | DEC-084 | On a phone, a button that asks for a sticker opens the camera straight away | UX | Accepted | 2026-11-14 |
 | DEC-085 | Over a sheet on a phone, the Scan button floats where it always sits (issue #1) | UX | Accepted | 2026-11-15 |
+| DEC-086 | On a phone the page never repeats the note's words | UX | Accepted | 2026-11-15 |
 
 ---
 
