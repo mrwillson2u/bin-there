@@ -161,7 +161,17 @@ await page.goto(`${base}/capture`);
   check(n.y + n.height < b.y && Math.abs(n.x + n.width / 2 - (b.x + b.width / 2)) < 3, "phone: the scan note sits above the Scan button, centred on it");
   check(colours[0] !== colours[1] && n.x >= 8 && n.x + n.width <= 390 - 8, "phone: the note is a dark box with a scan-coloured edge, inside the screen: " + colours.join(" / "));
   check((await note.textContent()).includes("Scan the bin it's going in"), "phone: it says what a scan does on this screen");
+  // DEC-081: the button keeps its outlined look; while the note is up the outline is bolder and a halo pulses.
+  const scanButton = page.getByRole("button", { name: /^Scan with camera:/ });
+  const look = (el) => { const c = getComputedStyle(el); return { bg: c.backgroundColor, edge: c.borderTopColor, width: c.borderTopWidth, anim: c.animationName }; };
+  const armed = await scanButton.evaluate(look);
+  check(armed.bg !== armed.edge && armed.width === "5px" && armed.anim === "scan-armed", "phone: with the note up the Scan button stays outlined, bolder, with a pulsing halo: " + JSON.stringify(armed));
   await page.screenshot({ path: `${shots}/s8a-scan-note.png` });
+  await page.goto(`${base}/activity`);
+  await page.getByRole("heading", { name: "Activity" }).first().waitFor();
+  const plain = await scanButton.evaluate(look);
+  check((await page.locator("[data-scan-note]").count()) === 0 && plain.bg === armed.bg && plain.width === "3px" && plain.anim === "none", "phone: with no note it is the same outlined button, thinner and still: " + JSON.stringify(plain));
+  await page.screenshot({ path: `${shots}/s8a-scan-plain.png` });
 }
 
 // 8b. Settings (DEC-043, DEC-044): scanning on this device decides what the Stickers screen offers.

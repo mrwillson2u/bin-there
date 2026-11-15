@@ -1952,6 +1952,25 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** The note floats over the bottom of the page, as the strip did; pages keep the extra bottom room. A screen's own scan box still says the same words above it, which is issue #1's subject and untouched here. Checked in `stickers-check.mjs` (the note above the button, centred, a dark box with a scan-coloured edge, inside the screen). Shipped to the live app on 2026-11-13 (backup `2026-11-13_204731`, `main` at d9c9f0e).
 
+### DEC-081: The phone's Scan button is always outlined; bolder with a pulsing halo while a screen takes the scan
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-14 |
+| **Status** | Accepted (Colin, answering Q129) |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-044 gave the phone's Scan button two looks: outlined when a scan opens what was scanned, filled magenta while a screen takes the scan. Colin noticed the change without knowing its reason, and asked (Q129) whether one look would do; he said he prefers the outline on a dark inside, and suggested a bolder outline or some movement when the note is up.
+
+**Decision:**
+- The button is always outlined: scan-coloured edge and icon on the bar's dark surface. It is never filled.
+- While a screen takes the scan (the note of DEC-080 is up), the outline goes from 3 px to 5 px, the icon's lines get a little heavier, and a soft scan-coloured halo breathes out from the edge every 1.6 seconds.
+- With reduced motion set on the device, the halo is a still ring instead.
+- The desktop sidebar's scan block is unchanged.
+
+**Consequences:** This replaces the filled look in DEC-044 and the "for now" in DEC-080. Checked in `stickers-check.mjs` (with the note: outlined, 5 px, pulsing; without: the same button, 3 px, still).
+
 ---
 
 ## Decision Index
@@ -2038,6 +2057,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-078 | The menu's usual order, and dragging it into your own (issue #3) | UX | Accepted | 2026-11-13 |
 | DEC-079 | The Categories screen's top box finds a category and adds a new one (issue #4) | UX | Accepted | 2026-11-13 |
 | DEC-080 | On a phone, what a scan does is a note pointing at the Scan button (issue #2) | UX | Accepted | 2026-11-13 |
+| DEC-081 | The phone's Scan button is always outlined; bolder with a pulsing halo while a screen takes the scan | UX | Accepted | 2026-11-14 |
 
 ---
 

@@ -60,6 +60,17 @@ body {
   .scan-flash { animation: none; }
 }
 
+/* The phone's Scan button while a screen takes the scan (DEC-081): a halo that breathes out from its outline. */
+@keyframes scan-armed {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-scan) 65%, transparent), 0 10px 15px -3px rgb(0 0 0 / 0.3); }
+  70%, 100% { box-shadow: 0 0 0 14px transparent, 0 10px 15px -3px rgb(0 0 0 / 0.3); }
+}
+.scan-armed { animation: scan-armed 1.6s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-armed { animation: none; box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-scan) 35%, transparent), 0 10px 15px -3px rgb(0 0 0 / 0.3); }
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }

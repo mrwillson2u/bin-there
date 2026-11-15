@@ -133,15 +133,17 @@ function Shell({ children, scanError }: { children: React.ReactNode; scanError: 
           {/* Inventory has its own search bar at the top, so the phone bar has room for Locations. */}
           <NavItem to="/" icon={<Boxes size={22} />} label="Inventory" />
           <NavItem to="/locations" end={false} icon={<Warehouse size={22} />} label="Locations" />
-          {/* Outlined: a scan opens what you scanned. Filled: a scan does what the strip says (DEC-044). */}
+          {/* Always outlined (DEC-081). While a screen takes the scan (the note above says what it does),
+              the outline is bolder and a halo pulses around it. */}
           <button
             onClick={openCamera}
             disabled={!camera}
-            className={`-mt-6 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ${target ? "bg-scan text-white" : "border-[3px] border-scan bg-surface text-scan"}`}
+            className={`-mt-6 flex h-16 w-16 items-center justify-center rounded-full border-scan bg-surface text-scan shadow-lg ${target ? "scan-armed border-[5px]" : "border-[3px]"}`}
+            data-scan-armed={target ? "" : undefined}
             aria-label={camera ? (target ? `Scan with camera: ${target}` : "Scan with camera: open what you scan") : target ? `Scanner: ${target}` : "Scanner ready: scan a sticker to open it"}
             title={camera ? undefined : "This device scans with the hardware scanner (Settings)"}
           >
-            <ScanLine size={28} />
+            <ScanLine size={28} strokeWidth={target ? 2.6 : 2} />
           </button>
           <NavItem to="/activity" icon={<History size={22} />} label="Activity" />
           <NavItem to="/putback" icon={<Archive size={22} />} label="Put-back" />
