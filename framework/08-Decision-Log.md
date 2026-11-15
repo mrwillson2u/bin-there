@@ -1969,7 +1969,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 - With reduced motion set on the device, the halo is a still ring instead.
 - The desktop sidebar's scan block is unchanged.
 
-**Consequences:** This replaces the filled look in DEC-044 and the "for now" in DEC-080. Checked in `stickers-check.mjs` (with the note: outlined, 5 px, pulsing; without: the same button, 3 px, still).
+**Consequences:** This replaces the filled look in DEC-044 and the "for now" in DEC-080. Checked in `stickers-check.mjs` (with the note: outlined, 5 px, pulsing; without: the same button, 3 px, still). Shipped to the live app on 2026-11-14 (backup `2026-11-14_173956`, `main` at 11a7656).
 
 ---
 
