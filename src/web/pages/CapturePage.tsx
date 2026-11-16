@@ -27,11 +27,14 @@ import { Button, Card, Field, inputClass, pathText } from "../components/ui";
  * Opened from Put away (`?from=putaway`, DEC-089) it is "New item": one thing, Save asks where
  * it goes when no place is set, and then it goes back to Put away with the tally.
  * What's on the form is kept for the tab until it's saved or left (DEC-091): a phone that reloads
- * the page behind the camera brings it back as it was. The photo is shrunk as soon as it's taken,
+ * the page behind the camera brings it back as it was. A photo is shrunk as soon as it's taken,
  * so the full-size one is never held.
+ * More than one photo can be taken (DEC-092): the part first, then say the shop's bag; the first is
+ * the part's main photo, and a bag code is read from whichever photo has one.
  */
 const DRAFT = "capture.draft";
-type Shot = { photo: Blob; thumb: Blob };
+type Shot = { id: number; photo: Blob; thumb: Blob; bag: BagCode | null };
+type ShotText = { photo: string; thumb: string; bag: BagCode | null };
 type Draft = {
   /** The address the form was opened with; a draft only comes back to the same one. */
   search: string;
@@ -42,14 +45,12 @@ type Draft = {
   qty: string;
   qtyTyped: boolean;
   level: StockLevel;
-  bag: BagCode | null;
-  photo?: string;
-  thumb?: string;
+  photos: ShotText[];
 };
 function readDraft(search: string): Draft | null {
   try {
     const d = JSON.parse(sessionStorage.getItem(DRAFT) ?? "null") as Draft | null;
-    return d && d.search === search ? d : null;
+    return d && d.search === search && Array.isArray(d.photos) ? d : null;
   } catch {
     return null;
   }
@@ -72,10 +73,11 @@ export function CapturePage() {
   const [draft] = useState(() => readDraft(search));
   const [code, setCode] = useState<string | null>(draft ? draft.code : params.get("code"));
   const [locationId, setLocationId] = useState<number | null>(draft ? draft.locationId : params.get("location") ? Number(params.get("location")) : null);
-  // The photo as it will be uploaded: shrunk on the spot, the original let go.
-  const [photo, setPhoto] = useState<Shot | null>(null);
-  const [reading, setReading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
+  // The photos as they will be uploaded: shrunk on the spot, the originals let go. The first is the part's main photo.
+  const [photos, setPhotos] = useState<Shot[]>([]);
+  const [reading, setReading] = useState(0);
+  const photo = photos[0] ?? null;
+  const bag = photos.find((x) => x.bag)?.bag ?? null;
   const [name, setName] = useState(draft ? draft.name : (params.get("name") ?? ""));
   const putAway = params.get("from") === "putaway";
   const tally = ((useLocation().state ?? {}) as PutAwayState).tally ?? 0;
@@ -89,7 +91,6 @@ export function CapturePage() {
   const [tracking, setTracking] = useState<TrackingMode>(draft?.tracking ?? "exact");
   const [qty, setQty] = useState(draft?.qty ?? "1");
   const [qtyTyped, setQtyTyped] = useState(draft?.qtyTyped ?? false);
-  const [bag, setBag] = useState<BagCode | null>(draft?.bag ?? null);
   const [level, setLevel] = useState<StockLevel>(draft?.level ?? "plenty");
   const ai = useAiStatus();
   const [aiAfter, setAiAfterState] = useState(() => localStorage.getItem("capture.ai") !== "off");
@@ -108,74 +109,68 @@ export function CapturePage() {
     enabled: locationId !== null,
   });
 
-  useEffect(() => {
-    if (!photo) return setPreview(null);
-    const url = URL.createObjectURL(photo.photo);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [photo]);
   // A photo just taken: shrunk for upload, and a shop bag's barcode looked for in the full one (DEC-074), both at once.
-  const shotNo = useRef(0);
+  const shotId = useRef(0);
+  // Bumped when the form is emptied, so a photo still being read doesn't land on the next part.
+  const round = useRef(0);
   const takePhoto = async (file: File | null) => {
-    const no = ++shotNo.current;
-    setBag(null);
-    setPhoto(null);
     if (!file) return;
-    setReading(true);
+    const r = round.current;
+    setReading((n) => n + 1);
     setError(null);
     try {
       const [shot, b] = await Promise.all([preparePhoto(file), readBagCode(file)]);
-      if (no !== shotNo.current) return;
-      setPhoto(shot);
-      setBag(b);
+      if (r === round.current) setPhotos((list) => [...list, { id: ++shotId.current, ...shot, bag: b }]);
     } catch (e) {
-      if (no === shotNo.current) setError((e as Error).message);
+      if (r === round.current) setError((e as Error).message);
     } finally {
-      if (no === shotNo.current) setReading(false);
+      setReading((n) => n - 1);
     }
   };
-  // The photo a draft held comes back with it.
+  // The photos a draft held come back with it.
+  const [restoring, setRestoring] = useState(() => (draft?.photos.length ?? 0) > 0);
   useEffect(() => {
-    if (!draft?.photo || !draft.thumb) return;
-    const no = shotNo.current;
-    void Promise.all([fromDataUrl(draft.photo), fromDataUrl(draft.thumb)])
-      .then(([p, t]) => {
-        if (no === shotNo.current) setPhoto({ photo: p, thumb: t });
+    if (!draft?.photos.length) return;
+    const r = round.current;
+    void Promise.all(draft.photos.map(async (t) => ({ id: ++shotId.current, photo: await fromDataUrl(t.photo), thumb: await fromDataUrl(t.thumb), bag: t.bag })))
+      .then((back) => {
+        if (r === round.current) setPhotos((list) => [...back, ...list]);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setRestoring(false));
   }, [draft]);
   // Kept as it changes; gone once the screen is left (a reload doesn't run this clean-up, which is the point).
-  const photoText = useRef<{ of: Shot; photo: string; thumb: string } | null>(null);
+  const texts = useRef(new Map<number, ShotText>());
   useEffect(() => {
+    // While a draft's photos are still being read back, don't write over them.
+    if (restoring) return;
     let current = true;
-    const write = (pics: { photo?: string; thumb?: string }) => {
-      const d: Draft = { search, code, locationId, name, tracking, qty, qtyTyped, level, bag, ...pics };
-      try {
-        sessionStorage.setItem(DRAFT, JSON.stringify(d));
-      } catch {
-        // No room for the photo: keep the rest.
+    const write = (pics: ShotText[]) => {
+      const d: Draft = { search, code, locationId, name, tracking, qty, qtyTyped, level, photos: pics };
+      // If the tab's storage has no room, keep as many photos as fit, and the rest of the form whatever happens.
+      for (let n = pics.length; n >= 0; n--) {
         try {
-          sessionStorage.setItem(DRAFT, JSON.stringify({ ...d, photo: undefined, thumb: undefined }));
+          sessionStorage.setItem(DRAFT, JSON.stringify({ ...d, photos: pics.slice(0, n) }));
+          return;
         } catch {}
       }
     };
-    if (!photo) {
-      // While a draft's photo is still being read back, don't write over it.
-      if (draft?.photo && shotNo.current === 0) write({ photo: draft.photo, thumb: draft.thumb });
-      else write({});
-    } else if (photoText.current?.of === photo) write(photoText.current);
-    else {
-      void Promise.all([dataUrl(photo.photo), dataUrl(photo.thumb)])
-        .then(([p, t]) => {
-          photoText.current = { of: photo, photo: p, thumb: t };
-          if (current) write(photoText.current);
-        })
-        .catch(() => current && write({}));
-    }
+    void Promise.all(
+      photos.map(async (x) => {
+        let t = texts.current.get(x.id);
+        if (!t) {
+          t = { photo: await dataUrl(x.photo), thumb: await dataUrl(x.thumb), bag: x.bag };
+          texts.current.set(x.id, t);
+        }
+        return t;
+      }),
+    )
+      .then((pics) => current && write(pics))
+      .catch(() => current && write([]));
     return () => {
       current = false;
     };
-  }, [search, code, locationId, name, tracking, qty, qtyTyped, level, bag, photo, draft]);
+  }, [search, code, locationId, name, tracking, qty, qtyTyped, level, photos, restoring]);
   useEffect(() => () => sessionStorage.removeItem(DRAFT), []);
   // The count the bag shipped with, unless a count was typed.
   const bagQty = bag?.qty && !qtyTyped && !code && tracking === "exact" ? String(bag.qty) : null;
@@ -209,9 +204,8 @@ export function CapturePage() {
         level: !code && tracking === "level" ? level : undefined,
       };
       let item = await api<ItemDetail>("/items", { method: "POST", body });
-      if (photo) {
-        item = await uploadPhoto<ItemDetail>(item.id, photo.photo, photo.thumb);
-      }
+      // In the order taken: the first becomes the part's main photo.
+      for (const x of photos) item = await uploadPhoto<ItemDetail>(item.id, x.photo, x.thumb);
       // What the bag's barcode said goes on the part before the AI looks, so it starts from the exact number.
       const pn = bag ? bagPartNumber(bag) : null;
       if (bag && pn) item = await api<ItemDetail>(`/items/${item.id}`, { method: "PATCH", body: { supplierPn: pn, ...(bag.supplier ? { supplier: bag.supplier } : {}) } });
@@ -226,9 +220,9 @@ export function CapturePage() {
       setSaved((s) => [item, ...s]);
       // Ready for the next one; keep the location (cataloging a bin at a time).
       setCode(null);
-      shotNo.current++;
-      setPhoto(null);
-      setBag(null);
+      round.current++;
+      texts.current.clear();
+      setPhotos([]);
       setName("");
       setQty("1");
       setQtyTyped(false);
@@ -267,24 +261,59 @@ export function CapturePage() {
         </p>
       )}
 
-      <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed border-border bg-surface text-muted active:bg-surface-2">
-        {preview ? (
-          <img src={preview} alt="Item photo" className="h-full w-full object-cover" />
-        ) : reading ? (
-          <span className="font-semibold text-text" role="status">Reading the photo…</span>
-        ) : (
-          <>
-            <Camera size={40} className="text-accent" />
-            <span className="font-semibold text-text">Take photo</span>
-          </>
-        )}
-        <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => {
-            void takePhoto(e.target.files?.[0] ?? null);
-            // So choosing the same picture again still counts as a new photo.
-            e.target.value = "";
-          }}
-        />
-      </label>
+      {photo ? (
+        <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-border bg-surface">
+          <BlobImg blob={photo.photo} alt="Item photo" className="h-full w-full object-cover" />
+        </div>
+      ) : (
+        <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed border-border bg-surface text-muted active:bg-surface-2">
+          {reading > 0 || restoring ? (
+            <span className="font-semibold text-text" role="status">Reading the photo…</span>
+          ) : (
+            <>
+              <Camera size={40} className="text-accent" />
+              <span className="font-semibold text-text">Take photo</span>
+            </>
+          )}
+          <PhotoInput onFile={takePhoto} />
+        </label>
+      )}
+      {photo && (
+        <div className="flex flex-wrap items-center gap-2" data-capture-photos>
+          {photos.map((x, i) => (
+            <div key={x.id} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-border">
+              <BlobImg blob={x.thumb} alt={i === 0 ? "Photo 1, the main photo" : `Photo ${i + 1}`} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => {
+                  texts.current.delete(x.id);
+                  setPhotos((list) => list.filter((y) => y.id !== x.id));
+                }}
+                aria-label={`Remove photo ${i + 1}`}
+                className="absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-bl-lg bg-black/60 text-white"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+          <label className="flex h-16 min-w-16 cursor-pointer items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border bg-surface px-3 text-sm font-semibold text-accent active:bg-surface-2">
+            {reading > 0 ? (
+              <span role="status">Reading…</span>
+            ) : (
+              <>
+                <Camera size={18} /> Add another photo
+              </>
+            )}
+            <PhotoInput onFile={takePhoto} />
+          </label>
+        </div>
+      )}
+      {!bag && (
+        <p className="flex items-start gap-2 text-[13px] text-muted" data-bag-hint>
+          <ScanBarcode size={16} className="mt-0.5 shrink-0" />
+          <span>From Mouser or Digi-Key? {photo ? "Add a photo of" : "Include"} the bag's label: its barcode gives the part number and how many.</span>
+        </p>
+      )}
 
       {bag && (
         <p className="flex items-center gap-2 rounded-xl border border-ok/40 bg-ok/10 px-3 py-2 text-sm" role="status" data-bag-code>
@@ -400,7 +429,7 @@ export function CapturePage() {
         <Button
           variant="primary"
           onClick={() => (putAway && locationId === null ? setAsking(true) : void save())}
-          disabled={saving || asking || reading || (!photo && !name.trim() && !code)}
+          disabled={saving || asking || reading > 0 || restoring || (!photo && !name.trim() && !code)}
           className="min-h-14 flex-1 text-lg"
         >
           {saving ? "Saving…" : "Save"}
@@ -428,4 +457,32 @@ function Row({ icon, label, children }: { icon: React.ReactNode; label: string; 
       <span className="flex flex-1 justify-end">{children}</span>
     </div>
   );
+}
+
+/** The file input behind a take-a-photo button. */
+function PhotoInput({ onFile }: { onFile: (f: File | null) => void }) {
+  return (
+    <input
+      type="file"
+      accept="image/*"
+      capture="environment"
+      className="sr-only"
+      onChange={(e) => {
+        onFile(e.target.files?.[0] ?? null);
+        // So choosing the same picture again still counts as a new photo.
+        e.target.value = "";
+      }}
+    />
+  );
+}
+
+/** A photo held in memory, drawn. */
+function BlobImg({ blob, alt, className }: { blob: Blob; alt: string; className?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(blob);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [blob]);
+  return url ? <img src={url} alt={alt} className={className} /> : null;
 }

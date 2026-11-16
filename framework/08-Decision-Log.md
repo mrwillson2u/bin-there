@@ -2156,6 +2156,23 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-092: Quick capture takes more than one photo, and says what a photo of the bag's label does
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin: "there should be an option to take an additional photo from the add item screen because I want to capture the part in the first photo and the bag in the second") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** Quick capture held one photo; a second had to be added from the part's page afterwards. Colin wants the part in the first photo and the shop's bag in the second. He also asked whether anything says a photo of the bag pulls its details: nothing did until the green "Bag barcode read" line appeared after a successful read (DEC-074), so the feature was hidden.
+
+**Decision:** Once the first photo is taken, a strip under it shows each photo as a small square with a remove button, and "Add another photo". The first photo taken is the part's main photo; they upload in the order taken. A bag code is read from whichever photo has one (the first found). Until a bag code is read, a line under the photos says "From Mouser or Digi-Key? Add a photo of the bag's label: its barcode gives the part number and how many." (before any photo: "Include the bag's label"). All the photos are kept through a reload (DEC-091), as many as the tab's storage holds.
+
+**Consequences:** Tapping the big photo no longer retakes it; remove it in the strip and take another. Same on Put away's "New item". Checked in `photo-check.mjs`.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -2251,6 +2268,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-089 | Put-back mode becomes Put away and takes in things not logged yet; Inventory gets a No place filter | UX | Accepted | 2026-11-15 |
 | DEC-090 | Print stickers has no "Skip used labels" setting | UX | Accepted | 2026-11-15 |
 | DEC-091 | Quick capture keeps what's on the form through a page reload | UX | Accepted | 2026-11-15 |
+| DEC-092 | Quick capture takes more than one photo, and says what a photo of the bag's label does | UX | Accepted | 2026-11-15 |
 
 ---
 
