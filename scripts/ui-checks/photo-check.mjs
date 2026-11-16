@@ -106,6 +106,7 @@ item = await api("GET", `/items/${part.id}`);
 check(item.thumbUrl !== mainBefore && item.photos[0].main && item.photos[0].id !== item.photos[1].id, "the new photo is now the main one, shown in lists");
 
 // 3c. The whole-photo viewer: previous/next, and delete.
+check((await page.getByRole("button", { name: "Delete this photo" }).count()) === 1, "the big photo has its own Delete button, beside Crop (DEC-093)");
 await page.getByRole("button", { name: "See the whole photo" }).click();
 const viewer = page.getByRole("dialog", { name: "Photo" });
 await viewer.getByText("Photo 1 of 2 · main").waitFor();

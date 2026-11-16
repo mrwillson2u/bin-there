@@ -11,7 +11,8 @@ import { Button } from "./ui";
 
 // A part's photos on its page (DEC-031). The main photo is the one shown in lists, tiles and
 // the bin pane; the others are for another angle, the label or a pinout. Tap a photo in the
-// strip to see it big; tap the big one for the whole photo, with Crop, Use as main and Delete.
+// strip to see it big; Crop and Delete sit on the big one (DEC-093); tap it for the whole photo,
+// with Crop, Use as main and Delete.
 
 function usePhotoAction(itemId: number) {
   const qc = useQueryClient();
@@ -27,7 +28,50 @@ function usePhotoAction(itemId: number) {
     }) as const;
 }
 
+/** Delete one of a part's photos, after asking. Used by the part's page, the viewer and the edit form's strip. */
+export function useDeletePhoto(item: ItemDetail, onSettled?: () => void) {
+  const handlers = usePhotoAction(item.id);
+  const remove = useMutation({
+    mutationFn: (id: number) => api<ItemDetail>(`/photos/${id}`, { method: "DELETE" }),
+    ...handlers("Photo deleted"),
+    onSettled,
+  });
+  const ask = (photo: Photo) => {
+    if (window.confirm(item.photos.length > 1 && photo.main ? "Delete the main photo? The next one becomes the main photo." : "Delete this photo?")) remove.mutate(photo.id);
+  };
+  return { ask, busy: remove.isPending };
+}
+
+/**
+ * Every photo a part has, as small squares each with its own delete button (DEC-093): on the
+ * edit form, so a photo just taken is seen to have arrived and one too many is easy to remove.
+ */
+export function PhotoStrip({ item, children }: { item: ItemDetail; children?: React.ReactNode }) {
+  const del = useDeletePhoto(item);
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-photo-strip>
+      {item.photos.map((p, i) => (
+        <div key={p.id} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-border">
+          <img src={p.thumbUrl} alt={`Photo ${i + 1}${p.main ? ", the main photo" : ""}`} className="h-full w-full object-cover" />
+          {p.main && item.photos.length > 1 && <Star size={14} className="absolute left-1 top-1 fill-warn text-warn drop-shadow" aria-hidden />}
+          <button
+            type="button"
+            onClick={() => del.ask(p)}
+            disabled={del.busy}
+            aria-label={`Delete photo ${i + 1}`}
+            className="absolute right-0 top-0 flex h-7 w-7 items-center justify-center rounded-bl-lg bg-black/65 text-white"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      {children}
+    </div>
+  );
+}
+
 export function PartPhotos({ item }: { item: ItemDetail }) {
+  const del = useDeletePhoto(item);
   const { add, busy } = useAddPhoto(item.id);
   const photos = item.photos;
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -77,6 +121,15 @@ export function PartPhotos({ item }: { item: ItemDetail }) {
           className="absolute bottom-2 right-2 inline-flex min-h-9 items-center gap-1.5 rounded-full bg-black/65 px-3 text-sm font-medium text-white"
         >
           <Crop size={16} /> Crop
+        </button>
+        <button
+          type="button"
+          onClick={() => del.ask(selected)}
+          disabled={del.busy}
+          aria-label="Delete this photo"
+          className="absolute bottom-2 left-2 inline-flex min-h-9 items-center gap-1.5 rounded-full bg-black/65 px-3 text-sm font-medium text-white"
+        >
+          <Trash2 size={16} /> Delete
         </button>
         {photos.length > 1 && selected.main && (
           <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-1 text-xs font-medium text-white">
@@ -141,11 +194,7 @@ function PhotoViewer({ item, startId, onClose, onCrop }: { item: ItemDetail; sta
   const photo = photos[Math.min(index, photos.length - 1)];
   const handlers = usePhotoAction(item.id);
   const makeMain = useMutation({ mutationFn: (id: number) => api<ItemDetail>(`/photos/${id}/main`, { method: "PUT" }), ...handlers("Main photo changed") });
-  const remove = useMutation({
-    mutationFn: (id: number) => api<ItemDetail>(`/photos/${id}`, { method: "DELETE" }),
-    ...handlers("Photo deleted"),
-    onSettled: () => onClose(null),
-  });
+  const del = useDeletePhoto(item, () => onClose(null));
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -194,10 +243,8 @@ function PhotoViewer({ item, startId, onClose, onCrop }: { item: ItemDetail; sta
         )}
         <Button
           variant="danger"
-          disabled={remove.isPending}
-          onClick={() => {
-            if (window.confirm(photos.length > 1 && photo.main ? "Delete the main photo? The next one becomes the main photo." : "Delete this photo?")) remove.mutate(photo.id);
-          }}
+          disabled={del.busy}
+          onClick={() => del.ask(photo)}
         >
           <Trash2 size={18} /> Delete photo
         </Button>

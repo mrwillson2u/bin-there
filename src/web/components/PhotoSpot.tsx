@@ -31,6 +31,7 @@ export function useAddPhoto(itemId: number) {
         }
       }
       qc.setQueryData(["item", itemId], updated);
+      if (!bag || !pn) toast.show({ message: updated.photos.length > 1 ? `Photo added: ${updated.photos.length} photos now` : "Photo added" });
       qc.invalidateQueries({ queryKey: ["items"] });
       qc.invalidateQueries({ queryKey: ["location"] });
       qc.invalidateQueries({ queryKey: ["pins"] });

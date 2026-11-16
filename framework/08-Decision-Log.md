@@ -2169,7 +2169,24 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** Once the first photo is taken, a strip under it shows each photo as a small square with a remove button, and "Add another photo". The first photo taken is the part's main photo; they upload in the order taken. A bag code is read from whichever photo has one (the first found). Until a bag code is read, a line under the photos says "From Mouser or Digi-Key? Add a photo of the bag's label: its barcode gives the part number and how many." (before any photo: "Include the bag's label"). All the photos are kept through a reload (DEC-091), as many as the tab's storage holds.
 
-**Consequences:** Tapping the big photo no longer retakes it; remove it in the strip and take another. Same on Put away's "New item". Checked in `photo-check.mjs`.
+**Consequences:** Tapping the big photo no longer retakes it; remove it in the strip and take another. Same on Put away's "New item". Checked in `photo-check.mjs`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_213015`, `main` at e712329).
+
+---
+
+### DEC-093: The edit form shows every photo, and deleting a photo is one visible tap
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin: "if I take a photo from the edit item screen, I expect the photo to show up, but it doesnt... I ended up with 4 photos thinking that somehow it didnt work", "I cant see any clear methods to delete a photo") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-077 gave the edit form a photo button that saved straight away, but the form showed only the main photo's thumbnail and a small "N photos" line, so a second photo changed nothing you'd notice; Colin took four. Deleting a photo was only inside the full-screen viewer on the part's page (tap the big photo, then Delete photo).
+
+**Decision:** The edit form (the page and the Needs details popup) shows every photo as a small square in a strip (`PhotoStrip` in `PartPhotos.tsx`), each with a bin button that deletes it after asking, the main one starred, then the Add photo button. Adding a photo anywhere says "Photo added" (with the count when there are several), unless the bag-barcode message already says so. On the part's page the big photo has a Delete button beside Crop; the viewer keeps its own. `useDeletePhoto` is the one delete used by all three.
+
+**Consequences:** Replaces the single thumbnail on the form from DEC-077. Checked in `extras-check.mjs` (photo appears, second appears, bin deletes, what's typed stays) and `photo-check.mjs`.
 
 ---
 
@@ -2269,6 +2286,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-090 | Print stickers has no "Skip used labels" setting | UX | Accepted | 2026-11-15 |
 | DEC-091 | Quick capture keeps what's on the form through a page reload | UX | Accepted | 2026-11-15 |
 | DEC-092 | Quick capture takes more than one photo, and says what a photo of the bag's label does | UX | Accepted | 2026-11-15 |
+| DEC-093 | The edit form shows every photo, and deleting a photo is one visible tap | UX | Accepted | 2026-11-15 |
 
 ---
 

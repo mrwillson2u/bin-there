@@ -147,7 +147,17 @@ check((await api("GET", `/items/${formPart.id}`)).photos.length === 1 && (await 
 check((await page.getByPlaceholder("e.g. M3 × 10 socket cap screw").inputValue()) === "Form part, renamed", "what was typed in the form stays");
 await until(async () => (await page.getByLabel("Supplier part #").inputValue()) === "1528-1150-ND", "the bag's part number shows in the form's box");
 check((await page.locator("[data-form-photo]").textContent()).includes("Add photo"), "the button then offers another photo");
+// The photo shows on the form as soon as it's saved, and each one has its own delete (DEC-093).
+check((await page.locator("[data-photo-strip] img").count()) === 1, "the photo just taken shows on the edit form");
+await page.locator("[data-form-photo] input").setInputFiles(`${shots}/bag.png`);
+await page.getByAltText("Photo 2").waitFor({ timeout: 20000 });
+await page.getByRole("status").filter({ hasText: /Photo added: 2 photos now|Bag barcode read/ }).first().waitFor();
+check((await page.locator("[data-photo-strip] img").count()) === 2, "a second photo shows beside the first");
 await page.screenshot({ path: `${shots}/x5-form-photo.png` });
+page.once("dialog", (d) => d.accept());
+await page.getByRole("button", { name: "Delete photo 2" }).click();
+await until(async () => (await page.locator("[data-photo-strip] img").count()) === 1 && (await api("GET", `/items/${formPart.id}`)).photos.length === 1, "the bin on a photo deletes it, on the form and on the part");
+check((await page.getByPlaceholder("e.g. M3 × 10 socket cap screw").inputValue()) === "Form part, renamed", "what was typed still stays");
 await page.getByRole("button", { name: "Save" }).first().click();
 await until(async () => { const d = await api("GET", `/items/${formPart.id}`); return d.name === "Form part, renamed" && d.supplierPn === "1528-1150-ND"; }, "Save keeps the name typed and the part number from the bag");
 await api("DELETE", `/items/${formPart.id}`);

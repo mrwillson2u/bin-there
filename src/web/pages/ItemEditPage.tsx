@@ -26,7 +26,8 @@ import { CategoryChangeDialog, leavingFor, type CategoryValuesChoice } from "../
 import { LevelButtons } from "../components/StockControl";
 import { useToast } from "../components/Toast";
 import { useAddPhoto } from "../components/PhotoSpot";
-import { Button, Field, inputClass, itemName, PlacePath, Thumb } from "../components/ui";
+import { PhotoStrip } from "../components/PartPhotos";
+import { Button, Field, inputClass, itemName, PlacePath } from "../components/ui";
 import { AiSuggestions, useAiStatus } from "../components/AiSuggestions";
 
 /** An amount as the form holds it: a typed count ("" = not counted) or a level. */
@@ -279,8 +280,8 @@ export function ItemForm({
         if (canSave) save.mutate();
       }}
     >
-      <div className="flex items-center gap-3">
-        <Thumb url={item.thumbUrl} size={64} />
+      {/* Every photo, so one just taken is seen to arrive, each with its own delete (DEC-093). */}
+      <PhotoStrip item={item}>
         <label
           className={`flex h-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl border border-dashed border-border px-2 text-[12px] leading-tight text-accent ${photo.busy ? "opacity-50" : ""}`}
           data-form-photo
@@ -300,9 +301,11 @@ export function ItemForm({
             }}
           />
         </label>
+      </PhotoStrip>
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">{item.needsDetails ? "Fill in details" : "Edit item"}</h1>
-          {item.photos.length > 0 && <p className="text-[13px] text-muted" data-photo-count>{item.photos.length === 1 ? "1 photo" : `${item.photos.length} photos`}. A new one saves straight away.</p>}
+          {item.photos.length > 0 && <p className="text-[13px] text-muted" data-photo-count>{item.photos.length === 1 ? "1 photo" : `${item.photos.length} photos`}. A new one saves straight away; the bin on a photo deletes it.</p>}
           {onClose && (
             <Link to={`/items/${item.id}`} className="text-sm text-accent">
               Open the part's page (photos, places, history)
