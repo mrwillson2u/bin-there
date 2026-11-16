@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { SwitchCamera } from "lucide-react";
-import { boundsOf, frameToView, guideRect, lensName, pickCamera, pickTarget, visibleRect, type CameraInfo, type Rect, type Seen } from "./camera";
+import { boundsOf, frameToView, guideRect, inAim, lensName, pickCamera, pickTarget, visibleRect, type CameraInfo, type Rect, type Seen } from "./camera";
 import { decodeFrame } from "./decode";
 
 // A live camera preview that looks for QR codes and shows what it sees: brackets
@@ -32,8 +32,8 @@ export function CameraView({
   note,
   className = "",
 }: {
-  /** The code nearest the aim mark, or null when there's none in view. */
-  onTarget: (code: string | null) => void;
+  /** The code nearest the aim mark, or null when there's none in view; `aimed` when its middle is inside the mark. */
+  onTarget: (code: string | null, aimed: boolean) => void;
   /** What to say under the aimed-at code (e.g. "on Bin 5"). */
   note?: (code: string) => CodeNote;
   className?: string;
@@ -59,6 +59,7 @@ export function CameraView({
     const recent = new Map<string, { box: Rect; at: number }>();
     let tick = 0;
     let lastTarget: string | null = null;
+    let lastAimed = false;
 
     const stop = () => {
       stopped = true;
@@ -71,11 +72,14 @@ export function CameraView({
       for (const [k, v] of recent) if (now - v.at > KEEP_MS) recent.delete(k);
       const list = [...recent].map(([text, v]) => ({ text, box: v.box }));
       setSeen(list);
-      const t = pickTarget(list, view)?.text ?? null;
-      if (t !== lastTarget) {
+      const picked = pickTarget(list, view);
+      const t = picked?.text ?? null;
+      const aimed = !!picked && inAim(picked.box, view, AIM);
+      if (t !== lastTarget || aimed !== lastAimed) {
         lastTarget = t;
+        lastAimed = aimed;
         setTarget(t);
-        onTargetRef.current(t);
+        onTargetRef.current(t, aimed);
       }
     };
 
@@ -168,7 +172,7 @@ export function CameraView({
     void start();
     return () => {
       stop();
-      if (lastTarget !== null) onTargetRef.current(null);
+      if (lastTarget !== null) onTargetRef.current(null, false);
     };
   }, [lens]);
 

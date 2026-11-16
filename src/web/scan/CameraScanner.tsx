@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScanLine, Volume2, VolumeX, X } from "lucide-react";
 import { CameraView } from "./CameraView";
 import { scanBad, scanOk, setSound, soundOn } from "./feedback";
@@ -17,6 +17,9 @@ export type CameraScannerProps = {
   hint?: string;
 };
 
+/** How long a code must stay the aimed-at one before it's taken without a tap. */
+const HOLD_MS = 300;
+
 export function CameraScanner({ onResult, onClose, tap = false, title = "Scan a sticker", hint }: CameraScannerProps) {
   const [target, setTarget] = useState<string | null>(null);
   const [miss, setMiss] = useState(false);
@@ -30,10 +33,16 @@ export function CameraScanner({ onResult, onClose, tap = false, title = "Scan a 
     onResult(code);
   };
 
-  const onTarget = (code: string | null) => {
+  // Without a tap, a code is taken only when it sits on the aim mark and has stayed the nearest
+  // one for a moment (DEC-095): with stickers stacked close together, the one read first is often
+  // a neighbour, not the one in the brackets.
+  const hold = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(hold.current), []);
+  const onTarget = (code: string | null, aimed: boolean) => {
     setTarget(code);
     if (code) setMiss(false);
-    if (!tap && code) take(code);
+    clearTimeout(hold.current);
+    if (!tap && code && aimed) hold.current = setTimeout(() => take(code), HOLD_MS);
   };
 
   return (
@@ -55,7 +64,7 @@ export function CameraScanner({ onResult, onClose, tap = false, title = "Scan a 
       <CameraView onTarget={onTarget} className="flex-1" />
       <div className="flex flex-col gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <p className="text-center text-sm text-white/80">
-          {miss ? "No sticker in the green brackets yet. Aim the white corners at it." : (hint ?? (tap ? "Aim at the sticker; when it's in green brackets, tap Scan." : "Aim the white corners at a sticker."))}
+          {miss ? "No sticker in the green brackets yet. Aim the white corners at it." : (hint ?? (tap ? "Aim at the sticker; when it's in green brackets, tap Scan." : "Put the sticker inside the white corners."))}
         </p>
         {tap && (
           <button

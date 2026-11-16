@@ -2207,6 +2207,23 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-095: Without a tap, the camera takes only the sticker on the aim mark
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (a bug report from Colin: scanning one of a stack of grid boxes "kept auto scanning on the box above it even though the box I was scanning was closer to the brackets") |
+| **Deciders** | Colin (the report), Claude (the fix) |
+| **Category** | UX |
+
+**Context:** When a scan only opens something, the camera takes a code without waiting for a tap (DEC-022). It took the first code it managed to read, wherever that was in view. With stickers stacked close together, a neighbour is often read a frame before the one being aimed at (it is in focus sooner, or bigger), so the wrong box opened. "Nearest the aim mark" was only ever applied among the codes read so far.
+
+**Decision:** Without a tap, a code is taken only when its middle is inside the white corners (`inAim` in `scan/camera.ts`) and it has stayed the nearest code for 0.3 s (`HOLD_MS` in `CameraScanner.tsx`). Codes elsewhere in view still get their thin brackets but are never taken. The hint reads "Put the sticker inside the white corners." Tap mode is unchanged: the Scan button takes the code in the green brackets.
+
+**Consequences:** A sticker must now be brought into the corners to be read, and a scan takes about a third of a second longer. Checked in the new `aim-check.mjs` (a fake camera: one sticker outside the corners isn't taken; with two in view the one in the corners is opened) and `camera.test.ts`.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -2305,6 +2322,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-092 | Quick capture takes more than one photo, and says what a photo of the bag's label does | UX | Accepted | 2026-11-15 |
 | DEC-093 | The edit form shows every photo, and deleting a photo is one visible tap | UX | Accepted | 2026-11-15 |
 | DEC-094 | McMaster-Carr bags: the part number is read off the label by the AI lookup | Product | Accepted | 2026-11-15 |
+| DEC-095 | Without a tap, the camera takes only the sticker on the aim mark | UX | Accepted | 2026-11-15 |
 
 ---
 

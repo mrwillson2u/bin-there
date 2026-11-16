@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boundsOf, frameToView, guideRect, lensName, pickCamera, pickTarget, visibleRect } from "./camera";
+import { boundsOf, frameToView, guideRect, lensName, pickCamera, pickTarget, visibleRect, inAim } from "./camera";
 
 const iphone = [
   { deviceId: "f", label: "Front Camera" },
@@ -69,5 +69,16 @@ describe("pickTarget", () => {
   it("ignores a sticker whose middle is off-screen, and is null with nothing seen", () => {
     expect(pickTarget([at("OFF", -5, 150)], view)).toBeNull();
     expect(pickTarget([], view)).toBeNull();
+  });
+});
+
+describe("inAim", () => {
+  const view = { w: 400, h: 600 };
+  it("is true only for a code whose middle is inside the aim square (DEC-095)", () => {
+    // The square is half the shorter edge: 200 px, from (100, 200) to (300, 400).
+    expect(inAim({ x: 170, y: 270, w: 60, h: 60 }, view, 0.5)).toBe(true);
+    expect(inAim({ x: 170, y: 100, w: 60, h: 60 }, view, 0.5)).toBe(false); // the sticker on the box above
+    expect(inAim({ x: 290, y: 270, w: 60, h: 60 }, view, 0.5)).toBe(false);
+    expect(inAim({ x: 240, y: 340, w: 60, h: 60 }, view, 0.5)).toBe(true); // off-centre but its middle is inside
   });
 });
