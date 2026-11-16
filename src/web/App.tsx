@@ -80,7 +80,8 @@ export function App() {
 function Shell({ children, scanError }: { children: React.ReactNode; scanError: string | null }) {
   const { openCamera: open, lastScan, target, targetCamera, floating, cameraOpen } = useScan();
   // The bar's Scan button opens the camera exactly as the screen's own button does (issue #1): the same title, and waiting for a tap where the scan writes.
-  const openCamera = () => open(targetCamera ?? {});
+  // With no screen waiting for a scan, the scan opens what it finds, and the camera's button says so.
+  const openCamera = () => open({ ...(targetCamera ?? {}), opens: !target });
   // The bar is the one place that always says what a scan does right now (DEC-044): a screen's
   // target in the scan colour, or plain "scan to open". On a scanner-only device the camera button
   // becomes a status, since there's nothing to open.

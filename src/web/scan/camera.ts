@@ -79,17 +79,18 @@ export function boundsOf(points: Point[]): Rect {
 }
 
 /**
- * The code to act on: the one nearest the middle of the view, where the aim mark is.
- * A code whose middle is off-screen doesn't count, so a neighbouring bin's sticker
- * half in view is never the one scanned.
+ * The one code to highlight (DEC-096): the one the user tapped while it is still in view, else
+ * the one nearest the middle of the view, where the aim mark is. A code whose middle is
+ * off-screen doesn't count, so a neighbouring bin's sticker half in view is never the one.
  */
-export function pickTarget(seen: Seen[], view: Size): Seen | null {
+export function pickTarget(seen: Seen[], view: Size, chosen: string | null = null): Seen | null {
   let best: Seen | null = null;
   let bestD = Infinity;
   for (const s of seen) {
     const cx = s.box.x + s.box.w / 2;
     const cy = s.box.y + s.box.h / 2;
     if (cx < 0 || cy < 0 || cx > view.w || cy > view.h) continue;
+    if (s.text === chosen) return s;
     const d = Math.hypot(cx - view.w / 2, cy - view.h / 2);
     if (d < bestD) {
       bestD = d;
@@ -97,14 +98,4 @@ export function pickTarget(seen: Seen[], view: Size): Seen | null {
     }
   }
   return best;
-}
-
-/**
- * Whether a code sits on the aim mark: its middle inside the square drawn in the middle of the
- * view (`fraction` of the view's shorter edge). Only such a code is taken without a tap (DEC-095):
- * a sticker elsewhere in view, read a moment sooner, is not the one being aimed at.
- */
-export function inAim(box: Rect, view: Size, fraction: number): boolean {
-  const half = (fraction * Math.min(view.w, view.h)) / 2;
-  return Math.abs(box.x + box.w / 2 - view.w / 2) <= half && Math.abs(box.y + box.h / 2 - view.h / 2) <= half;
 }

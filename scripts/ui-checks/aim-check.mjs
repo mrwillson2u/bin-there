@@ -1,6 +1,6 @@
-// The camera takes only the sticker on the aim mark (DEC-095). Chromium's fake camera plays a
-// video: first with one sticker near the top of the view (outside the white corners), which must
-// not be taken; then with that one and a second in the middle, where the middle one is taken.
+// The camera never takes a code by itself (DEC-096). Chromium's fake camera plays a video with
+// two stickers, one in the middle and one above it: one is highlighted, the button names it, the
+// other is chosen by tapping its circle, and only the button takes one.
 import { createRequire } from "node:module";
 import { spawn, execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -57,22 +57,42 @@ const open = async (video) => {
   return { browser, page };
 };
 
-// 1. Only the box above is in view, outside the white corners: it gets brackets, but it isn't taken.
+// 1. Two stickers in view, one in the middle: nothing is taken by itself. Only the middle one is
+//    highlighted, the button names it, and the other has a circle to tap.
 {
-  const { browser, page } = await open("above.y4m");
-  await page.locator('[data-seen="BOXABOVE"]').waitFor({ timeout: 15000 });
-  await page.waitForTimeout(2500);
-  check((await page.getByLabel("Close camera").count()) === 1 && new URL(page.url()).pathname === "/", "a sticker outside the white corners is seen but not taken: the camera stays open");
-  await page.screenshot({ path: `${shots}/aim-1-above.png` });
+  const { browser, page } = await open("both.y4m");
+  await page.locator('[data-seen="BOXAIMED"][data-target]').waitFor({ timeout: 15000 });
+  await page.getByRole("button", { name: "Open Box aimed at" }).waitFor();
+  await page.getByRole("button", { name: "Choose the sticker BOXABOVE instead" }).waitFor();
+  await page.waitForTimeout(1500);
+  check((await page.getByLabel("Close camera").count()) === 1 && new URL(page.url()).pathname === "/", "the camera takes nothing by itself: it waits for the button");
+  check((await page.locator("[data-target]").count()) === 1, "only one sticker is highlighted: the one nearest the middle");
+  check((await page.locator("[data-camera-hint]").textContent()).includes("tap its circle"), "the hint says how to get another one in view");
+  await page.screenshot({ path: `${shots}/aim-1-middle.png` });
+  // 2. Tap the other sticker's circle: the highlight and the button move to it, and it stays.
+  await page.getByRole("button", { name: "Choose the sticker BOXABOVE instead" }).click();
+  await page.locator('[data-seen="BOXABOVE"][data-target]').waitFor();
+  await page.getByRole("button", { name: "Open Box above" }).waitFor();
+  await page.waitForTimeout(1200);
+  check((await page.locator('[data-seen="BOXABOVE"][data-target]').count()) === 1 && (await page.locator("[data-target]").count()) === 1 && (await page.getByRole("button", { name: "Choose the sticker BOXAIMED instead" }).count()) === 1, "tapping another sticker's circle highlights that one instead, and it stays highlighted");
+  await page.screenshot({ path: `${shots}/aim-2-chosen.png` });
+  // 3. The button takes the highlighted one.
+  await page.getByRole("button", { name: "Open Box above" }).click();
+  await page.waitForURL(/\/locations\/\d+/, { timeout: 15000 });
+  check(new URL(page.url()).pathname === `/locations/${above.id}`, "the button opens the highlighted sticker's page");
   await browser.close();
 }
 
-// 2. Both in view, the smaller one in the middle: the one in the corners is the one opened.
+// 4. One sticker alone, off to the top: still highlighted (it's the nearest), still waits for the tap.
 {
-  const { browser, page } = await open("both.y4m");
+  const { browser, page } = await open("above.y4m");
+  await page.getByRole("button", { name: "Open Box above" }).waitFor({ timeout: 15000 });
+  await page.waitForTimeout(1200);
+  check((await page.getByLabel("Close camera").count()) === 1, "a lone sticker waits for the tap too");
+  await page.getByRole("button", { name: "Open Box above" }).click();
   await page.waitForURL(/\/locations\/\d+/, { timeout: 15000 });
-  check(new URL(page.url()).pathname === `/locations/${aimed.id}`, `with the box above also in view, the sticker in the white corners is the one opened (not ${above.name})`);
-  await page.screenshot({ path: `${shots}/aim-2-opened.png` });
+  check(new URL(page.url()).pathname === `/locations/${above.id}`, "and the tap opens it");
   await browser.close();
 }
+void aimed;
 server.kill();

@@ -2212,7 +2212,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | Attribute | Value |
 |-----------|-------|
 | **Date** | 2026-11-15 |
-| **Status** | Accepted (a bug report from Colin: scanning one of a stack of grid boxes "kept auto scanning on the box above it even though the box I was scanning was closer to the brackets") |
+| **Status** | Superseded by DEC-096 (a bug report from Colin: scanning one of a stack of grid boxes "kept auto scanning on the box above it even though the box I was scanning was closer to the brackets") |
 | **Deciders** | Colin (the report), Claude (the fix) |
 | **Category** | UX |
 
@@ -2221,6 +2221,23 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 **Decision:** Without a tap, a code is taken only when its middle is inside the white corners (`inAim` in `scan/camera.ts`) and it has stayed the nearest code for 0.3 s (`HOLD_MS` in `CameraScanner.tsx`). Codes elsewhere in view still get their thin brackets but are never taken. The hint reads "Put the sticker inside the white corners." Tap mode is unchanged: the Scan button takes the code in the green brackets.
 
 **Consequences:** A sticker must now be brought into the corners to be read, and a scan takes about a third of a second longer. Checked in the new `aim-check.mjs` (a fake camera: one sticker outside the corners isn't taken; with two in view the one in the corners is opened) and `camera.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_230448`, `main` at aab83ce).
+
+---
+
+### DEC-096: The camera never takes a sticker by itself: one highlight, a button that names it, tap a circle for another
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin, Q143: "I always want the second tap... the second click is comparatively cheap. I like the idea about tapping another code so lets do that") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-095 was Claude's own answer to the wrong box opening in a stack, shipped without asking; Colin would rather have discussed it ("I wish you had talked about the fix before assuming you knew the solution"). His view: the camera often has several codes close together in view, getting the right one in view takes some orienting, so a confirming tap is worth it every time, with one code highlighted at a time and a clear way to pick another.
+
+**Decision:** Every camera scan waits for the button; the camera never takes a code by itself, whether the scan opens something or writes something (the `tap` option is gone). One code is highlighted with the green brackets: the one nearest the middle, or the one tapped while it stays in view (`pickTarget(seen, view, chosen)`). Every other code in view shows a small white circle; tapping it makes that one the highlighted code. Under the highlight is the code and what it is (the place's name, the part's name, "new sticker CODE", from `GET /api/scan/:code`), and the button says the same: "Open Grid box 3" when nothing is waiting for the scan (`CameraOptions.opens`), "Scan Bin 0042" when a screen is. The hint: "The one in green is the one you'll get. For another in view, tap its circle." The Stickers screen's own camera gets the one highlight and the circles too.
+
+**Consequences:** Supersedes DEC-095 (the inside-the-corners rule and the 0.3 s hold are removed) and the "takes the first code aimed at" half of DEC-022. One more tap on every camera scan. The hardware scanner is unchanged. Checked in `aim-check.mjs` (nothing taken by itself, one highlight, the circle, the button's words) and `camera.test.ts`.
 
 ---
 
@@ -2322,7 +2339,8 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-092 | Quick capture takes more than one photo, and says what a photo of the bag's label does | UX | Accepted | 2026-11-15 |
 | DEC-093 | The edit form shows every photo, and deleting a photo is one visible tap | UX | Accepted | 2026-11-15 |
 | DEC-094 | McMaster-Carr bags: the part number is read off the label by the AI lookup | Product | Accepted | 2026-11-15 |
-| DEC-095 | Without a tap, the camera takes only the sticker on the aim mark | UX | Accepted | 2026-11-15 |
+| DEC-095 | Without a tap, the camera takes only the sticker on the aim mark | UX | Superseded by DEC-096 | 2026-11-15 |
+| DEC-096 | The camera never takes a sticker by itself: one highlight, a button that names it, tap a circle for another | UX | Accepted | 2026-11-15 |
 
 ---
 

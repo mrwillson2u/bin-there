@@ -11,8 +11,8 @@ export type ScanHandler = (code: string) => boolean | void;
 
 /** How the camera should behave for whoever opened it. */
 export type CameraOptions = {
-  /** Wait for a tap on Scan instead of taking the first code seen (use when the scan writes something). */
-  tap?: boolean;
+  /** The scan only opens what's scanned (no screen is waiting for it), so the camera's button says "Open …". */
+  opens?: boolean;
   title?: string;
   hint?: string;
   /** Called when the camera goes away, with or without a scan (DEC-084: a wait a button started ends with its camera). */
@@ -64,11 +64,11 @@ export function useScanFloat(): boolean {
 
 export function useScanTarget(what: string | null, camera?: CameraOptions, floating = false) {
   const { registerTarget } = useScan();
-  const { tap, title, hint } = camera ?? {};
+  const { title, hint } = camera ?? {};
   useEffect(() => {
     if (!what) return;
-    return registerTarget(what, tap || title || hint ? { tap, title, hint } : undefined, floating);
-  }, [registerTarget, what, tap, title, hint, floating]);
+    return registerTarget(what, title || hint ? { title, hint } : undefined, floating);
+  }, [registerTarget, what, title, hint, floating]);
 }
 
 /** Remove characters a prefix-less scan already typed into the focused field. */
@@ -184,7 +184,7 @@ export function ScanProvider({ fallback, children }: { fallback: (code: string) 
       {camera && (
         <Suspense fallback={<div className="fixed inset-0 z-50 bg-black" />}>
           <CameraScanner
-            tap={camera.tap}
+            opens={camera.opens}
             title={camera.title}
             hint={camera.hint}
             onResult={(code) => {

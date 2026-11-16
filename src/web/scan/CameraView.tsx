@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { SwitchCamera } from "lucide-react";
-import { boundsOf, frameToView, guideRect, inAim, lensName, pickCamera, pickTarget, visibleRect, type CameraInfo, type Rect, type Seen } from "./camera";
+import { boundsOf, frameToView, guideRect, lensName, pickCamera, pickTarget, visibleRect, type CameraInfo, type Rect, type Seen } from "./camera";
 import { decodeFrame } from "./decode";
 
-// A live camera preview that looks for QR codes and shows what it sees: brackets
-// around every code in view, green ones around the code nearest the aim mark, with
-// that code's text (and, if the parent says, whose it is) underneath. It never acts
-// on a code itself; it reports the aimed-at one and the parent decides (DEC-022).
+// A live camera preview that looks for QR codes and shows what it sees. One code is
+// highlighted at a time (DEC-096): green brackets around the code nearest the aim mark,
+// with that code's text (and, if the parent says, whose it is) underneath. Every other
+// code in view gets a small round marker; tapping one makes it the highlighted code until
+// it leaves the view. It never acts on a code itself; it reports the highlighted one and
+// the parent decides (DEC-022).
 // The lens is the plain back camera unless you pick another; the choice is remembered.
 
 const LENS_KEY = "bin-there:camera";
@@ -32,8 +34,8 @@ export function CameraView({
   note,
   className = "",
 }: {
-  /** The code nearest the aim mark, or null when there's none in view; `aimed` when its middle is inside the mark. */
-  onTarget: (code: string | null, aimed: boolean) => void;
+  /** The highlighted code, or null when there's none in view. */
+  onTarget: (code: string | null) => void;
   /** What to say under the aimed-at code (e.g. "on Bin 5"). */
   note?: (code: string) => CodeNote;
   className?: string;
@@ -46,6 +48,8 @@ export function CameraView({
   const [target, setTarget] = useState<string | null>(null);
   const onTargetRef = useRef(onTarget);
   onTargetRef.current = onTarget;
+  // The code tapped on screen; it stays the highlighted one while it's in view.
+  const chosen = useRef<string | null>(null);
 
   useEffect(() => {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -59,7 +63,6 @@ export function CameraView({
     const recent = new Map<string, { box: Rect; at: number }>();
     let tick = 0;
     let lastTarget: string | null = null;
-    let lastAimed = false;
 
     const stop = () => {
       stopped = true;
@@ -72,14 +75,12 @@ export function CameraView({
       for (const [k, v] of recent) if (now - v.at > KEEP_MS) recent.delete(k);
       const list = [...recent].map(([text, v]) => ({ text, box: v.box }));
       setSeen(list);
-      const picked = pickTarget(list, view);
-      const t = picked?.text ?? null;
-      const aimed = !!picked && inAim(picked.box, view, AIM);
-      if (t !== lastTarget || aimed !== lastAimed) {
+      if (chosen.current && !recent.has(chosen.current)) chosen.current = null;
+      const t = pickTarget(list, view, chosen.current)?.text ?? null;
+      if (t !== lastTarget) {
         lastTarget = t;
-        lastAimed = aimed;
         setTarget(t);
-        onTargetRef.current(t, aimed);
+        onTargetRef.current(t);
       }
     };
 
@@ -172,7 +173,7 @@ export function CameraView({
     void start();
     return () => {
       stop();
-      if (lastTarget !== null) onTargetRef.current(null, false);
+      if (lastTarget !== null) onTargetRef.current(null);
     };
   }, [lens]);
 
@@ -196,12 +197,34 @@ export function CameraView({
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ width: `${AIM * 100}cqmin`, height: `${AIM * 100}cqmin` }}>
           <Brackets className="text-white/60" thin />
         </div>
-        {seen.map((s) => (
-          <div key={s.text} className="absolute" style={padded(s.box)} data-seen={s.text} data-target={s.text === target || undefined}>
-            <Brackets className={s.text === target ? "text-ok" : "text-white/70"} thin={s.text !== target} />
-          </div>
-        ))}
+        {seen
+          .filter((s) => s.text === target)
+          .map((s) => (
+            <div key={s.text} className="absolute" style={padded(s.box)} data-seen={s.text} data-target>
+              <Brackets className="text-ok" />
+            </div>
+          ))}
       </div>
+      {/* The others: a marker each, to tap for that one instead. */}
+      {seen
+        .filter((s) => s.text !== target)
+        .map((s) => (
+          <button
+            key={s.text}
+            type="button"
+            onClick={() => {
+              chosen.current = s.text;
+              setTarget(s.text);
+              onTargetRef.current(s.text);
+            }}
+            aria-label={`Choose the sticker ${s.text} instead`}
+            data-seen={s.text}
+            className="absolute flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+            style={{ left: s.box.x + s.box.w / 2, top: s.box.y + s.box.h / 2 }}
+          >
+            <span className="h-7 w-7 rounded-full border-[3px] border-white bg-black/45 shadow" />
+          </button>
+        ))}
       {target && targetBox && (
         <div
           className="pointer-events-none absolute flex -translate-x-1/2 flex-col items-center gap-1"

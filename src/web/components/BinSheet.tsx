@@ -161,7 +161,7 @@ export function BinSheet({
         (settingSticker ? (
           <ScanTarget
             what={bin.code ? `Scan the new sticker for ${bin.name} (replaces the old one)` : `Scan the new sticker for ${bin.name}`}
-            camera={{ tap: true, title: `Sticker for ${bin.name}` }}
+            camera={{ title: `Sticker for ${bin.name}` }}
             cancel={() => setSettingSticker(false)}
             actions={<Button variant="ghost" onClick={() => setSettingSticker(false)}>Cancel</Button>}
           />

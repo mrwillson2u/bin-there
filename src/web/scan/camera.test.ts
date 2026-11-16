@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boundsOf, frameToView, guideRect, lensName, pickCamera, pickTarget, visibleRect, inAim } from "./camera";
+import { boundsOf, frameToView, guideRect, lensName, pickCamera, pickTarget, visibleRect } from "./camera";
 
 const iphone = [
   { deviceId: "f", label: "Front Camera" },
@@ -72,13 +72,16 @@ describe("pickTarget", () => {
   });
 });
 
-describe("inAim", () => {
+describe("pickTarget with a chosen code (DEC-096)", () => {
   const view = { w: 400, h: 600 };
-  it("is true only for a code whose middle is inside the aim square (DEC-095)", () => {
-    // The square is half the shorter edge: 200 px, from (100, 200) to (300, 400).
-    expect(inAim({ x: 170, y: 270, w: 60, h: 60 }, view, 0.5)).toBe(true);
-    expect(inAim({ x: 170, y: 100, w: 60, h: 60 }, view, 0.5)).toBe(false); // the sticker on the box above
-    expect(inAim({ x: 290, y: 270, w: 60, h: 60 }, view, 0.5)).toBe(false);
-    expect(inAim({ x: 240, y: 340, w: 60, h: 60 }, view, 0.5)).toBe(true); // off-centre but its middle is inside
+  const middle = { text: "MIDDLE", box: { x: 170, y: 270, w: 60, h: 60 } };
+  const above = { text: "ABOVE", box: { x: 170, y: 60, w: 60, h: 60 } };
+  it("highlights the one nearest the middle until another is tapped", () => {
+    expect(pickTarget([above, middle], view)?.text).toBe("MIDDLE");
+    expect(pickTarget([above, middle], view, "ABOVE")?.text).toBe("ABOVE");
+  });
+  it("goes back to the nearest when the tapped one has left the view", () => {
+    expect(pickTarget([middle], view, "ABOVE")?.text).toBe("MIDDLE");
+    expect(pickTarget([{ text: "ABOVE", box: { x: 170, y: -80, w: 60, h: 60 } }, middle], view, "ABOVE")?.text).toBe("MIDDLE");
   });
 });

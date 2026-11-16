@@ -259,11 +259,11 @@ await pane.getByRole("link", { name: "Open Bin 0003" }).click();
 await page.getByRole("heading", { name: "Bin 0003" }).waitFor();
 await page.getByRole("button", { name: /Assign sticker|Replace sticker/ }).click();
 // DEC-084: on a phone the button opens the camera straight away, waiting for a tap; there is no box with a Cancel.
-await page.getByRole("button", { name: "Scan BIN0007" }).waitFor({ timeout: 20000 });
+await page.getByRole("button", { name: "Scan Bin 0002" }).waitFor({ timeout: 20000 });
 await page.waitForTimeout(1200);
 check((await page.getByRole("button", { name: "Close camera" }).count()) === 1 && (await page.getByText("Sticker for Bin 0003").count()) >= 1 && (await page.locator("[data-scan-target]").count()) === 0, "phone: Replace sticker opens the tap-mode camera straight away, with no scan box; it stays open until Scan is tapped");
 await page.screenshot({ path: `${shots}/s6-tap-camera.png` });
-await page.getByRole("button", { name: "Scan BIN0007" }).click();
+await page.getByRole("button", { name: "Scan Bin 0002" }).click();
 await page.getByRole("alert").waitFor();
 check((await page.getByRole("button", { name: "Close camera" }).count()) === 0 && (await codeOf(b3)) === "BIN0009", "Scan closes the camera; BIN0007 is Bin 0002's, so it isn't taken: " + (await page.getByRole("alert").textContent()));
 await page.getByRole("button", { name: "Replace sticker" }).waitFor();
@@ -285,16 +285,20 @@ check((await page.locator("video").count()) === 0, "phone: closing the camera is
   await box.waitFor();
   check((await box.getByRole("button", { name: "Scan with camera" }).count()) === 1 && (await box.getByRole("button", { name: "Cancel" }).count()) === 1 && (await d.locator("video").count()) === 0, "desktop: Replace sticker still shows the scan box with its camera button and Cancel, and opens nothing by itself");
   await d.locator("nav").getByRole("button", { name: "Scan with camera" }).click();
-  await d.getByRole("button", { name: "Scan BIN0007" }).waitFor({ timeout: 20000 });
+  await d.getByRole("button", { name: "Scan Bin 0002" }).waitFor({ timeout: 20000 });
   check((await d.getByRole("button", { name: "Close camera" }).count()) === 1 && (await d.getByText("Sticker for Bin 0003").count()) >= 1, "desktop: the sidebar's camera button opens the same tap-mode camera as the box's own button");
   await d.getByRole("button", { name: "Close camera" }).click();
   await d.close();
 }
 
-// 10. The bottom-bar camera (looking things up) still takes the first code it sees.
+// 10. The bottom-bar camera (looking things up) waits for its button too, which says what it opens (DEC-096).
 await page.getByRole("button", { name: "Scan with camera" }).first().click();
+await page.getByRole("button", { name: "Open Bin 0002" }).waitFor({ timeout: 20000 });
+await page.waitForTimeout(1000);
+check((await page.getByRole("button", { name: "Close camera" }).count()) === 1, "lookup scan waits for the button, which reads Open Bin 0002");
+await page.getByRole("button", { name: "Open Bin 0002" }).click();
 await page.waitForURL(`${base}/locations/${b2.id}`, { timeout: 20000 });
-check(true, "lookup scan opens Bin 0002 without a tap");
+check(true, "the button opens Bin 0002");
 
 // Desktop layout of the Stickers screen.
 const desk = await ctx.newPage();

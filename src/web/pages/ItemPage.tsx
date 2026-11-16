@@ -370,7 +370,7 @@ function AddUnit({ item, done }: { item: ItemDetail; done: () => void }) {
     add.mutate(code);
     return true;
   });
-  return <ScanTarget what="Scan the new sticker on it" camera={{ tap: true, title: "The new sticker" }} cancel={done} actions={<Button variant="ghost" onClick={done}>Cancel</Button>} />;
+  return <ScanTarget what="Scan the new sticker on it" camera={{ title: "The new sticker" }} cancel={done} actions={<Button variant="ghost" onClick={done}>Cancel</Button>} />;
 }
 
 function Details({ item }: { item: ItemDetail }) {
