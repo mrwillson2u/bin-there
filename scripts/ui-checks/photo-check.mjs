@@ -136,5 +136,51 @@ const db = await desk.getByRole("dialog", { name: "Crop the photo" }).boundingBo
 check(db.y + db.height <= 860 && db.y >= 0, "desktop: the editor fits on screen");
 await desk.screenshot({ path: `${shots}/c5-desk-editor.png` });
 
+// 6. Quick capture keeps what's on the form if the phone reloads the page (DEC-091), and lets it go when the screen is left.
+const scan = async (code) => {
+  await page.keyboard.down("Control"); await page.keyboard.press("b"); await page.keyboard.up("Control");
+  await page.keyboard.type(code, { delay: 5 }); await page.keyboard.press("Enter");
+};
+const bin = await api("POST", "/locations", { name: "Shelf bin", type: "tote", parentId: site.id, code: "TOTE0000009" });
+await page.goto(`${base}/capture`);
+await page.locator('input[type="file"]').setInputFiles(`${shots}/tall.jpg`);
+await page.getByAltText("Item photo").waitFor();
+await page.getByLabel("How many?").fill("7");
+await page.getByPlaceholder("Later is fine").fill("Blue widget");
+await scan("TOTE0000009");
+await page.getByRole("button", { name: /Shelf bin/ }).waitFor();
+await page.waitForTimeout(400);
+await page.reload();
+await page.getByRole("heading", { name: "Quick capture" }).waitFor();
+check(await page.getByAltText("Item photo").waitFor({ timeout: 5000 }).then(() => true, () => false), "after a reload the photo is still on the form");
+check((await page.getByLabel("How many?").inputValue()) === "7", "after a reload the count is still 7");
+check((await page.getByPlaceholder("Later is fine").inputValue()) === "Blue widget", "after a reload the name is still there");
+check((await page.getByRole("button", { name: /Shelf bin/ }).count()) === 1, "after a reload the place is still set");
+// Its own sticker: no count, and the form says why instead of the box just vanishing.
+await scan("NEWSTICKER9");
+await page.locator("[data-own-sticker-note]").waitFor();
+check((await page.getByLabel("How many?").count()) === 0 && (await page.getByAltText("Item photo").count()) === 1, "its own sticker: the count goes, with a line saying why; the photo stays");
+await page.getByRole("button", { name: "Remove sticker" }).click();
+check((await page.getByLabel("How many?").inputValue()) === "7", "sticker removed: the count typed comes back");
+await page.screenshot({ path: `${shots}/c6-capture-kept.png`, fullPage: true });
+await page.getByRole("button", { name: "Save", exact: true }).click();
+await page.getByRole("status").filter({ hasText: "Saved" }).first().waitFor();
+const made = (await api("GET", "/inventory")).items.find((i) => i.name === "Blue widget");
+const madeItem = await api("GET", `/items/${made.id}`);
+check(madeItem.photos.length === 1 && JSON.stringify(await size(madeItem.photos[0].url)) === "[900,1200]" && madeItem.totalQty === 7 && (await api("GET", `/locations/${bin.id}`)).items.some((i) => i.itemId === made.id && i.qty === 7), "saved with the photo, 7, in the place");
+check((await page.getByAltText("Item photo").count()) === 0 && (await page.getByPlaceholder("Later is fine").inputValue()) === "", "after saving the form is empty for the next one");
+await page.reload();
+await page.getByRole("heading", { name: "Quick capture" }).waitFor();
+await page.waitForTimeout(500);
+check((await page.getByAltText("Item photo").count()) === 0 && (await page.getByPlaceholder("Later is fine").inputValue()) === "", "a reload after saving doesn't bring the saved one back");
+// Left half done, then opened again: a clean form.
+await page.getByPlaceholder("Later is fine").fill("Half done");
+await page.waitForTimeout(200);
+await page.getByRole("link", { name: "Locations" }).filter({ visible: true }).click();
+await page.waitForURL("**/locations");
+await page.goto(`${base}/capture`);
+await page.getByRole("heading", { name: "Quick capture" }).waitFor();
+check((await page.getByPlaceholder("Later is fine").inputValue()) === "", "leaving the screen lets the half-done one go");
+
 await browser.close();
 server.kill();

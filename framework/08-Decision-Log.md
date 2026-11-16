@@ -2139,6 +2139,23 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-091: Quick capture keeps what's on the form through a page reload
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (a bug report from Colin: "the photo and quantity I set were all gone") |
+| **Deciders** | Colin (the report), Claude (the fix) |
+| **Category** | UX |
+
+**Context:** On his phone Colin took a photo in Quick capture, set a count, then scanned a sticker with the camera; back on the form the photo and the count were gone. In a headless phone with a fake camera the form kept everything, so the code wasn't clearing it. Two things explain what he saw. A part that gets its own sticker has no count (one sticker, one thing), and the count box simply vanished with no word of why. And the form lived only in the page's memory while holding the full-size camera photo, so a phone browser that reloads the page under memory pressure (the scanning camera opening on top of a multi-megabyte photo) brings back an empty form. The reload itself was not reproduced; it is the likeliest cause, not a proven one.
+
+**Decision:** (1) The form is kept in the tab's `sessionStorage` as it changes (`capture.draft`: sticker, place, name, how it's counted, the bag code read, and the photo) and read back when the page loads at the same address. It is dropped when the part is saved and when the screen is left, so only a reload brings it back, never a later visit. (2) The photo is shrunk the moment it's taken (`preparePhoto`, alongside the bag barcode read) and only the shrunk photo and thumbnail are held; Save uploads those. The photo box says "Reading the photo…" meanwhile and Save waits for it. (3) With a sticker attached the form says "With its own sticker this is one thing, so there's no count. To count several, remove the sticker."; the typed count comes back if the sticker is removed.
+
+**Consequences:** Holds for Put away's "New item" too (same screen; its tally rides in the browser's history state, which a reload keeps). If the photo is too big for the tab's storage, everything but the photo is kept. Checked in `photo-check.mjs` (reload mid-form, the sticker note, save, leave).
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -2233,6 +2250,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-088 | On a phone the Menu button is the right-hand button of the bottom bar | UX | Accepted | 2026-11-15 |
 | DEC-089 | Put-back mode becomes Put away and takes in things not logged yet; Inventory gets a No place filter | UX | Accepted | 2026-11-15 |
 | DEC-090 | Print stickers has no "Skip used labels" setting | UX | Accepted | 2026-11-15 |
+| DEC-091 | Quick capture keeps what's on the form through a page reload | UX | Accepted | 2026-11-15 |
 
 ---
 

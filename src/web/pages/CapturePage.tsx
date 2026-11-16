@@ -26,17 +26,57 @@ import { Button, Card, Field, inputClass, pathText } from "../components/ui";
  * with the part, and the bag's quantity becomes the count unless one was typed.
  * Opened from Put away (`?from=putaway`, DEC-089) it is "New item": one thing, Save asks where
  * it goes when no place is set, and then it goes back to Put away with the tally.
+ * What's on the form is kept for the tab until it's saved or left (DEC-091): a phone that reloads
+ * the page behind the camera brings it back as it was. The photo is shrunk as soon as it's taken,
+ * so the full-size one is never held.
  */
+const DRAFT = "capture.draft";
+type Shot = { photo: Blob; thumb: Blob };
+type Draft = {
+  /** The address the form was opened with; a draft only comes back to the same one. */
+  search: string;
+  code: string | null;
+  locationId: number | null;
+  name: string;
+  tracking: TrackingMode;
+  qty: string;
+  qtyTyped: boolean;
+  level: StockLevel;
+  bag: BagCode | null;
+  photo?: string;
+  thumb?: string;
+};
+function readDraft(search: string): Draft | null {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT) ?? "null") as Draft | null;
+    return d && d.search === search ? d : null;
+  } catch {
+    return null;
+  }
+}
+const dataUrl = (b: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(b);
+  });
+const fromDataUrl = (u: string) => fetch(u).then((r) => r.blob());
+
 export function CapturePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [code, setCode] = useState<string | null>(params.get("code"));
-  const [locationId, setLocationId] = useState<number | null>(params.get("location") ? Number(params.get("location")) : null);
-  const [photo, setPhoto] = useState<File | null>(null);
+  const search = params.toString();
+  const [draft] = useState(() => readDraft(search));
+  const [code, setCode] = useState<string | null>(draft ? draft.code : params.get("code"));
+  const [locationId, setLocationId] = useState<number | null>(draft ? draft.locationId : params.get("location") ? Number(params.get("location")) : null);
+  // The photo as it will be uploaded: shrunk on the spot, the original let go.
+  const [photo, setPhoto] = useState<Shot | null>(null);
+  const [reading, setReading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
-  const [name, setName] = useState(params.get("name") ?? "");
+  const [name, setName] = useState(draft ? draft.name : (params.get("name") ?? ""));
   const putAway = params.get("from") === "putaway";
   const tally = ((useLocation().state ?? {}) as PutAwayState).tally ?? 0;
   const backToPutAway = (added?: PutAwayState["added"]) => navigate("/putback", { replace: true, state: { tally, added } satisfies PutAwayState });
@@ -46,11 +86,11 @@ export function CapturePage() {
   useEffect(() => {
     if (asking) askBox.current?.scrollIntoView({ block: "center" });
   }, [asking]);
-  const [tracking, setTracking] = useState<TrackingMode>("exact");
-  const [qty, setQty] = useState("1");
-  const [qtyTyped, setQtyTyped] = useState(false);
-  const [bag, setBag] = useState<BagCode | null>(null);
-  const [level, setLevel] = useState<StockLevel>("plenty");
+  const [tracking, setTracking] = useState<TrackingMode>(draft?.tracking ?? "exact");
+  const [qty, setQty] = useState(draft?.qty ?? "1");
+  const [qtyTyped, setQtyTyped] = useState(draft?.qtyTyped ?? false);
+  const [bag, setBag] = useState<BagCode | null>(draft?.bag ?? null);
+  const [level, setLevel] = useState<StockLevel>(draft?.level ?? "plenty");
   const ai = useAiStatus();
   const [aiAfter, setAiAfterState] = useState(() => localStorage.getItem("capture.ai") !== "off");
   const setAiAfter = (on: boolean) => {
@@ -70,22 +110,73 @@ export function CapturePage() {
 
   useEffect(() => {
     if (!photo) return setPreview(null);
-    const url = URL.createObjectURL(photo);
+    const url = URL.createObjectURL(photo.photo);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [photo]);
-  // A shop bag's barcode in the photo (DEC-074), looked for as soon as the photo is taken.
-  useEffect(() => {
+  // A photo just taken: shrunk for upload, and a shop bag's barcode looked for in the full one (DEC-074), both at once.
+  const shotNo = useRef(0);
+  const takePhoto = async (file: File | null) => {
+    const no = ++shotNo.current;
     setBag(null);
-    if (!photo) return;
+    setPhoto(null);
+    if (!file) return;
+    setReading(true);
+    setError(null);
+    try {
+      const [shot, b] = await Promise.all([preparePhoto(file), readBagCode(file)]);
+      if (no !== shotNo.current) return;
+      setPhoto(shot);
+      setBag(b);
+    } catch (e) {
+      if (no === shotNo.current) setError((e as Error).message);
+    } finally {
+      if (no === shotNo.current) setReading(false);
+    }
+  };
+  // The photo a draft held comes back with it.
+  useEffect(() => {
+    if (!draft?.photo || !draft.thumb) return;
+    const no = shotNo.current;
+    void Promise.all([fromDataUrl(draft.photo), fromDataUrl(draft.thumb)])
+      .then(([p, t]) => {
+        if (no === shotNo.current) setPhoto({ photo: p, thumb: t });
+      })
+      .catch(() => {});
+  }, [draft]);
+  // Kept as it changes; gone once the screen is left (a reload doesn't run this clean-up, which is the point).
+  const photoText = useRef<{ of: Shot; photo: string; thumb: string } | null>(null);
+  useEffect(() => {
     let current = true;
-    void readBagCode(photo).then((b) => {
-      if (current) setBag(b);
-    });
+    const write = (pics: { photo?: string; thumb?: string }) => {
+      const d: Draft = { search, code, locationId, name, tracking, qty, qtyTyped, level, bag, ...pics };
+      try {
+        sessionStorage.setItem(DRAFT, JSON.stringify(d));
+      } catch {
+        // No room for the photo: keep the rest.
+        try {
+          sessionStorage.setItem(DRAFT, JSON.stringify({ ...d, photo: undefined, thumb: undefined }));
+        } catch {}
+      }
+    };
+    if (!photo) {
+      // While a draft's photo is still being read back, don't write over it.
+      if (draft?.photo && shotNo.current === 0) write({ photo: draft.photo, thumb: draft.thumb });
+      else write({});
+    } else if (photoText.current?.of === photo) write(photoText.current);
+    else {
+      void Promise.all([dataUrl(photo.photo), dataUrl(photo.thumb)])
+        .then(([p, t]) => {
+          photoText.current = { of: photo, photo: p, thumb: t };
+          if (current) write(photoText.current);
+        })
+        .catch(() => current && write({}));
+    }
     return () => {
       current = false;
     };
-  }, [photo]);
+  }, [search, code, locationId, name, tracking, qty, qtyTyped, level, bag, photo, draft]);
+  useEffect(() => () => sessionStorage.removeItem(DRAFT), []);
   // The count the bag shipped with, unless a count was typed.
   const bagQty = bag?.qty && !qtyTyped && !code && tracking === "exact" ? String(bag.qty) : null;
   const count = bagQty ?? qty;
@@ -119,8 +210,7 @@ export function CapturePage() {
       };
       let item = await api<ItemDetail>("/items", { method: "POST", body });
       if (photo) {
-        const { photo: p, thumb } = await preparePhoto(photo);
-        item = await uploadPhoto<ItemDetail>(item.id, p, thumb);
+        item = await uploadPhoto<ItemDetail>(item.id, photo.photo, photo.thumb);
       }
       // What the bag's barcode said goes on the part before the AI looks, so it starts from the exact number.
       const pn = bag ? bagPartNumber(bag) : null;
@@ -136,7 +226,9 @@ export function CapturePage() {
       setSaved((s) => [item, ...s]);
       // Ready for the next one; keep the location (cataloging a bin at a time).
       setCode(null);
+      shotNo.current++;
       setPhoto(null);
+      setBag(null);
       setName("");
       setQty("1");
       setQtyTyped(false);
@@ -178,6 +270,8 @@ export function CapturePage() {
       <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed border-border bg-surface text-muted active:bg-surface-2">
         {preview ? (
           <img src={preview} alt="Item photo" className="h-full w-full object-cover" />
+        ) : reading ? (
+          <span className="font-semibold text-text" role="status">Reading the photo…</span>
         ) : (
           <>
             <Camera size={40} className="text-accent" />
@@ -185,7 +279,7 @@ export function CapturePage() {
           </>
         )}
         <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => {
-            setPhoto(e.target.files?.[0] ?? null);
+            void takePhoto(e.target.files?.[0] ?? null);
             // So choosing the same picture again still counts as a new photo.
             e.target.value = "";
           }}
@@ -240,6 +334,11 @@ export function CapturePage() {
       <Field label="Name (optional)">
         <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Later is fine" />
       </Field>
+      {code && (
+        <p className="text-[13px] text-muted" data-own-sticker-note>
+          With its own sticker this is one thing, so there's no count. To count several, remove the sticker.
+        </p>
+      )}
       {!code && (
         <div className="grid grid-cols-[1fr_7rem] items-end gap-3">
           <div className="flex flex-col gap-1.5">
@@ -301,7 +400,7 @@ export function CapturePage() {
         <Button
           variant="primary"
           onClick={() => (putAway && locationId === null ? setAsking(true) : void save())}
-          disabled={saving || asking || (!photo && !name.trim() && !code)}
+          disabled={saving || asking || reading || (!photo && !name.trim() && !code)}
           className="min-h-14 flex-1 text-lg"
         >
           {saving ? "Saving…" : "Save"}
