@@ -2152,7 +2152,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** (1) The form is kept in the tab's `sessionStorage` as it changes (`capture.draft`: sticker, place, name, how it's counted, the bag code read, and the photo) and read back when the page loads at the same address. It is dropped when the part is saved and when the screen is left, so only a reload brings it back, never a later visit. (2) The photo is shrunk the moment it's taken (`preparePhoto`, alongside the bag barcode read) and only the shrunk photo and thumbnail are held; Save uploads those. The photo box says "Reading the photo…" meanwhile and Save waits for it. (3) With a sticker attached the form says "With its own sticker this is one thing, so there's no count. To count several, remove the sticker."; the typed count comes back if the sticker is removed.
 
-**Consequences:** Holds for Put away's "New item" too (same screen; its tally rides in the browser's history state, which a reload keeps). If the photo is too big for the tab's storage, everything but the photo is kept. Checked in `photo-check.mjs` (reload mid-form, the sticker note, save, leave).
+**Consequences:** Holds for Put away's "New item" too (same screen; its tally rides in the browser's history state, which a reload keeps). If the photo is too big for the tab's storage, everything but the photo is kept. Checked in `photo-check.mjs` (reload mid-form, the sticker note, save, leave). Shipped to the live app on 2026-11-15 (backup `2026-11-15_210912`, `main` at a8ab467).
 
 ---
 
