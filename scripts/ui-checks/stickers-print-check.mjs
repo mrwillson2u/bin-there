@@ -112,12 +112,11 @@ await page.locator("[data-done]").waitFor();
 check((await page.getByText("W 5.875 in").count()) === 1 && (await page.getByText("H 9.075 in").count()) === 1, "the size to type into Design Space is the stickers' own, to the thousandth");
 await page.screenshot({ path: `${shots}/st2-cricut-done.png`, fullPage: true });
 
-// The die-cut sheet PDF: two sheets, ten skipped, Letter pages.
-await page.getByRole("button", { name: /Die-cut sheet/ }).click();
+// The die-cut sheet PDF: two sheets, Letter pages. No "skip used labels" setting (DEC-090).
+await page.getByRole("button", { name: /Pre-cut printer sheet/ }).click();
 check((await page.getByText("80 per sheet: 80 stickers").count()) === 1, "SL588 as a sheet: 80 per sheet");
 await page.getByLabel("Sheets").fill("2");
-await page.getByLabel("Skip used labels").fill("10");
-check((await page.getByText("150 stickers").count()) === 1, "two sheets less ten skipped is 150");
+check((await page.getByText("160 stickers").count()) === 1 && (await page.getByLabel("Skip used labels").count()) === 0, "two sheets is 160 stickers, and there is no skip setting");
 await page.getByLabel("Title", { exact: true }).fill("Workshop");
 // The title colour, picked or typed, goes into the drawing and is remembered.
 await page.getByLabel("Title colour (hex)", { exact: true }).fill("#aa0000");
@@ -125,9 +124,8 @@ check((await page.locator("img[data-preview]").getAttribute("src")).includes(enc
 await page.reload();
 await page.getByRole("heading", { name: "Print stickers" }).waitFor();
 check((await page.getByLabel("Title colour (hex)", { exact: true }).inputValue()) === "#aa0000", "the title colour is remembered");
-// Sheets and skip aren't remembered (they're per print), so they're set again after the reload.
+// Sheets aren't remembered (they're per print), so they're set again after the reload.
 await page.getByLabel("Sheets").fill("2");
-await page.getByLabel("Skip used labels").fill("10");
 dl = page.waitForEvent("download");
 await page.getByRole("button", { name: "Make the PDF" }).click();
 const pdf = await dl;
@@ -137,7 +135,7 @@ await pdf.saveAs(pdfPath);
 const doc = await PDFDocument.load(readFileSync(pdfPath));
 const sizes = doc.getPages().map((p) => [Math.round(p.getWidth()), Math.round(p.getHeight())]);
 check(JSON.stringify(sizes) === "[[612,792],[612,792]]", "two Letter pages: " + JSON.stringify(sizes));
-check((await page.getByText("150 stickers on 2 sheets").count()) === 1, "150 stickers on 2 sheets, says the page");
+check((await page.getByText("160 stickers on 2 sheets").count()) === 1, "160 stickers on 2 sheets, says the page");
 await page.screenshot({ path: `${shots}/st3-sheet-done.png`, fullPage: true });
 
 // A used code is swapped for a fresh one: every check call that returns a used code gets a new batch.

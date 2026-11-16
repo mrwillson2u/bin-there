@@ -94,7 +94,7 @@ export function PartPhotos({ item }: { item: ItemDetail }) {
               onClick={() => setSelectedId(p.id)}
               aria-pressed={p.id === selected.id}
               aria-label={`Photo ${i + 1}${p.main ? ", the main photo" : ""}`}
-              className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ${p.id === selected.id ? "outline outline-2 outline-accent" : "opacity-75"}`}
+              className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-lg ${p.id === selected.id ? "outline outline-2 -outline-offset-2 outline-accent" : "opacity-75"}`}
             >
               <img src={p.thumbUrl} alt="" className="h-full w-full object-cover" />
               {p.main && <Star size={14} className="absolute left-1 top-1 fill-warn text-warn drop-shadow" aria-hidden />}

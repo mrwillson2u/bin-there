@@ -158,15 +158,14 @@ describe("layout", () => {
     expect(texts.slice(6).every((x) => x.rotation === 0)).toBe(true);
   });
 
-  it("spreads codes over pages, skips used slots on the first only, and refuses what won't fit", () => {
+  it("spreads codes over pages and refuses what won't fit", () => {
     const t = getTemplate("SL588");
-    expect(capacity(t, 2, 10)).toBe(150);
-    const pages = layoutPages(t, randomCodes(150), DEFAULT_STYLE, { skip: 10 });
+    expect(capacity(t, 2)).toBe(160);
+    const pages = layoutPages(t, randomCodes(150));
     expect(pages).toHaveLength(2);
-    expect(pages[0]!.shapes.filter((s) => s.kind === "text")).toHaveLength(70 * 3);
-    expect(pages[1]!.shapes.filter((s) => s.kind === "text")).toHaveLength(80 * 3);
+    expect(pages[0]!.shapes.filter((s) => s.kind === "text")).toHaveLength(80 * 3);
+    expect(pages[1]!.shapes.filter((s) => s.kind === "text")).toHaveLength(70 * 3);
     expect(() => layoutSheet(t, randomCodes(81))).toThrow("won't fit");
-    expect(() => layoutPages(t, [], DEFAULT_STYLE, { skip: 80 })).toThrow("skip must be");
     expect(layoutPages(t, [])).toHaveLength(1);
   });
 

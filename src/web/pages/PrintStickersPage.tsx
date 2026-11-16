@@ -76,7 +76,6 @@ export function PrintStickersPage() {
   // Upright as Colin has always cut them, or turned a quarter turn when that fits more (the same sticker once peeled).
   const [turn, setTurn] = useStored<"upright" | "more">("stickers.turn", "upright");
   const [sheets, setSheets] = useState("1");
-  const [skip, setSkip] = useState("0");
   const [outlines, setOutlines] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ count: number; sheets: number; template: LabelTemplate; output: Output } | null>(null);
@@ -89,22 +88,21 @@ export function PrintStickersPage() {
   const moreIfTurned = output === "cricut" ? slotsOf(printThenCut(base, { area: cutArea, sideways: "auto" })).length - slotsOf(printThenCut(base, { area: cutArea, sideways: false })).length : 0;
   const perSheet = slotsOf(template).length;
   const sheetCount = Math.min(20, Math.max(1, Number(sheets) || 1));
-  const skipCount = output === "sheet" ? Math.min(perSheet - 1, Math.max(0, Number(skip) || 0)) : 0;
-  const total = capacity(template, sheetCount, skipCount);
+  const total = capacity(template, sheetCount);
   const style = { ...DEFAULT_STYLE, title, subtitle, titleColor, subtitleColor };
 
   // The preview is the first sheet with sample codes; the real codes are drawn fresh on Make.
   const sample = useMemo(() => randomCodes(perSheet), [perSheet]);
   const preview = useMemo(
-    () => pageSvg(layoutSheet(template, sample.slice(0, perSheet - skipCount), style, { skip: skipCount, background: output === "cricut", outlines: output === "sheet" && outlines })),
+    () => pageSvg(layoutSheet(template, sample.slice(0, perSheet), style, { background: output === "cricut", outlines: output === "sheet" && outlines })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [template, sample, skipCount, title, subtitle, titleColor, subtitleColor, output, outlines, cutW, cutH, turn],
+    [template, sample, title, subtitle, titleColor, subtitleColor, output, outlines, cutW, cutH, turn],
   );
   const previewUrl = useMemo(() => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(preview)}`, [preview]);
 
   useEffect(() => {
     setDone(null);
-  }, [templateName, output, sheets, skip, title, subtitle, titleColor, subtitleColor, outlines, cutW, cutH, turn]);
+  }, [templateName, output, sheets, title, subtitle, titleColor, subtitleColor, outlines, cutW, cutH, turn]);
 
   const make = async () => {
     setBusy(true);
@@ -118,7 +116,7 @@ export function PrintStickersPage() {
         const fresh = randomCodes(used.length);
         codes = codes.filter((c) => !used.includes(c)).concat(fresh);
       }
-      const pages = layoutPages(template, codes, style, { skip: skipCount, background: output === "cricut", outlines: output === "sheet" && outlines });
+      const pages = layoutPages(template, codes, style, { background: output === "cricut", outlines: output === "sheet" && outlines });
       if (output === "sheet") {
         const { pagesToPdf } = await import("../labels/pdf");
         download(`stickers-${base.name}-${stamp()}.pdf`, await pagesToPdf(pages), "application/pdf");
@@ -156,7 +154,7 @@ export function PrintStickersPage() {
             <span className="text-[13px] font-semibold uppercase tracking-wide text-muted">Print on</span>
             <div className="flex gap-2" role="group" aria-label="Print on">
               <Choice on={output === "cricut"} onClick={() => setOutput("cricut")} label="Sticker vinyl, Cricut" hint="A PNG for Print Then Cut" />
-              <Choice on={output === "sheet"} onClick={() => setOutput("sheet")} label="Die-cut sheet" hint="A PDF, printed at 100%" />
+              <Choice on={output === "sheet"} onClick={() => setOutput("sheet")} label="Pre-cut printer sheet" hint="A PDF, printed at 100%" />
             </div>
             <Field label={output === "cricut" ? "Label size (from a sheet template)" : "Sheet"}>
               <select value={templateName} onChange={(e) => setTemplateName(e.target.value)} className={inputClass} aria-label="Sheet template">
@@ -225,15 +223,10 @@ export function PrintStickersPage() {
               <Field label="Sheets">
                 <input inputMode="numeric" pattern="[0-9]*" value={sheets} onChange={(e) => setSheets(e.target.value.replace(/\D/g, ""))} className={`${inputClass} w-24`} aria-label="Sheets" />
               </Field>
-              {output === "sheet" && (
-                <Field label="Skip used labels">
-                  <input inputMode="numeric" pattern="[0-9]*" value={skip} onChange={(e) => setSkip(e.target.value.replace(/\D/g, ""))} className={`${inputClass} w-24`} aria-label="Skip used labels" placeholder="0" />
-                </Field>
-              )}
             </div>
             <p className="text-[13px] text-muted">
               {perSheet} per sheet{output === "cricut" ? ` (${template.columns} across by ${template.rows} down${sideways ? ", turned sideways" : ""})` : ""}
-              {skipCount ? `, ${skipCount} left blank on the first` : ""}: <strong className="text-text">{total} stickers</strong>.
+: <strong className="text-text">{total} stickers</strong>.
             </p>
             {output === "sheet" && (
               <label className="flex items-center gap-2 text-sm">

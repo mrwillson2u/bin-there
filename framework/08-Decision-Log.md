@@ -2122,6 +2122,21 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Consequences:** The route (`/putback`), the API (`POST /api/putback`) and file names keep the old word. A part saved with no place still loses a count typed at capture (a count belongs to a place); the prompt makes that the exception. `GET /api/inventory` takes `noplace=1` and `GET /api/stats` returns `noPlace`. Checked in `putaway-check.mjs` and `items.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_115826`, `main` at 0640629).
 
+### DEC-090: Print stickers has no "Skip used labels" setting
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin: "This isnt a feature I requested and I dont know if there really is a reason for it... please remove it") |
+| **Deciders** | Colin |
+| **Category** | UX |
+
+**Context:** DEC-052's die-cut sheet output had "Skip used labels", which left the first positions of the first sheet blank for a sheet with labels already peeled off. Colin hadn't asked for it and couldn't tell what it was for.
+
+**Decision:** The setting is removed, from the screen and from the layout code (`skip` in `src/shared/labels.ts`). Every sheet prints full. The output choice "Die-cut sheet" is now called "Pre-cut printer sheet" (Colin's wording).
+
+**Consequences:** This replaces "how many used labels to skip" in DEC-052. A partly used sheet prints on its bare positions too. Checked in `stickers-print-check.mjs` and `labels.test.ts`.
+
 ---
 
 ## Decision Index
@@ -2217,6 +2232,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-087 | Inventory is the one place to search; the Search page is gone | UX | Accepted | 2026-11-15 |
 | DEC-088 | On a phone the Menu button is the right-hand button of the bottom bar | UX | Accepted | 2026-11-15 |
 | DEC-089 | Put-back mode becomes Put away and takes in things not logged yet; Inventory gets a No place filter | UX | Accepted | 2026-11-15 |
+| DEC-090 | Print stickers has no "Skip used labels" setting | UX | Accepted | 2026-11-15 |
 
 ---
 

@@ -423,8 +423,6 @@ function labelShapes(t: LabelTemplate, slot: Slot, code: string, style: LabelSty
 }
 
 export type SheetOptions = {
-  /** Leave the first slots empty, for a partly used sheet. */
-  skip?: number;
   /** Fill each label white: what the Cricut cuts around. */
   background?: boolean;
   /** Draw the label edges, for a test print on plain paper. */
@@ -433,32 +431,28 @@ export type SheetOptions = {
 
 /** One page: the labels for these codes in the template's slots. */
 export function layoutSheet(t: LabelTemplate, codes: string[], style: LabelStyle = DEFAULT_STYLE, opts: SheetOptions = {}): Page {
-  const slots = slotsOf(t).slice(opts.skip ?? 0);
+  const slots = slotsOf(t);
   if (codes.length > slots.length) throw new Error(`${codes.length} labels won't fit in ${slots.length} free slots on ${t.name}`);
   const shapes: Shape[] = [];
   codes.forEach((code, i) => shapes.push(...labelShapes(t, slots[i]!, code, style, !!opts.background, !!opts.outlines)));
   return { width: t.pageSize[0], height: t.pageSize[1], shapes };
 }
 
-/** As many pages as the codes need; `skip` applies to the first page only. At least one page. */
+/** As many pages as the codes need. At least one page. */
 export function layoutPages(t: LabelTemplate, codes: string[], style: LabelStyle = DEFAULT_STYLE, opts: SheetOptions = {}): Page[] {
   const perPage = slotsOf(t).length;
-  const skip = opts.skip ?? 0;
-  if (skip < 0 || skip >= perPage) throw new Error(`skip must be between 0 and ${perPage - 1}`);
   const pages: Page[] = [];
   let remaining = codes;
   while (remaining.length > 0 || pages.length === 0) {
-    const offset = pages.length === 0 ? skip : 0;
-    const take = perPage - offset;
-    pages.push(layoutSheet(t, remaining.slice(0, take), style, { ...opts, skip: offset }));
-    remaining = remaining.slice(take);
+    pages.push(layoutSheet(t, remaining.slice(0, perPage), style, opts));
+    remaining = remaining.slice(perPage);
   }
   return pages;
 }
 
-/** How many labels `pages` sheets hold, less the skipped slots on the first. */
-export function capacity(t: LabelTemplate, pages: number, skip = 0): number {
-  return Math.max(0, slotsOf(t).length * pages - skip);
+/** How many labels `pages` sheets hold. */
+export function capacity(t: LabelTemplate, pages: number): number {
+  return Math.max(0, slotsOf(t).length * pages);
 }
 
 const num = (v: number) => (Math.round(v * 1000) / 1000).toString();

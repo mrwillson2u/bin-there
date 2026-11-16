@@ -96,6 +96,9 @@ await page.getByLabel("Add another photo").setInputFiles(`${shots}/part2.jpg`);
 await page.getByRole("button", { name: "Photo 2" }).waitFor();
 check((await page.getByRole("button", { name: "Photo 2" }).getAttribute("aria-pressed")) === "true", "the new photo is the one shown big");
 check((await page.getByRole("button", { name: "Photo 1, the main photo" }).count()) === 1, "the first is still the main photo, starred");
+// The outline that marks the photo shown is drawn inside the thumbnail, so the strip never clips it.
+const mark = await page.getByRole("button", { name: "Photo 2" }).evaluate((el) => { const c = getComputedStyle(el); return { width: c.outlineWidth, offset: c.outlineOffset, style: c.outlineStyle }; });
+check(mark.style === "solid" && mark.width === "2px" && mark.offset === "-2px", "the shown photo's outline sits inside its thumbnail: " + JSON.stringify(mark));
 await page.screenshot({ path: `${shots}/c3b-two-photos.png` });
 await page.getByRole("button", { name: "Use as main photo" }).click();
 await page.getByRole("status").filter({ hasText: "Main photo changed" }).waitFor();
