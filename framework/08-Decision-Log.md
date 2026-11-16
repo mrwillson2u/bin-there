@@ -2237,7 +2237,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** Every camera scan waits for the button; the camera never takes a code by itself, whether the scan opens something or writes something (the `tap` option is gone). One code is highlighted with the green brackets: the one nearest the middle, or the one tapped while it stays in view (`pickTarget(seen, view, chosen)`). Every other code in view shows a small white circle; tapping it makes that one the highlighted code. Under the highlight is the code and what it is (the place's name, the part's name, "new sticker CODE", from `GET /api/scan/:code`), and the button says the same: "Open Grid box 3" when nothing is waiting for the scan (`CameraOptions.opens`), "Scan Bin 0042" when a screen is. The hint: "The one in green is the one you'll get. For another in view, tap its circle." The Stickers screen's own camera gets the one highlight and the circles too.
 
-**Consequences:** Supersedes DEC-095 (the inside-the-corners rule and the 0.3 s hold are removed) and the "takes the first code aimed at" half of DEC-022. One more tap on every camera scan. The hardware scanner is unchanged. Checked in `aim-check.mjs` (nothing taken by itself, one highlight, the circle, the button's words) and `camera.test.ts`.
+**Consequences:** Supersedes DEC-095 (the inside-the-corners rule and the 0.3 s hold are removed) and the "takes the first code aimed at" half of DEC-022. One more tap on every camera scan. The hardware scanner is unchanged. Checked in `aim-check.mjs` (nothing taken by itself, one highlight, the circle, the button's words), `stickers-check.mjs` and `camera.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_232809`, `main` at beb4732).
 
 ---
 
