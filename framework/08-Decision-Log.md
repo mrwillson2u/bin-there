@@ -2203,7 +2203,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** The AI lookup recognises a McMaster part number among the text it reads off the photos (`mcmasterLabel` in `research.ts`: four or five digits, a letter, one to four digits, such as 91290A115), only when the label names McMaster or the supplier on record is McMaster. It then suggests supplier "McMaster-Carr", the number, and the link `https://www.mcmaster.com/<number>/`, as read off the photo, and fetches nothing from McMaster. The name and other fields come from the label's own description, as for any photo. The capture hint names the three barcode shops and says a McMaster label is read by the AI lookup.
 
-**Consequences:** Unlike the three barcode shops this needs the AI lookup to run, and it doesn't read the count. Built from how the labels are remembered to look, not from a real one: a photo of a real McMaster bag is the test still owed. Amazon bags are left alone. Checked in `research.test.ts`.
+**Consequences:** Unlike the three barcode shops this needs the AI lookup to run, and it doesn't read the count. Built from how the labels are remembered to look, not from a real one: a photo of a real McMaster bag is the test still owed. Amazon bags are left alone. Checked in `research.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_220920`, `main` at ccd21bb).
 
 ---
 
