@@ -2186,7 +2186,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** The edit form (the page and the Needs details popup) shows every photo as a small square in a strip (`PhotoStrip` in `PartPhotos.tsx`), each with a bin button that deletes it after asking, the main one starred, then the Add photo button. Adding a photo anywhere says "Photo added" (with the count when there are several), unless the bag-barcode message already says so. On the part's page the big photo has a Delete button beside Crop; the viewer keeps its own. `useDeletePhoto` is the one delete used by all three.
 
-**Consequences:** Replaces the single thumbnail on the form from DEC-077. Checked in `extras-check.mjs` (photo appears, second appears, bin deletes, what's typed stays) and `photo-check.mjs`.
+**Consequences:** Replaces the single thumbnail on the form from DEC-077. Checked in `extras-check.mjs` (photo appears, second appears, bin deletes, what's typed stays) and `photo-check.mjs`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_213739`, `main` at b2015e2).
 
 ---
 
