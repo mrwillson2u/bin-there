@@ -311,7 +311,7 @@ export function CapturePage() {
       {!bag && (
         <p className="flex items-start gap-2 text-[13px] text-muted" data-bag-hint>
           <ScanBarcode size={16} className="mt-0.5 shrink-0" />
-          <span>From Mouser or Digi-Key? {photo ? "Add a photo of" : "Include"} the bag's label: its barcode gives the part number and how many.</span>
+          <span>From Digi-Key, Mouser or LCSC? {photo ? "Add a photo of" : "Include"} the bag's label: its barcode gives the part number and how many. A McMaster label is read by the AI lookup.</span>
         </p>
       )}
 

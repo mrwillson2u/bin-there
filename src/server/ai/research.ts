@@ -159,6 +159,9 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
   const onRecord = shopPage(input.supplier, input.supplierPn);
   addDirect(onRecord?.url ?? null, "the shop page for the part number on record", onRecord);
   for (const l of labelled) addDirect(l.url, "printed on the part");
+  // A McMaster-Carr bag (DEC-094): its label prints the part number, and its pages can't be read
+  // by a program, so the label alone settles supplier, number and link; nothing is fetched.
+  const mcmaster = mcmasterLabel(look.markings, input.supplier);
 
   const pages: { title: string; url: string; text: string; own: boolean; productNumber?: string | null; productUrl?: string | null; datasheetUrl?: string | null; datasheet?: boolean }[] = [];
   const problems: string[] = [];
@@ -373,6 +376,19 @@ export async function researchItem(input: ResearchInput, deps: Deps, opts: Resea
       suggestions.push({ field: s.field, label: labels.get(s.field)!, value: s.value, source: settled.why === "printed on the part" ? "photo" : settled.url, confidence: settled.sure === false ? "medium" : "high" });
     }
   }
+  if (!settled && mcmaster) {
+    for (const s of [
+      { field: "supplier", value: mcmaster.supplier },
+      { field: "supplierPn", value: mcmaster.productNumber },
+      { field: "url", value: mcmaster.url },
+    ]) {
+      if (!labels.has(s.field)) continue;
+      seen.add(s.field);
+      if (sameAsNow(s.field, s.value)) continue;
+      suggestions.push({ field: s.field, label: labels.get(s.field)!, value: s.value, source: "photo", confidence: "high" });
+    }
+    notes.push(`McMaster-Carr part number ${mcmaster.productNumber} read off the label. McMaster's pages can't be read automatically, so the rest comes from what the label says.`);
+  }
   for (const s of extracted.suggestions ?? []) {
     if (!labels.has(s.field) || seen.has(s.field)) continue;
     let value = clean(s.field, String(s.value ?? ""));
@@ -468,6 +484,21 @@ function priceOnPage(value: string, text: string): boolean {
 
 /** Letters and digits only, lower case: "adafru.it/1938" and "ADAFRU IT 1938" match. */
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * A McMaster-Carr part number printed on a bag's label (DEC-094): four or five digits, a letter,
+ * one to four digits (91290A115, 5234K57). Counted only when the label names McMaster or the
+ * supplier on record is McMaster, since other things are numbered that way too.
+ */
+export function mcmasterLabel(markings: string[], supplier?: string | null): { supplier: string; productNumber: string; url: string } | null {
+  const named = /mcmaster/i.test(supplier ?? "") || markings.some((m) => /mc\s*master/i.test(m));
+  if (!named) return null;
+  for (const m of markings) {
+    const n = m.toUpperCase().match(/(?:^|[^A-Z0-9])(\d{4,5}[A-Z]\d{1,4})(?![A-Z0-9])/);
+    if (n) return { supplier: "McMaster-Carr", productNumber: n[1]!, url: `https://www.mcmaster.com/${n[1]}/` };
+  }
+  return null;
+}
 
 /** Product links printed on a bag: Adafruit's adafru.it/NNNN and SparkFun's sparkfun.com/products/NNNNN. */
 export function labelLinks(markings: string[]): { supplier: string; productNumber: string; url: string }[] {

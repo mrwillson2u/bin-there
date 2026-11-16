@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isListingPage, labelLinks, mentionsAny, namesGuide, onTopic, partNumberCandidates, researchItem, withoutUnprintedNumbers, type Deps, type ResearchInput } from "./research";
+import { isListingPage, labelLinks, mcmasterLabel, mentionsAny, namesGuide, onTopic, partNumberCandidates, researchItem, withoutUnprintedNumbers, type Deps, type ResearchInput } from "./research";
 
 // The pipeline with a fake model, fake search and fake pages (DEC-048): what it asks, what it
 // keeps, what it throws away.
@@ -132,6 +132,25 @@ describe("researchItem", () => {
       ["url", "https://www.adafruit.com/product/1938", "high", "photo"],
     ]);
     expect(ada.prompts[1]!.content).toContain("NeoPixel Diffused 5mm Through-Hole LED");
+  });
+
+  it("a McMaster-Carr bag: the number printed on its label settles supplier, number and link, with nothing fetched from McMaster (DEC-094)", async () => {
+    const f = fakes({
+      look: { markings: ["McMASTER-CARR", "91290A115", "Alloy Steel Socket Head Screw", "M3 x 0.5 mm Thread, 10 mm Long", "Packs of 100"], description: "A bag of black screws", likelyPart: "Socket head screw M3", queries: [] },
+      extract: { identified: "M3 socket head screw", suggestions: [{ field: "supplier", value: "McMaster", source: "photo", confidence: "high" }, { field: "supplierPn", value: "91290A115", source: "photo", confidence: "medium" }], notes: [] },
+    }, []);
+    const r = await researchItem({ ...input, name: "", supplierPn: null, photos: ["a.jpg"] }, f.deps);
+    expect(f.fetched.filter((u) => u.includes("mcmaster"))).toEqual([]);
+    expect(r.suggestions.filter((s) => ["supplier", "supplierPn", "url"].includes(s.field)).map((s) => [s.field, s.value, s.confidence, s.source])).toEqual([
+      ["supplier", "McMaster-Carr", "high", "photo"],
+      ["supplierPn", "91290A115", "high", "photo"],
+      ["url", "https://www.mcmaster.com/91290A115/", "high", "photo"],
+    ]);
+    expect(r.notes.join(" ")).toContain("McMaster-Carr part number 91290A115 read off the label");
+    // The number alone isn't enough: other things are numbered that way.
+    expect(mcmasterLabel(["91290A115", "Socket head screw"])).toBeNull();
+    expect(mcmasterLabel(["5234K57"], "McMaster-Carr")).toMatchObject({ productNumber: "5234K57" });
+    expect(mcmasterLabel(["McMaster-Carr", "Part 5234k57 Tubing", "LM2596S"])).toMatchObject({ productNumber: "5234K57" });
   });
 
   it("reads the link on record first and skips the search; a known shop's link settles supplier and number; what's on record isn't suggested (DEC-049)", async () => {

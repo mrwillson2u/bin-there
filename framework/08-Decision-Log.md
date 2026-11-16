@@ -2190,6 +2190,23 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 ---
 
+### DEC-094: McMaster-Carr bags: the part number is read off the label by the AI lookup
+
+| Attribute | Value |
+|-----------|-------|
+| **Date** | 2026-11-15 |
+| **Status** | Accepted (Colin, Q142: Digi-Key, Mouser, McMaster and LCSC are his suppliers; Amazon needn't be read) |
+| **Deciders** | Colin |
+| **Category** | Product |
+
+**Context:** The bag barcode reader (DEC-074) covers Digi-Key, Mouser and LCSC. McMaster-Carr's label has no barcode carrying the details, only printed text, and its product pages are a script-built app that a plain fetch can't read (tried: the page comes back as an empty shell), with no public catalogue API.
+
+**Decision:** The AI lookup recognises a McMaster part number among the text it reads off the photos (`mcmasterLabel` in `research.ts`: four or five digits, a letter, one to four digits, such as 91290A115), only when the label names McMaster or the supplier on record is McMaster. It then suggests supplier "McMaster-Carr", the number, and the link `https://www.mcmaster.com/<number>/`, as read off the photo, and fetches nothing from McMaster. The name and other fields come from the label's own description, as for any photo. The capture hint names the three barcode shops and says a McMaster label is read by the AI lookup.
+
+**Consequences:** Unlike the three barcode shops this needs the AI lookup to run, and it doesn't read the count. Built from how the labels are remembered to look, not from a real one: a photo of a real McMaster bag is the test still owed. Amazon bags are left alone. Checked in `research.test.ts`.
+
+---
+
 ## Decision Index
 
 | ID | Title | Category | Status | Date |
@@ -2287,6 +2304,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 | DEC-091 | Quick capture keeps what's on the form through a page reload | UX | Accepted | 2026-11-15 |
 | DEC-092 | Quick capture takes more than one photo, and says what a photo of the bag's label does | UX | Accepted | 2026-11-15 |
 | DEC-093 | The edit form shows every photo, and deleting a photo is one visible tap | UX | Accepted | 2026-11-15 |
+| DEC-094 | McMaster-Carr bags: the part number is read off the label by the AI lookup | Product | Accepted | 2026-11-15 |
 
 ---
 
