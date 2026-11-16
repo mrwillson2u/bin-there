@@ -2220,7 +2220,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** Without a tap, a code is taken only when its middle is inside the white corners (`inAim` in `scan/camera.ts`) and it has stayed the nearest code for 0.3 s (`HOLD_MS` in `CameraScanner.tsx`). Codes elsewhere in view still get their thin brackets but are never taken. The hint reads "Put the sticker inside the white corners." Tap mode is unchanged: the Scan button takes the code in the green brackets.
 
-**Consequences:** A sticker must now be brought into the corners to be read, and a scan takes about a third of a second longer. Checked in the new `aim-check.mjs` (a fake camera: one sticker outside the corners isn't taken; with two in view the one in the corners is opened) and `camera.test.ts`.
+**Consequences:** A sticker must now be brought into the corners to be read, and a scan takes about a third of a second longer. Checked in the new `aim-check.mjs` (a fake camera: one sticker outside the corners isn't taken; with two in view the one in the corners is opened) and `camera.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_230448`, `main` at aab83ce).
 
 ---
 
