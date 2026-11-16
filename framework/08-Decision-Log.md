@@ -2135,7 +2135,7 @@ After these, the same three runs came back whole in 30–40 s each: the first wi
 
 **Decision:** The setting is removed, from the screen and from the layout code (`skip` in `src/shared/labels.ts`). Every sheet prints full. The output choice "Die-cut sheet" is now called "Pre-cut printer sheet" (Colin's wording).
 
-**Consequences:** This replaces "how many used labels to skip" in DEC-052. A partly used sheet prints on its bare positions too. Checked in `stickers-print-check.mjs` and `labels.test.ts`.
+**Consequences:** This replaces "how many used labels to skip" in DEC-052. A partly used sheet prints on its bare positions too. Checked in `stickers-print-check.mjs` and `labels.test.ts`. Shipped to the live app on 2026-11-15 (backup `2026-11-15_183358`, `main` at 8d0c912), together with a fix to the part page's photo strip: the outline on the photo shown is drawn inside its thumbnail, so the strip no longer clips it (`photo-check.mjs`).
 
 ---
 
